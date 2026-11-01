@@ -19,6 +19,10 @@ Route::middleware('auth')->group(function (): void {
         ->name('sanpham.timkiem');
 
     Route::middleware('role:admin,thungan')->group(function (): void {
+        Route::get('/trahang/hoadon/{donHang}', [\App\Http\Controllers\TraHangController::class, 'getChon'])->name('trahang.chon');
+        Route::post('/trahang', [\App\Http\Controllers\TraHangController::class, 'postTraHang'])->name('trahang.luu');
+        Route::get('/trahang', [\App\Http\Controllers\TraHangController::class, 'getDanhSach'])->name('trahang.danhsach');
+        Route::get('/trahang/xem/{phieuTra}', [\App\Http\Controllers\TraHangController::class, 'getXem'])->name('trahang.xem');
         Route::get('/pos', [\App\Http\Controllers\DonHangController::class, 'getPos'])->name('pos.index');
         Route::get('/giohang/them/{sanPham}', [\App\Http\Controllers\GioHangController::class, 'getThem'])
             ->name('giohang.them');
@@ -98,6 +102,7 @@ Route::middleware('auth')->group(function (): void {
 
     Route::middleware('role:admin')->group(function (): void {
         Route::get('/nhatky', [\App\Http\Controllers\NhatKyController::class, 'index'])->name('nhatky.index');
+        Route::post('/trahang/duyet/{phieuTra}', [\App\Http\Controllers\TraHangController::class, 'postDuyet'])->name('trahang.duyet');
         Route::get('/thongke', [\App\Http\Controllers\ThongKeController::class, 'getTrangThongKe'])
             ->name('thongke.index');
         Route::get('/thongke/doanhthu', [\App\Http\Controllers\ThongKeController::class, 'getDoanhThu'])->name('thongke.doanhthu');

@@ -31,7 +31,12 @@
                     <td>{{ $donHang->user->name }}</td>
                     <td>{{ $donHang->created_at->format('d/m/Y H:i') }}</td>
                     <td>{{ number_format($donHang->tong_thanh_toan, 0, ',', '.') }} đ</td>
-                    <td><a class="btn btn-sm btn-outline-primary" href="{{ route('donhang.inhoadon', $donHang) }}">Xem/in</a></td>
+                    <td class="text-nowrap">
+                        <a class="btn btn-sm btn-outline-primary" href="{{ route('donhang.inhoadon', $donHang) }}">Xem/in</a>
+                        @if ($donHang->trang_thai === 'da_thanh_toan')
+                            <a class="btn btn-sm btn-outline-warning" href="{{ route('trahang.chon', $donHang) }}">Đổi trả</a>
+                        @endif
+                    </td>
                 </tr>
             @empty
                 <tr><td class="text-center" colspan="5">Chưa có hóa đơn.</td></tr>

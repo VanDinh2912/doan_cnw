@@ -35,6 +35,8 @@ nhà cung cấp bên ngoài cần xác minh trước khi lập trình.
 
 **Ưu tiên cao**, vì ảnh hưởng tồn kho, tiền hoàn, điểm và doanh thu.
 
+**Trạng thái: Đã hoàn thành phần cốt lõi.**
+
 - Tạo `returns`, `return_items`.
 - Thêm `products.soluong_hong` và liên kết `stock_movements.return_id`.
 - Chỉ cho trả hóa đơn đã thanh toán trong thời hạn cấu hình.
@@ -47,6 +49,10 @@ nhà cung cấp bên ngoài cần xác minh trước khi lập trình.
 
 **Cần kiểm thử:** trả đủ, trả vượt, trả nhiều lần, giảm giá, hàng lỗi, thu hồi
 điểm và quá hạn.
+
+Đã kiểm thử trả hàng tốt/hỏng, trả vượt số lượng, cập nhật tồn kho, kho lỗi và
+ghi movement trong transaction. Hình thức đổi hàng hiện mới lưu lựa chọn hoàn;
+chưa tạo hóa đơn bù trừ riêng.
 
 ### Pha 19 - Tạm lưu giỏ hàng
 
@@ -129,10 +135,9 @@ trường HTTPS. Không tự chọn nhà cung cấp hoặc dùng thông tin th�
 
 Nếu tiếp tục không cần xác minh bên ngoài, làm theo thứ tự:
 
-1. Pha 18 - Đổi/trả hàng.
+1. Hoàn thiện đổi hàng bù trừ nếu nghiệp vụ yêu cầu.
 2. Pha 19 - Tạm lưu giỏ hàng.
 3. Pha 20 - Kiểm kê kho.
 4. Pha 21 - ROP và ABC.
 5. Xác minh nghiệp vụ rồi mới làm Pha 22.
 6. Chỉ làm Pha 23 và 24 khi có nhu cầu rõ ràng.
-

@@ -15,7 +15,7 @@ class SanPham extends Model
 
     protected $fillable = [
         'category_id', 'sku', 'barcode', 'ten_sanpham', 'don_vi',
-        'gia_nhap', 'gia_ban', 'soluong', 'soluong_toithieu',
+        'gia_nhap', 'gia_ban', 'soluong', 'soluong_hong', 'soluong_toithieu',
         'hinh_anh', 'trang_thai',
     ];
 
