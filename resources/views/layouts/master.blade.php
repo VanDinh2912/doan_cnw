@@ -26,7 +26,7 @@
                     <a class="nav-link" href="{{ route('pos.index') }}">Bán hàng POS</a>
                 @endif
                 @if (in_array(auth()->user()->role, ['admin', 'thukho'], true))
-                    <a class="nav-link" href="#">Sản phẩm</a>
+                    <a class="nav-link" href="{{ route('sanpham.danhsach') }}">Sản phẩm</a>
                     <a class="nav-link" href="{{ route('loaisanpham.danhsach') }}">Loại sản phẩm</a>
                     <a class="nav-link" href="{{ route('kho.danhsach') }}">Kho</a>
                 @endif
@@ -34,7 +34,7 @@
                     <a class="nav-link" href="{{ route('donhang.danhsach') }}">Hóa đơn</a>
                 @endif
                 @if (auth()->user()->role === 'admin')
-                    <a class="nav-link" href="{{ route('thongke.doanhthu') }}">Thống kê</a>
+                    <a class="nav-link" href="{{ route('thongke.index') }}">Thống kê</a>
                 @endif
             </div>
         </aside>

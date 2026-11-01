@@ -23,6 +23,11 @@ class ThongKeController extends Controller
         return view('tongquan', $data);
     }
 
+    public function getTrangThongKe(): View
+    {
+        return view('thongke.index');
+    }
+
     public function getDoanhThu(): JsonResponse
     {
         $doanhThu = DonHang::query()
