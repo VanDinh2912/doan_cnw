@@ -457,6 +457,7 @@ Sau khi kiểm thử, tạo Pull Request để merge vào `main`.
   đơn nhập hàng.
 - Đổi/trả hàng có kiểm tra hạn, số lượng, tình trạng hàng, hoàn tiền, điểm và
   tồn kho.
+- Hold giỏ hàng và kiểm kê kho có kiểm tra bán xen, duyệt điều chỉnh và nhật ký.
 - Tài liệu dự án được lưu trong `TaiLieu/`.
 - Lộ trình mở rộng sau demo được ghi tại
   `TaiLieu/KeHoach/Giai doan 3 - Ke hoach.md`.

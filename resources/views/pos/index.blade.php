@@ -30,11 +30,20 @@
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <strong>Giỏ hàng</strong>
+                <div class="d-flex gap-2">
+                @if (count(session('gio_hang', [])))
+                    <form method="POST" action="{{ route('hold.giu') }}" class="d-flex gap-1">
+                        @csrf
+                        <input class="form-control form-control-sm" name="ten_goi" placeholder="Tên giỏ" style="width:130px">
+                        <button class="btn btn-sm btn-outline-warning" type="submit">Giữ giỏ</button>
+                    </form>
+                @endif
                 <form method="POST" action="{{ route('giohang.lammoi') }}">
                     @csrf
                     @method('DELETE')
                     <button class="btn btn-sm btn-outline-danger" type="submit">Làm mới</button>
                 </form>
+                </div>
             </div>
             <div class="card-body">
                 @php $gioHang = session('gio_hang', []); $tongTien = collect($gioHang)->sum(fn ($item) => $item['gia_ban'] * $item['soluong']); @endphp
