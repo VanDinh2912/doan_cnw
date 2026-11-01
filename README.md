@@ -81,6 +81,16 @@ DB_USERNAME=root
 DB_PASSWORD=
 ```
 
+Nếu muốn dùng QR chuyển khoản trong màn hình POS, thêm cấu hình:
+
+```env
+POS_BANK_CODE=VCB
+POS_BANK_ACCOUNT=0123456789
+POS_BANK_NAME="TEN CHU TAI KHOAN"
+```
+
+Chỉ dùng thông tin tài khoản demo hoặc tài khoản do chủ dự án cung cấp. Tính năng hiện không có webhook đối soát tự động.
+
 Nếu MySQL có mật khẩu, điền mật khẩu vào `DB_PASSWORD`.
 
 ### 3.5. Tạo bảng và dữ liệu mẫu
@@ -151,12 +161,15 @@ Mật khẩu trên chỉ dùng cho demo, không dùng trong môi trường thậ
 ### POS và thanh toán
 
 - Tìm sản phẩm theo tên, SKU hoặc barcode.
+- Hiển thị kết quả POS dạng thẻ có ảnh sản phẩm.
+- Hỗ trợ mã barcode từ máy quét dạng bàn phím bằng phím Enter.
 - Chỉ hiển thị sản phẩm đang bán và còn hàng.
 - Giới hạn tối đa 10 kết quả tìm kiếm.
 - Giỏ hàng được lưu trong session.
 - Gộp sản phẩm trùng thành một dòng.
 - Tính giảm giá, tiền khách đưa và tiền thừa.
 - Thanh toán bằng tiền mặt hoặc chuyển khoản.
+- Hiển thị VietQR động khi đã cấu hình ngân hàng trong `.env`; thu ngân vẫn xác nhận thủ công.
 - Không cho bán vượt tồn kho.
 
 Thanh toán sử dụng một transaction duy nhất:
@@ -174,6 +187,7 @@ Thanh toán sử dụng một transaction duy nhất:
 - Lọc danh sách theo ngày bắt đầu và ngày kết thúc.
 - Xem chi tiết hóa đơn.
 - In hóa đơn khổ K80 bằng trình duyệt.
+- Có thể chọn khổ in K58 hoặc K80.
 - Giá trên hóa đơn được lưu tại thời điểm bán.
 - Các bảng danh sách có tìm kiếm và phân trang bằng DataTables.
 
@@ -332,8 +346,8 @@ Sau khi kiểm thử, tạo Pull Request để merge vào `main`.
 
 Các phần sau chưa thuộc scope cốt lõi hiện tại:
 
-- Quét barcode bằng webcam.
-- Tích hợp VietQR động.
+- Quét barcode bằng webcam (hiện chỉ hỗ trợ máy quét dạng bàn phím).
+- Webhook đối soát chuyển khoản tự động.
 - CRUD tài khoản người dùng.
 - Ứng dụng mobile hoặc API riêng.
 - Báo cáo xuất Excel/PDF nâng cao.

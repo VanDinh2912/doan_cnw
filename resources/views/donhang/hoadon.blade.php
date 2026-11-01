@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Hóa đơn {{ $donHang->ma_hoadon }}</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 0 auto; width: 80mm; }
+        body { font-family: Arial, sans-serif; margin: 0 auto; width: {{ $kho === 'k58' ? '58mm' : '80mm' }}; }
         .center { text-align: center; }
         table { border-collapse: collapse; width: 100%; }
         th, td { padding: 3px 0; text-align: left; vertical-align: top; }
@@ -14,13 +14,15 @@
         .actions { margin: 1rem 0; text-align: center; }
         @media print {
             .actions { display: none; }
-            @page { margin: 3mm; size: 80mm auto; }
+            @page { margin: 3mm; size: {{ $kho === 'k58' ? '58mm' : '80mm' }} auto; }
         }
     </style>
 </head>
 <body>
 <div class="actions">
-    <button type="button" onclick="window.print()">In hóa đơn</button>
+    <button type="button" onclick="window.print()">In hóa đơn {{ strtoupper($kho) }}</button>
+    <a href="{{ route('donhang.inhoadon', ['donHang' => $donHang, 'kho' => 'k58']) }}">K58</a>
+    <a href="{{ route('donhang.inhoadon', ['donHang' => $donHang, 'kho' => 'k80']) }}">K80</a>
     <a href="{{ route('pos.index') }}">Quay lại POS</a>
 </div>
 <div class="center">

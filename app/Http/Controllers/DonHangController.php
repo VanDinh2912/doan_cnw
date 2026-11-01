@@ -46,11 +46,16 @@ class DonHangController extends Controller
         ]);
     }
 
-    public function getInHoaDon(DonHang $donHang): View
+    public function getInHoaDon(Request $request, DonHang $donHang): View
     {
         $donHang->load(['user', 'chiTietDonHangs.sanPham']);
 
-        return view('donhang.hoadon', ['donHang' => $donHang]);
+        $kho = $request->query('kho', 'k80');
+        if (! in_array($kho, ['k58', 'k80'], true)) {
+            $kho = 'k80';
+        }
+
+        return view('donhang.hoadon', ['donHang' => $donHang, 'kho' => $kho]);
     }
 
     public function postThanhToan(Request $request): RedirectResponse
