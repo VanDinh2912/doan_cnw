@@ -16,6 +16,8 @@ kiện điện thoại. Đây là đồ án Laravel, tập trung vào quy trình
 - Composer 2.x
 - MySQL 8.x
 - Bootstrap 5
+- jQuery và DataTables
+- Font Awesome
 - Blade Template
 - PHPUnit
 
@@ -169,9 +171,11 @@ Thanh toán sử dụng một transaction duy nhất:
 ### Hóa đơn
 
 - Danh sách hóa đơn.
+- Lọc danh sách theo ngày bắt đầu và ngày kết thúc.
 - Xem chi tiết hóa đơn.
 - In hóa đơn khổ K80 bằng trình duyệt.
 - Giá trên hóa đơn được lưu tại thời điểm bán.
+- Các bảng danh sách có tìm kiếm và phân trang bằng DataTables.
 
 ### Quản lý kho
 
@@ -217,6 +221,9 @@ Các test nghiệp vụ hiện có:
 - Khách mở được trang đăng nhập.
 - Thu ngân thanh toán thành công và tồn kho giảm đúng.
 - Thanh toán vượt tồn kho không tạo hóa đơn.
+- Thanh toán chuyển khoản tự động ghi đúng tổng thanh toán và không có tiền thừa.
+- Không bán được sản phẩm đã tạm dừng kinh doanh.
+- Lọc hóa đơn theo khoảng ngày.
 - Thu ngân không truy cập được chức năng kho.
 
 Kiểm tra cú pháp PHP:

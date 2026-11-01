@@ -9,7 +9,7 @@
 </div>
 <div class="card">
     <div class="table-responsive">
-        <table class="table table-striped mb-0">
+        <table class="table table-striped mb-0 js-data-table">
             <thead>
             <tr><th>#</th><th>Tên loại</th><th>Mô tả</th><th>Số sản phẩm</th><th class="text-end">Thao tác</th></tr>
             </thead>

@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>@yield('title', 'Web POS')</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.datatables.net/2.3.4/css/dataTables.bootstrap5.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet">
     @stack('styles')
 </head>
 <body class="bg-light">
@@ -57,5 +59,24 @@
     </div>
 </div>
 @stack('scripts')
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.datatables.net/2.3.4/js/dataTables.js"></script>
+<script src="https://cdn.datatables.net/2.3.4/js/dataTables.bootstrap5.js"></script>
+<script>
+    document.querySelectorAll('.js-data-table').forEach(function (table) {
+        new DataTable(table, {
+            language: {
+                search: 'Tìm kiếm:',
+                lengthMenu: 'Hiển thị _MENU_ dòng',
+                info: 'Hiển thị _START_ đến _END_ trong tổng số _TOTAL_ dòng',
+                infoEmpty: 'Không có dữ liệu',
+                zeroRecords: 'Không tìm thấy dữ liệu',
+                paginate: { first: 'Đầu', last: 'Cuối', next: 'Sau', previous: 'Trước' }
+            },
+            pageLength: 10,
+            order: []
+        });
+    });
+</script>
 </body>
 </html>

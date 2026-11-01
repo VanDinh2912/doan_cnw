@@ -9,7 +9,7 @@
 </div>
 <div class="card">
     <div class="table-responsive">
-        <table class="table table-striped align-middle mb-0">
+        <table class="table table-striped align-middle mb-0 js-data-table">
             <thead>
             <tr><th>Ảnh</th><th>SKU</th><th>Tên sản phẩm</th><th>Loại</th><th>Giá bán</th><th>Tồn kho</th><th>Trạng thái</th><th class="text-end">Thao tác</th></tr>
             </thead>
