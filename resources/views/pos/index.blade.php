@@ -10,7 +10,7 @@
             <div class="card-body">
                 <label class="form-label" for="tim-kiem">Tìm theo tên, SKU hoặc barcode</label>
                 <input class="form-control" id="tim-kiem" type="search" autocomplete="off" placeholder="Nhập từ khóa...">
-                <div class="list-group mt-2" id="ket-qua"></div>
+                <div class="row g-2 mt-2" id="ket-qua"></div>
             </div>
         </div>
     </div>
@@ -69,6 +69,11 @@
                                 </select>
                             </div>
                         </div>
+                        <div class="alert alert-info mt-3 d-none" id="vietqr-box">
+                            <strong>VietQR chuyển khoản</strong>
+                            <img class="d-block mt-2" id="vietqr-image" width="220" height="220" alt="Mã QR thanh toán">
+                            <small class="d-block mt-2">Thu ngân kiểm tra giao dịch và bấm Thanh toán để xác nhận.</small>
+                        </div>
                         <button class="btn btn-success w-100 mt-3" type="submit">Thanh toán</button>
                     </form>
                 @else
@@ -82,25 +87,95 @@
 <script>
 const input = document.getElementById('tim-kiem');
 const result = document.getElementById('ket-qua');
+const phuongThuc = document.getElementById('phuong_thuc');
+const tienKhachDua = document.getElementById('tien_khach_dua');
+const vietQrBox = document.getElementById('vietqr-box');
+const vietQrImage = document.getElementById('vietqr-image');
 let timer;
+let scannerTimer;
+function hienThiKetQua(products) {
+    result.innerHTML = '';
+    products.forEach(product => {
+        const col = document.createElement('div');
+        col.className = 'col-md-6';
+        const link = document.createElement('a');
+        link.className = 'card h-100 text-decoration-none text-dark';
+        link.href = `{{ url('/giohang/them') }}/${product.id}`;
+        if (product.hinh_anh) {
+            const image = document.createElement('img');
+            image.src = `{{ asset('') }}${product.hinh_anh}`;
+            image.className = 'card-img-top';
+            image.style = 'height:120px;object-fit:cover';
+            image.alt = product.ten_sanpham;
+            link.appendChild(image);
+        } else {
+            const placeholder = document.createElement('div');
+            placeholder.className = 'bg-light d-flex align-items-center justify-content-center';
+            placeholder.style = 'height:120px';
+            placeholder.innerHTML = '<i class="fa-solid fa-box-open fa-2x text-secondary"></i>';
+            link.appendChild(placeholder);
+        }
+        const body = document.createElement('div');
+        body.className = 'card-body p-2';
+        const name = document.createElement('strong');
+        name.textContent = product.ten_sanpham;
+        const details = document.createElement('small');
+        details.className = 'd-block text-muted';
+        details.textContent = `${product.sku} · Tồn: ${product.soluong}`;
+        const price = document.createElement('span');
+        price.textContent = `${Number(product.gia_ban).toLocaleString('vi-VN')} đ`;
+        body.append(name, details, price);
+        link.appendChild(body);
+        col.appendChild(link);
+        result.appendChild(col);
+    });
+    if (!products.length) result.innerHTML = '<div class="text-muted p-2">Không tìm thấy sản phẩm còn hàng.</div>';
+}
+async function timKiem(query, chinhXac = false) {
+    const response = await fetch(`{{ route('sanpham.timkiem') }}?q=${encodeURIComponent(query)}${chinhXac ? '&chinhxac=1' : ''}`);
+    hienThiKetQua(await response.json());
+}
+input.addEventListener('keydown', (event) => {
+    clearTimeout(scannerTimer);
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        const query = input.value.trim();
+        if (query) timKiem(query, true);
+    } else {
+        scannerTimer = setTimeout(() => {
+            if (input.value.trim()) timKiem(input.value.trim());
+        }, 80);
+    }
+});
 input.addEventListener('input', () => {
     clearTimeout(timer);
     const query = input.value.trim();
     result.innerHTML = '';
     if (!query) return;
     timer = setTimeout(async () => {
-        const response = await fetch(`{{ route('sanpham.timkiem') }}?q=${encodeURIComponent(query)}`);
-        const products = await response.json();
-        products.forEach(product => {
-            const link = document.createElement('a');
-            link.className = 'list-group-item list-group-item-action';
-            link.href = `{{ url('/giohang/them') }}/${product.id}`;
-            link.textContent = `${product.ten_sanpham} - ${product.sku} (${product.soluong})`;
-            result.appendChild(link);
-        });
-        if (!products.length) result.innerHTML = '<div class="text-muted p-2">Không tìm thấy sản phẩm còn hàng.</div>';
+        timKiem(query);
     }, 250);
 });
+function capNhatQr() {
+    const hienThi = phuongThuc.value === 'chuyenkhoan';
+    vietQrBox.classList.toggle('d-none', !hienThi);
+    tienKhachDua.readOnly = hienThi;
+    if (!hienThi) return;
+    const tong = {{ $tongTien ?? 0 }};
+    const giam = Number(document.getElementById('giam_gia_phantram').value || 0);
+    const thanhToan = Math.round(tong * (1 - giam / 100));
+    const bank = @json(config('pos.bank_code'));
+    const account = @json(config('pos.bank_account'));
+    const name = @json(config('pos.bank_name'));
+    if (!bank || !account) {
+        vietQrBox.insertAdjacentHTML('beforeend', '<small class="text-danger d-block mt-2">Chưa cấu hình POS_BANK_CODE và POS_BANK_ACCOUNT trong .env.</small>');
+        return;
+    }
+    tienKhachDua.value = thanhToan;
+    vietQrImage.src = `https://img.vietqr.io/image/${encodeURIComponent(bank)}-${encodeURIComponent(account)}-compact2.png?amount=${thanhToan}&addInfo=${encodeURIComponent('Thanh toan Web POS')}&accountName=${encodeURIComponent(name)}`;
+}
+phuongThuc.addEventListener('change', capNhatQr);
+document.getElementById('giam_gia_phantram').addEventListener('input', capNhatQr);
 </script>
 @endpush
 @endsection

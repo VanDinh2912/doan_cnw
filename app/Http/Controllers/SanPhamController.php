@@ -84,13 +84,17 @@ class SanPhamController extends Controller
         $sanPhams = SanPham::query()
             ->where('trang_thai', true)
             ->where('soluong', '>', 0)
-            ->where(function ($query) use ($tuKhoa): void {
+            ->where(function ($query) use ($tuKhoa, $request): void {
+                if ($request->boolean('chinhxac')) {
+                    $query->where('barcode', $tuKhoa);
+                    return;
+                }
                 $query->where('ten_sanpham', 'like', '%'.$tuKhoa.'%')
                     ->orWhere('sku', 'like', '%'.$tuKhoa.'%')
                     ->orWhere('barcode', 'like', '%'.$tuKhoa.'%');
             })
             ->limit(10)
-            ->get(['id', 'sku', 'barcode', 'ten_sanpham', 'gia_ban', 'soluong']);
+            ->get(['id', 'sku', 'barcode', 'ten_sanpham', 'gia_ban', 'soluong', 'hinh_anh']);
 
         return response()->json($sanPhams);
     }
