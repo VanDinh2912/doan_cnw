@@ -7,6 +7,8 @@
 /storage/pail
 /vendor
 /TaiLieu/ThongTinHangHoa/*.pdf
+/TaiLieu/ThongTinKhachHang/*.xlsx
+/TaiLieu/ThongTinKhachHang/*.xls
 .env
 .env.backup
 .env.production
