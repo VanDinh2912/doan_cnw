@@ -119,6 +119,13 @@ trong khi PDF hàng hóa thiếu SKU, barcode và giá bán để tạo sản ph
 Không tự đoán các trường này; cần bảng đối chiếu sản phẩm chính thức trước khi
 nhập đơn nhập.
 
+Mẫu bảng đối chiếu 300 dòng đã được tạo tại
+`TaiLieu/ThongTinHangHoa/bang-doi-chieu-san-pham-300-dong.csv`. Điền tối thiểu
+`product_id`, `ten_sanpham`, `sku`, `category_id`, `don_vi`, `gia_nhap`,
+`gia_ban` và `soluong`; `barcode` có thể để trống nếu sản phẩm chưa có mã.
+Sau khi điền, cần kiểm tra trùng `product_id`, SKU/barcode, loại sản phẩm không
+tồn tại, giá âm và các dòng thiếu trước khi nhập đơn.
+
 ## 4. Thiết lập thiết bị và thanh toán thực tế
 
 Phần này dành cho lúc chạy demo tại cửa hàng. Nên kiểm thử trên bản sao dữ
