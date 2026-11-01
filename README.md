@@ -442,18 +442,73 @@ Sau khi kiểm thử, tạo Pull Request để merge vào `main`.
 
 ## 13. Phạm vi chưa triển khai
 
-Các phần sau chưa thuộc scope cốt lõi hiện tại:
+### Đã hoàn thành
 
-- Quét barcode bằng webcam (hiện chỉ hỗ trợ máy quét dạng bàn phím).
+- Luồng đăng nhập và phân quyền theo ba vai trò.
+- CRUD sản phẩm, loại sản phẩm, POS, thanh toán và hóa đơn.
+- Quản lý tồn kho, nhập kho trực tiếp và lịch sử biến động.
+- Upload ảnh, POS dạng thẻ, tìm barcode và in tem Code 128.
+- In hóa đơn K58/K80 bằng trình duyệt.
+- Khách hàng và tích điểm.
+- Giá vốn, lợi nhuận và xuất báo cáo XLSX/PDF.
+- VietQR thủ công với xác nhận chuyển khoản thủ công.
+- Tài liệu dự án được lưu trong `TaiLieu/`.
+
+### Còn thiếu hoặc chưa triển khai
+
+- Nhà cung cấp và đơn nhập hàng theo quy trình hai bước.
+- Nhật ký hoạt động/audit log đầy đủ.
+- Phân quyền động theo permission.
 - Webhook đối soát chuyển khoản tự động.
-- CRUD tài khoản người dùng.
-- Ứng dụng mobile hoặc API riêng.
+- Quét barcode bằng webcam.
+- In tự động không qua hộp thoại trình duyệt.
+- CRUD tài khoản người dùng, ứng dụng mobile và API riêng.
+
+Các phần mở rộng dưới đây chưa thuộc scope cốt lõi hiện tại:
+
 - Tích hợp cổng thanh toán thật và in tự động không qua hộp thoại trình duyệt.
 
-Chỉ nên triển khai các phần mở rộng sau khi toàn bộ luồng POS, kho, hóa đơn
-và phân quyền đã được kiểm thử ổn định.
+## 14. Lộ trình triển khai tiếp theo
 
-## 14. Lưu ý bảo mật
+Ưu tiên các phần đã có dữ liệu mẫu trong
+`TaiLieu/ThongTinNhaCungCap/`, không mở rộng sang mobile hoặc API khi chưa
+cần cho đồ án.
+
+### Pha 15 — Nhà cung cấp và đơn nhập hàng
+
+1. Tạo migration cho `suppliers`, `purchase_orders`,
+   `purchase_order_items` và liên kết nhập kho.
+2. Tạo model, quan hệ và validate dữ liệu.
+3. Làm CRUD nhà cung cấp.
+4. Làm tạo đơn nhập, thêm nhiều sản phẩm và tính tổng tiền.
+5. Thực hiện quy trình `cho_duyet` → `cho_giao` → `dang_giao` →
+   `da_nhan` hoặc `da_huy`.
+6. Khi nhận hàng, cập nhật tồn kho và giá vốn trong một transaction.
+7. Chặn nhận trùng, chặn nhận đơn đã hủy và ghi lịch sử kho.
+8. Giới hạn quyền: admin và thủ kho được thao tác; thu ngân nhận 403.
+9. Viết test cho CRUD, chuyển trạng thái, tồn kho, tổng tiền và rollback.
+10. Kiểm tra dữ liệu mẫu Excel chỉ sau khi sản phẩm có đúng `product_id`.
+
+### Pha 16 — Nhật ký và phân quyền nâng cao
+
+Chỉ làm sau khi Pha 15 ổn định:
+
+- Ghi người dùng, hành động, đối tượng, thời gian và kết quả.
+- Thêm permission cho từng nhóm chức năng.
+- Giữ tương thích với middleware role hiện tại trong thời gian chuyển đổi.
+- Test không làm thay đổi quyền POS, kho và thống kê đang hoạt động.
+
+### Pha 17 — Thanh toán thực tế (tùy chọn)
+
+- Chốt nhà cung cấp có sandbox và webhook có chữ ký.
+- Thêm mã giao dịch duy nhất và trạng thái chờ xác nhận.
+- Xác thực chữ ký, số tiền, mã giao dịch và xử lý webhook lặp.
+- Chỉ dùng production sau khi test sai chữ ký, sai số tiền và timeout.
+
+Mỗi pha phải được triển khai trên một branch riêng, chạy test trước khi
+merge vào `main`. Không import dữ liệu mẫu hoặc reset database production.
+
+## 15. Lưu ý bảo mật
 
 - Không commit file `.env` hoặc thông tin mật khẩu thật.
 - Luôn dùng `@csrf` cho form POST/PUT/DELETE.
