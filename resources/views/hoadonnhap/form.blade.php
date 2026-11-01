@@ -2,7 +2,7 @@
 @section('title', $hoaDon->exists ? 'Sửa hóa đơn nhập' : 'Thêm hóa đơn nhập')
 @section('content')
 <h1 class="h3 mb-3">{{ $hoaDon->exists ? 'Sửa hóa đơn nhập' : 'Thêm hóa đơn nhập' }}</h1>
-<form method="POST" action="{{ $hoaDon->exists ? route('hoadonnhap.postsua', $hoaDon) : route('hoadonnhap.postthem') }}">
+<form method="POST" enctype="multipart/form-data" action="{{ $hoaDon->exists ? route('hoadonnhap.postsua', $hoaDon) : route('hoadonnhap.postthem') }}">
 @csrf
 <div class="row g-3">
 <div class="col-md-6"><label class="form-label">Nhà cung cấp</label><select class="form-select" name="supplier_id" required>@foreach($nhaCungCaps as $nhaCungCap)<option value="{{ $nhaCungCap->id }}" @selected(old('supplier_id', $hoaDon->supplier_id) == $nhaCungCap->id)>{{ $nhaCungCap->ten_nhacungcap }} - MST {{ $nhaCungCap->ma_so_thue }}</option>@endforeach</select></div>
@@ -12,6 +12,7 @@
 <div class="col-md-3"><label class="form-label">Ngày hóa đơn</label><input class="form-control" type="date" name="ngay_hoadon" value="{{ old('ngay_hoadon', optional($hoaDon->ngay_hoadon)->format('Y-m-d')) }}" required></div>
 <div class="col-md-3"><label class="form-label">Thuế suất</label><select class="form-select" name="thue_suat">@foreach([0,5,8,10] as $tax)<option value="{{ $tax }}" @selected(old('thue_suat', $hoaDon->thue_suat) == $tax)>{{ $tax }}%</option>@endforeach</select></div>
 <div class="col-md-3"><label class="form-label">Thanh toán</label><select class="form-select" name="hinh_thuc_thanh_toan"><option value="chuyenkhoan">Chuyển khoản</option><option value="tienmat">Tiền mặt</option><option value="congno">Công nợ</option></select></div>
+<div class="col-md-6"><label class="form-label">PDF hóa đơn</label><input class="form-control" type="file" name="file_goc" accept="application/pdf"><small class="text-muted">Tối đa 10 MB.</small></div>
 </div>
 <hr><p class="text-muted">Nhập tối thiểu một dòng. Có thể chọn sản phẩm hiện có hoặc loại để tạo sản phẩm mới.</p>
 @php($item = $hoaDon->chiTiets->first())

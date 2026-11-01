@@ -358,6 +358,40 @@ class PosWorkflowTest extends TestCase
         $this->assertDatabaseHas('purchase_order_items', ['purchase_order_id' => $donNhap->id, 'soluong_nhan' => 3]);
     }
 
+    public function test_stock_manager_can_create_purchase_invoice_with_pdf_attachment(): void
+    {
+        Storage::fake('public');
+        $this->seed();
+        $manager = User::where('role', 'thukho')->firstOrFail();
+        $supplier = NhaCungCap::create([
+            'ten_nhacungcap' => 'Nhà cung cấp hóa đơn test',
+            'ma_so_thue' => 'TEST-MST-003',
+        ]);
+        $product = SanPham::where('sku', 'CS-0001')->firstOrFail();
+
+        $response = $this->actingAs($manager)->post(route('hoadonnhap.postthem'), [
+            'supplier_id' => $supplier->id,
+            'so_hoadon' => 'HD-TEST-001',
+            'ky_hieu' => 'AA/26E',
+            'ngay_hoadon' => now()->toDateString(),
+            'thue_suat' => 8,
+            'hinh_thuc_thanh_toan' => 'chuyenkhoan',
+            'items' => [[
+                'product_id' => $product->id,
+                'ten_hang' => $product->ten_sanpham,
+                'don_vi' => 'Cái',
+                'soluong' => 2,
+                'don_gia' => 10000,
+            ]],
+            'file_goc' => UploadedFile::fake()->create('hoa-don-test.pdf', 20, 'application/pdf'),
+        ]);
+
+        $hoaDon = \App\Models\HoaDonNhap::where('so_hoadon', 'HD-TEST-001')->firstOrFail();
+        $response->assertRedirect(route('hoadonnhap.xem', $hoaDon));
+        $this->assertNotNull($hoaDon->file_goc);
+        Storage::disk('public')->assertExists($hoaDon->file_goc);
+    }
+
     public function test_cashier_cannot_manage_suppliers_or_purchase_orders(): void
     {
         $this->seed();

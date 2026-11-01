@@ -11,6 +11,7 @@ use App\Services\HoaDonNhapService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 
 class HoaDonNhapController extends Controller
@@ -99,6 +100,7 @@ class HoaDonNhapController extends Controller
             'items.*.don_vi' => ['required', 'string', 'max:20'],
             'items.*.soluong' => ['required', 'integer', 'min:1'],
             'items.*.don_gia' => ['required', 'numeric', 'min:0'],
+            'file_goc' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
         ]);
         if (HoaDonNhap::where('supplier_id', $validated['supplier_id'])
             ->where('ky_hieu', $validated['ky_hieu'])->where('so_hoadon', $validated['so_hoadon'])
@@ -113,6 +115,13 @@ class HoaDonNhapController extends Controller
             $total += $item['soluong'] * $item['don_gia'];
         }
         $tax = (int) round($total * ((float) $validated['thue_suat']) / 100);
+        $fileGoc = $hoaDon->file_goc;
+        if ($request->hasFile('file_goc')) {
+            if ($fileGoc) {
+                Storage::disk('public')->delete($fileGoc);
+            }
+            $fileGoc = $request->file('file_goc')->store('hoadonnhap', 'public');
+        }
         $hoaDon->fill([
             'ma_phieu' => $hoaDon->ma_phieu ?: 'HN'.now()->format('YmdHis').random_int(10, 99),
             'supplier_id' => $validated['supplier_id'], 'user_id' => $request->user()->id,
@@ -120,6 +129,7 @@ class HoaDonNhapController extends Controller
             'ngay_hoadon' => $validated['ngay_hoadon'], 'trang_thai' => 'nhap_tam',
             'hinh_thuc_thanh_toan' => $validated['hinh_thuc_thanh_toan'], 'tong_tien_hang' => $total,
             'thue_suat' => $validated['thue_suat'], 'tien_thue' => $tax, 'tong_thanh_toan' => $total + $tax,
+            'file_goc' => $fileGoc,
             'ghi_chu' => $validated['ghi_chu'] ?? null,
         ]);
         $hoaDon->save();

@@ -123,6 +123,7 @@ nhận hàng cập nhật tồn, giá vốn và movement trong transaction.
 | 2026-11-01 | Nạp 12 loại hàng, 300 sản phẩm, 81 nhà cung cấp, 100 khách hàng | Đã hoàn thành |
 | 2026-11-01 | Nạp một hóa đơn nhập 300 dòng và file PDF đính kèm | Đã hoàn thành |
 | 2026-11-02 | Bổ sung controller, route, view nháp/xem/sửa/xác nhận/hủy | Đã hoàn thành |
+| 2026-11-02 | Cho phép thủ kho tải PDF hóa đơn lên khi tạo/sửa hóa đơn | Đã hoàn thành |
 | 2026-11-02 | Chạy `php artisan demo:kiemtra-du-lieu` và bộ test | Đã hoàn thành |
 
 #### Nhật ký thay đổi
@@ -133,6 +134,7 @@ nhận hàng cập nhật tồn, giá vốn và movement trong transaction.
   cho movement.
 - 2026-11-02: sửa kỳ vọng test theo SKU mới, bổ sung lệnh kiểm tra dữ liệu và
   thống nhất tài liệu.
+- 2026-11-02: bổ sung upload PDF vào hóa đơn nhập và test lưu file đính kèm.
 
 #### Bảng số kiểm tra và kết quả thực tế
 
