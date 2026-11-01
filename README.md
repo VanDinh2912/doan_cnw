@@ -456,6 +456,8 @@ Sau khi kiểm thử, tạo Pull Request để merge vào `main`.
 - Nhật ký hoạt động cơ bản cho đăng nhập, sản phẩm, nhập kho, nhà cung cấp và
   đơn nhập hàng.
 - Tài liệu dự án được lưu trong `TaiLieu/`.
+- Lộ trình mở rộng sau demo được ghi tại
+  `TaiLieu/KeHoach/Giai doan 3 - Ke hoach.md`.
 
 ### Còn thiếu hoặc chưa triển khai
 
