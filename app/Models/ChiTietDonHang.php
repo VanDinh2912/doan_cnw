@@ -12,7 +12,7 @@ class ChiTietDonHang extends Model
 
     protected $table = 'invoice_details';
 
-    protected $fillable = ['invoice_id', 'product_id', 'soluong', 'don_gia', 'thanh_tien'];
+    protected $fillable = ['invoice_id', 'product_id', 'soluong', 'don_gia', 'gia_von', 'thanh_tien'];
 
     public function donHang(): BelongsTo
     {
