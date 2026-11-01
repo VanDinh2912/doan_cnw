@@ -221,7 +221,7 @@ Không mở endpoint webhook không xác thực và không tin dữ liệu do tr
 gửi lên. Pha webhook chưa nằm trong code hiện tại; cần chốt nhà cung cấp và
 tài liệu API trước khi lập trình.
 
-## 4. Chạy ứng dụng
+## 5. Chạy ứng dụng
 
 ### Chạy trên port 8081
 
@@ -244,7 +244,7 @@ npm install
 npm run build
 ```
 
-## 5. Tài khoản demo
+## 6. Tài khoản demo
 
 Tất cả tài khoản demo đều có mật khẩu `123456`.
 
@@ -255,8 +255,9 @@ Tất cả tài khoản demo đều có mật khẩu `123456`.
 | Thủ kho | `thukho@example.com` | Sản phẩm, loại sản phẩm, nhập kho |
 
 Mật khẩu trên chỉ dùng cho demo, không dùng trong môi trường thật.
+Các email trên trùng với tài khoản được tạo trong `database/seeders/DatabaseSeeder.php`.
 
-## 6. Chức năng chính
+## 7. Chức năng chính
 
 ### Đăng nhập và phân quyền
 
@@ -268,6 +269,8 @@ Mật khẩu trên chỉ dùng cho demo, không dùng trong môi trường thậ
 ### Quản lý danh mục và sản phẩm
 
 - CRUD loại sản phẩm.
+- Loại sản phẩm có `ma_loai`, `tu_khoa` và `he_so_lai`; hệ số lãi chỉ dùng gợi ý
+  khi tạo sản phẩm mới.
 - CRUD sản phẩm.
 - Validate tên, SKU, barcode, giá và số lượng.
 - Upload hình ảnh bằng `Storage::disk('public')` vào `storage/app/public/sanpham` (cần chạy `php artisan storage:link`); sản phẩm chưa có ảnh dùng `public/img/no-image.svg`.
@@ -310,6 +313,14 @@ Thanh toán sử dụng một transaction duy nhất:
 - Giá trên hóa đơn được lưu tại thời điểm bán.
 - Các bảng danh sách có tìm kiếm và phân trang bằng DataTables.
 
+### Hóa đơn nhập
+
+- Tạo hóa đơn nháp, thêm nhiều dòng hàng và đính kèm PDF.
+- Giá nhập là giá chưa thuế; thuế và tổng thanh toán tính ở cấp hóa đơn.
+- Chỉ xác nhận mới nhập kho; xác nhận dùng transaction, khóa dòng và ghi
+  `purchase_invoice_id`.
+- Hóa đơn đã nhập kho không được sửa/hủy hoặc xác nhận lần hai.
+
 ### Quản lý kho
 
 - Xem tồn kho.
@@ -317,6 +328,14 @@ Thanh toán sử dụng một transaction duy nhất:
 - Cập nhật số lượng và giá nhập trong transaction.
 - Ghi lịch sử biến động loại `nhap`.
 - Cảnh báo sản phẩm tồn thấp trên dashboard.
+
+### Ba đường nhập kho
+
+| Đường nhập | Khi nào dùng | Dùng khi demo |
+|---|---|---|
+| Nhập nhanh | Điều chỉnh đơn giản cho một hoặc vài sản phẩm, không cần chứng từ | Chỉ minh họa nhanh |
+| Đơn nhập hàng | Theo dõi đặt hàng: chờ duyệt, giao hàng và nhận hàng | Dùng khi minh họa quy trình đơn nhập |
+| Hóa đơn nhập | Có chứng từ, thuế, nhiều dòng hàng và cần đối soát nhà cung cấp | **Dùng cho demo chính** |
 
 ### Thống kê
 
@@ -328,7 +347,7 @@ Admin có thể truy cập:
 - Xuất danh sách hóa đơn và báo cáo xuất nhập tồn ra Excel/PDF.
 - Lợi nhuận dùng giá vốn được lưu tại thời điểm bán.
 
-## 7. Các URL chính
+## 8. Các URL chính
 
 | URL | Chức năng | Quyền |
 |---|---|---|
@@ -341,10 +360,13 @@ Admin có thể truy cập:
 | `/kho/nhap` | Nhập kho | Admin, thủ kho |
 | `/kho/lichsu` | Lịch sử biến động | Admin, thủ kho |
 | `/donhang` | Danh sách hóa đơn | Admin, thu ngân |
+| `/hoadonnhap` | Danh sách hóa đơn nhập | Admin, thủ kho |
+| `/hoadonnhap/them` | Tạo hóa đơn nhập nháp | Admin, thủ kho |
+| `/hoadonnhap/xem/{id}` | Xem hóa đơn nhập | Admin, thủ kho |
 | `/thongke/doanhthu` | Doanh thu JSON | Admin |
 | `/thongke/topsanpham` | Top sản phẩm JSON | Admin |
 
-## 8. Kiểm thử
+## 9. Kiểm thử
 
 Chạy toàn bộ test:
 
@@ -372,13 +394,17 @@ Get-ChildItem -Recurse -Filter *.php |
     ForEach-Object { php -l $_.FullName }
 ```
 
-## 9. Reset dữ liệu demo
+## 10. Reset dữ liệu demo
 
 Lệnh reset sẽ xóa toàn bộ bảng, chạy migration, nạp lại dữ liệu mẫu và xóa cache:
 
 ```powershell
 php artisan demo:reset
 ```
+
+`demo:reset` tự gọi `migrate:fresh --seed --seeder=DatabaseSeeder`, vì vậy
+luôn tự nạp lại tài khoản demo và bộ dữ liệu 12 loại hàng/300 sản phẩm sau khi
+reset thành công.
 
 Bỏ qua bước xác nhận:
 
@@ -394,7 +420,7 @@ reset_demo.bat
 
 Không sử dụng lệnh reset trên môi trường production.
 
-## 10. Cấu trúc thư mục chính
+## 11. Cấu trúc thư mục chính
 
 ```text
 app/
@@ -408,30 +434,40 @@ app/
 │   ├── KhoController.php
 │   ├── LoaiSanPhamController.php
 │   ├── SanPhamController.php
-│   └── ThongKeController.php
+│   ├── ThongKeController.php
+│   └── HoaDonNhapController.php
 ├── Http/Middleware/CheckRole.php
 └── Models/
     ├── BienDongKho.php
     ├── ChiTietDonHang.php
     ├── DonHang.php
     ├── LoaiSanPham.php
+    ├── HoaDonNhap.php
+    ├── ChiTietHoaDonNhap.php
     └── SanPham.php
 
 database/
 ├── migrations/
+│   ├── 2026_01_01_000017_add_import_invoice_fields.php
+│   ├── 2026_01_01_000018_create_purchase_invoices_tables.php
+│   └── 2026_01_01_000019_add_purchase_invoice_to_stock_movements.php
 └── seeders/DatabaseSeeder.php
+
+app/Services/
+└── HoaDonNhapService.php
 
 resources/views/
 ├── auth/
 ├── donhang/
 ├── kho/
 ├── layouts/
+├── hoadonnhap/
 ├── loaisanpham/
 ├── pos/
 └── sanpham/
 ```
 
-## 11. Cơ sở dữ liệu
+## 12. Cơ sở dữ liệu
 
 Các bảng nghiệp vụ:
 
@@ -441,14 +477,43 @@ Các bảng nghiệp vụ:
 - `invoices`: hóa đơn.
 - `invoice_details`: chi tiết hóa đơn.
 - `stock_movements`: lịch sử nhập/bán/điều chỉnh kho.
+- `purchase_invoices`: hóa đơn nhập, thuế, tổng tiền và trạng thái.
+- `purchase_invoice_items`: các dòng hàng của hóa đơn nhập.
+- `purchase_orders`, `purchase_order_items`: đơn nhập hàng theo quy trình giao
+  nhận.
+- `returns`, `return_items`: trả hàng; `held_carts`: giỏ tạm.
+- `stocktakes`, `stocktake_items`: kiểm kê và chênh lệch tồn.
+- `activity_logs`: nhật ký hoạt động.
 
 Quy ước biến động kho:
 
 - `nhap`: số lượng dương, `invoice_id` là `NULL`.
 - `ban`: số lượng âm, có `invoice_id`.
+- `trahang`: trả hàng tốt, số lượng dương, có `return_id`.
+- `trahang_hong`: trả hàng lỗi, số lượng dương trong movement nhưng chỉ tăng
+  `products.soluong_hong`, không cộng vào tồn hàng tốt.
 - `dieuchinh`: dùng cho điều chỉnh thủ công, `invoice_id` là `NULL`.
+- Movement nhập từ hóa đơn liên kết bằng `purchase_invoice_id`; movement nhập
+  từ đơn nhập cũ có thể liên kết bằng `purchase_order_id`.
 
-## 12. Quy trình Git đề xuất
+Truy vấn đối soát tồn hàng tốt:
+
+```sql
+SELECT p.id, p.soluong,
+       COALESCE(SUM(CASE
+           WHEN sm.loai IN ('nhap', 'ban', 'trahang', 'dieuchinh')
+           THEN sm.soluong ELSE 0 END), 0) AS tong_bien_dong
+FROM products p
+LEFT JOIN stock_movements sm ON sm.product_id = p.id
+GROUP BY p.id, p.soluong
+HAVING p.soluong <> tong_bien_dong;
+```
+
+Kết quả kiểm tra thực tế: **0 dòng sai lệch**. Quy tắc này vẫn đúng sau bán,
+trả hàng lỗi và kiểm kê; trả hàng lỗi được theo dõi riêng trong
+`soluong_hong`.
+
+## 13. Quy trình Git đề xuất
 
 Nhánh chính là `main`. Tạo nhánh chức năng theo Gitflow:
 
@@ -468,7 +533,7 @@ git push -u origin feature/ten-chuc-nang
 
 Sau khi kiểm thử, tạo Pull Request để merge vào `main`.
 
-## 13. Phạm vi chưa triển khai
+## 14. Phạm vi chưa triển khai
 
 ### Đã hoàn thành
 
@@ -501,14 +566,9 @@ Sau khi kiểm thử, tạo Pull Request để merge vào `main`.
 - Quét barcode bằng webcam.
 - In tự động không qua hộp thoại trình duyệt.
 - CRUD tài khoản người dùng, ứng dụng mobile và API riêng.
-- Chưa có các luồng ngoài scope như permission động, API/mobile và tích hợp bên
-  ngoài.
+- Các luồng ngoài scope như permission động, API/mobile và tích hợp bên ngoài.
 
-Các phần mở rộng dưới đây chưa thuộc scope cốt lõi hiện tại:
-
-- Tích hợp cổng thanh toán thật và in tự động không qua hộp thoại trình duyệt.
-
-## 14. Lộ trình triển khai tiếp theo
+## 15. Lộ trình triển khai tiếp theo
 
 Ưu tiên các phần đã có dữ liệu mẫu trong
 `TaiLieu/ThongTinNhaCungCap/`, không mở rộng sang mobile hoặc API khi chưa
@@ -538,6 +598,19 @@ Bộ dữ liệu hóa đơn nhập đang dùng workbook
 `TaiLieu/ThongTinHangHoa/LoaiHangHoa.xlsx`; có thể kiểm tra bằng
 `php artisan demo:kiemtra-du-lieu`.
 
+### Pha 15A — Hóa đơn nhập — Đã hoàn thành
+
+Chi tiết quy tắc, checklist, nhật ký thay đổi, bảng số kiểm tra và kết quả
+thực tế nằm trong [Ke hoach.md](TaiLieu/KeHoach/Ke%20hoach.md). Mã test riêng
+dùng tiền tố `T-HDN01`, `T-HDN02`, ... để không trùng T43 của phụ lục.
+
+### Pha 16 — Báo cáo, xuất file và giá vốn — Đã hoàn thành
+
+### Pha 17 — Nhật ký hoạt động và phân quyền nâng cao — Đã hoàn thành một phần
+
+Nhật ký cơ bản có tại `/nhatky`, ghi người dùng, hành động, đối tượng, thời gian,
+IP và mô tả. Permission động vẫn chờ chốt ma trận quyền.
+
 ### Pha 18 — Đổi/trả hàng — Đã hoàn thành một phần
 
 - Đã có tạo phiếu trả, trả hàng tốt/hỏng, kiểm tra hạn và số lượng cộng dồn.
@@ -546,22 +619,20 @@ Bộ dữ liệu hóa đơn nhập đang dùng workbook
 - Chưa có luồng đổi sản phẩm tạo hóa đơn bù trừ riêng; hình thức `doi_hang`
   hiện lưu lựa chọn hoàn và cần bổ sung nếu đồ án yêu cầu.
 
-### Pha 16 — Nhật ký và phân quyền nâng cao
+### Pha 19 — Tạm lưu giỏ hàng — Đã hoàn thành
 
-Phần nhật ký hoạt động cơ bản đã hoàn thành:
+### Pha 20 — Kiểm kê kho — Đã hoàn thành phần cốt lõi
 
-- Admin xem tại `/nhatky`, có lọc theo hành động.
-- Ghi người dùng, hành động, đối tượng, thời gian, IP và mô tả.
-- Đã tích hợp đăng nhập/đăng xuất, sản phẩm, nhập kho, nhà cung cấp và đơn
-  nhập.
+### Pha 21 — ROP và ABC — Chưa triển khai
 
-Phần còn lại của Pha 16:
+### Pha 22 — Khuyến mãi và voucher — Chưa triển khai
 
-- Thêm permission cho từng nhóm chức năng.
-- Giữ tương thích với middleware role hiện tại trong thời gian chuyển đổi.
-- Test không làm thay đổi quyền POS, kho và thống kê đang hoạt động.
+### Pha 23 — Tài khoản, permission và REST API — Chưa triển khai
 
-### Pha 17 — Thanh toán thực tế (tùy chọn)
+### Pha 24 — Tích hợp bên ngoài — Chưa triển khai
+
+Các tích hợp thanh toán/webhook, hóa đơn điện tử, in ESC/POS và sàn thương mại
+điện tử chỉ làm sau khi có tài khoản sandbox, tài liệu API và xác nhận.
 
 - Chốt nhà cung cấp có sandbox và webhook có chữ ký.
 - Thêm mã giao dịch duy nhất và trạng thái chờ xác nhận.
@@ -571,7 +642,7 @@ Phần còn lại của Pha 16:
 Mỗi pha phải được triển khai trên một branch riêng, chạy test trước khi
 merge vào `main`. Không import dữ liệu mẫu hoặc reset database production.
 
-## 15. Lưu ý bảo mật
+## 16. Lưu ý bảo mật
 
 - Không commit file `.env` hoặc thông tin mật khẩu thật.
 - Luôn dùng `@csrf` cho form POST/PUT/DELETE.

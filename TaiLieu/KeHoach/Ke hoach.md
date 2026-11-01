@@ -95,6 +95,72 @@ transaction và lưu số điểm/giá trị tại hóa đơn.
 CRUD nhà cung cấp; tạo đơn nhập nhiều sản phẩm; quy trình duyệt/giao/nhận/hủy;
 nhận hàng cập nhật tồn, giá vốn và movement trong transaction.
 
+### Pha 15A - Hóa đơn nhập
+
+**Trạng thái: Đã triển khai và kiểm tra.**
+
+#### Quy tắc nghiệp vụ
+
+- Nhà cung cấp phải có mã số thuế; hóa đơn phải có số hóa đơn, ký hiệu, ngày
+  hóa đơn, thuế suất và các dòng hàng hợp lệ.
+- `gia_nhap` của sản phẩm và `don_gia` trên dòng hóa đơn là giá **chưa thuế**.
+- Thuế được tính và lưu ở cấp hóa đơn; tổng thanh toán bằng tiền hàng cộng
+  tiền thuế và các khoản điều chỉnh hợp lệ.
+- Hóa đơn có trạng thái `nhap_tam`, `da_nhap_kho` hoặc `da_huy`.
+- Chỉ hóa đơn đã xác nhận mới tăng tồn kho, cập nhật giá nhập và ghi movement
+  liên kết bằng `purchase_invoice_id`.
+- Xác nhận nhập kho chạy trong transaction và khóa hóa đơn/sản phẩm bằng
+  `lockForUpdate`.
+- Hóa đơn đã nhập kho thì không được sửa hoặc hủy; không được xác nhận lần hai.
+- Giá bán hiện tại không tự đổi khi nhập hàng; hệ số lãi chỉ dùng để gợi ý khi
+  tạo sản phẩm mới.
+
+#### Checklist triển khai
+
+| Ngày | Hạng mục | Kết quả |
+|---|---|---|
+| 2026-11-01 | Tạo migration, model, service và liên kết movement | Đã hoàn thành |
+| 2026-11-01 | Nạp 12 loại hàng, 300 sản phẩm, 81 nhà cung cấp, 100 khách hàng | Đã hoàn thành |
+| 2026-11-01 | Nạp một hóa đơn nhập 300 dòng và file PDF đính kèm | Đã hoàn thành |
+| 2026-11-02 | Bổ sung controller, route, view nháp/xem/sửa/xác nhận/hủy | Đã hoàn thành |
+| 2026-11-02 | Chạy `php artisan demo:kiemtra-du-lieu` và bộ test | Đã hoàn thành |
+
+#### Nhật ký thay đổi
+
+- 2026-11-01: thay dữ liệu demo bằng workbook `LoaiHangHoa.xlsx`; không
+  trích xuất SKU, barcode hoặc giá bán từ PDF.
+- 2026-11-01: thêm hóa đơn nhập, chi tiết hóa đơn và `purchase_invoice_id`
+  cho movement.
+- 2026-11-02: sửa kỳ vọng test theo SKU mới, bổ sung lệnh kiểm tra dữ liệu và
+  thống nhất tài liệu.
+
+#### Bảng số kiểm tra và kết quả thực tế
+
+| Chỉ tiêu | Kỳ vọng | Kết quả |
+|---|---:|---:|
+| `categories` | 12 | 12 |
+| `products` | 300 | 300 |
+| `suppliers` | 81 | 81 |
+| `customers` | 100 | 100 |
+| `purchase_invoices` | 1 | 1 |
+| `purchase_invoice_items` | 300 | 300 |
+| Tổng tồn kho | 2.405 | 2.405 |
+| Tổng movement nhập | 2.405 | 2.405 |
+| Tiền hàng | 183.080.616 | 183.080.616 |
+| Tiền thuế | 14.646.449 | 14.646.449 |
+| Tổng thanh toán | 197.727.065 | 197.727.065 |
+| Sản phẩm có barcode | 24 | 24 |
+
+Kết quả chạy thực tế `php artisan demo:kiemtra-du-lieu`: **Dữ liệu hợp lệ**.
+Truy vấn kiểm tra tồn kho dùng các movement ảnh hưởng tồn hàng tốt
+(`nhap`, `ban`, `trahang`, `dieuchinh`) và loại `trahang_hong` vì hàng lỗi
+được lưu ở `soluong_hong`. Kết quả hiện tại: **0 dòng sai lệch**. Quy tắc này
+tiếp tục cho 0 dòng sau bán, trả hàng lỗi và kiểm kê; trả hàng lỗi không cộng
+vào tồn hàng tốt.
+
+Mã test riêng cho hóa đơn nhập dùng tiền tố `T-HDN` (`T-HDN01`, `T-HDN02`, ...)
+để không trùng các mã T43 trở đi của phụ lục.
+
 ### Pha 16 - Báo cáo, xuất file và giá vốn
 
 Lưu giá vốn tại thời điểm bán, thống kê doanh thu/lợi nhuận theo ngày/tuần/tháng,
@@ -107,7 +173,8 @@ chưa bật vì cần chốt ma trận quyền và tránh làm hỏng role hiệ
 
 ## 4. Trạng thái triển khai
 
-- Pha 0–17: phần lõi và các mở rộng an toàn đã hoàn thành.
+- Pha 0–17, trong đó có Pha 15A Hóa đơn nhập: phần lõi và các mở rộng an toàn
+  đã hoàn thành.
 - Pha 18: đổi/trả hàng cốt lõi đã hoàn thành; đổi hàng tạo hóa đơn bù trừ riêng
   chưa triển khai.
 - Pha 19: giữ/khôi phục/xóa giỏ tạm và tự dọn sau 24 giờ đã hoàn thành.
