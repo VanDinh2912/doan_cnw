@@ -206,6 +206,9 @@ Admin có thể truy cập:
 
 - Doanh thu theo ngày.
 - Top 5 sản phẩm bán chạy.
+- Doanh thu có thể nhóm theo ngày, tuần hoặc tháng qua API.
+- Xuất danh sách hóa đơn và báo cáo xuất nhập tồn ra Excel/PDF.
+- Lợi nhuận dùng giá vốn được lưu tại thời điểm bán.
 
 ## 7. Các URL chính
 

@@ -153,6 +153,7 @@ class DonHangController extends Controller
                         'product_id' => $sanPham->id,
                         'soluong' => $soLuong,
                         'don_gia' => $sanPham->gia_ban,
+                        'gia_von' => $sanPham->gia_nhap,
                         'thanh_tien' => $thanhTien,
                     ]);
                     $sanPham->decrement('soluong', $soLuong);

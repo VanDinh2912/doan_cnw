@@ -300,4 +300,27 @@ class PosWorkflowTest extends TestCase
         $this->assertDatabaseCount('invoices', 0);
         $this->assertDatabaseHas('customers', ['id' => $customer->id, 'diem_tichluy' => 1]);
     }
+
+    public function test_admin_can_export_invoice_and_stock_reports(): void
+    {
+        $this->seed();
+        $admin = User::where('role', 'admin')->firstOrFail();
+        $product = SanPham::where('sku', 'HC-C109-CL')->firstOrFail();
+
+        $this->actingAs($admin)->withSession([
+            'gio_hang' => [(string) $product->id => ['id' => $product->id, 'soluong' => 1]],
+        ])->post(route('donhang.thanhtoan'), [
+            'giam_gia_phantram' => 0,
+            'tien_khach_dua' => 100000,
+            'phuong_thuc' => 'tienmat',
+        ])->assertRedirect();
+
+        $this->actingAs($admin)->get(route('baocao.hoadon', ['dinhDang' => 'xlsx']))
+            ->assertOk()->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        $this->actingAs($admin)->get(route('baocao.hoadon', ['dinhDang' => 'pdf']))
+            ->assertOk()->assertHeader('content-type', 'application/pdf');
+        $this->actingAs($admin)->get(route('baocao.xuatnhapton', ['dinhDang' => 'xlsx']))
+            ->assertOk()->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        $this->assertDatabaseHas('invoice_details', ['gia_von' => $product->gia_nhap]);
+    }
 }
