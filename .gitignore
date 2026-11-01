@@ -9,6 +9,8 @@
 /TaiLieu/ThongTinHangHoa/*.pdf
 /TaiLieu/ThongTinKhachHang/*.xlsx
 /TaiLieu/ThongTinKhachHang/*.xls
+/TaiLieu/ThongTinNhaCungCap/*.xlsx
+/TaiLieu/ThongTinNhaCungCap/*.xls
 .env
 .env.backup
 .env.production
