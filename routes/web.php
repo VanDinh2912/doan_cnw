@@ -61,6 +61,15 @@ Route::middleware('auth')->group(function (): void {
     });
 
     Route::middleware('role:admin,thukho')->group(function (): void {
+        Route::get('/hoadonnhap', [\App\Http\Controllers\HoaDonNhapController::class, 'getDanhSach'])->name('hoadonnhap.danhsach');
+        Route::get('/hoadonnhap/them', [\App\Http\Controllers\HoaDonNhapController::class, 'getThem'])->name('hoadonnhap.them');
+        Route::post('/hoadonnhap/them', [\App\Http\Controllers\HoaDonNhapController::class, 'postThem'])->name('hoadonnhap.postthem');
+        Route::get('/hoadonnhap/xem/{hoaDon}', [\App\Http\Controllers\HoaDonNhapController::class, 'getXem'])->name('hoadonnhap.xem');
+        Route::get('/hoadonnhap/sua/{hoaDon}', [\App\Http\Controllers\HoaDonNhapController::class, 'getSua'])->name('hoadonnhap.sua');
+        Route::post('/hoadonnhap/sua/{hoaDon}', [\App\Http\Controllers\HoaDonNhapController::class, 'postSua'])->name('hoadonnhap.postsua');
+        Route::post('/hoadonnhap/xacnhan/{hoaDon}', [\App\Http\Controllers\HoaDonNhapController::class, 'postXacNhan'])->name('hoadonnhap.xacnhan');
+        Route::post('/hoadonnhap/huy/{hoaDon}', [\App\Http\Controllers\HoaDonNhapController::class, 'postHuy'])->name('hoadonnhap.huy');
+        Route::get('/loaisanpham/goiy', [\App\Http\Controllers\LoaiSanPhamController::class, 'getGoiY'])->name('loaisanpham.goiy');
         Route::get('/kiemke', [\App\Http\Controllers\KiemKeController::class, 'index'])->name('kiemke.index');
         Route::get('/kiemke/them', [\App\Http\Controllers\KiemKeController::class, 'create'])->name('kiemke.create');
         Route::post('/kiemke', [\App\Http\Controllers\KiemKeController::class, 'store'])->name('kiemke.store');

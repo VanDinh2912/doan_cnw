@@ -12,7 +12,7 @@ class NhaCungCap extends Model
 
     protected $table = 'suppliers';
 
-    protected $fillable = ['ten_nhacungcap', 'nguoi_lienhe', 'so_dienthoai', 'dia_chi', 'ghi_chu'];
+    protected $fillable = ['ma_so_thue', 'ten_nhacungcap', 'nguoi_lienhe', 'so_dienthoai', 'dia_chi', 'ghi_chu'];
 
     public function donNhaps(): HasMany
     {

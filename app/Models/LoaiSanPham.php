@@ -12,7 +12,7 @@ class LoaiSanPham extends Model
 
     protected $table = 'categories';
 
-    protected $fillable = ['ten_loai', 'mo_ta'];
+    protected $fillable = ['ma_loai', 'ten_loai', 'mo_ta', 'tu_khoa', 'he_so_lai'];
 
     public function sanPhams(): HasMany
     {

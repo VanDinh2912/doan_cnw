@@ -182,6 +182,7 @@ class NhapHangController extends Controller
     private function validateNhaCungCap(Request $request): array
     {
         return $request->validate([
+            'ma_so_thue' => ['required', 'string', 'max:20'],
             'ten_nhacungcap' => ['required', 'string', 'max:150'],
             'nguoi_lienhe' => ['nullable', 'string', 'max:100'],
             'so_dienthoai' => ['nullable', 'string', 'max:15'],

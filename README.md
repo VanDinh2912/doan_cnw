@@ -113,11 +113,18 @@ php artisan documents:import
 ```
 
 Lệnh này không ghi đè dữ liệu trùng; lần chạy lại sẽ bỏ qua khách hàng và nhà
-cung cấp đã tồn tại. Hiện đã nhập được 100 khách hàng và 80 nhà cung cấp.
-Đơn nhập chưa tự động nhập vì workbook tham chiếu `product_id` từ 1 đến 300,
-trong khi PDF hàng hóa thiếu SKU, barcode và giá bán để tạo sản phẩm chính xác.
-Không tự đoán các trường này; cần bảng đối chiếu sản phẩm chính thức trước khi
-nhập đơn nhập.
+cung cấp đã tồn tại. Bộ dữ liệu thay thế hiện đã được nạp từ
+`TaiLieu/ThongTinHangHoa/LoaiHangHoa.xlsx`, gồm 12 loại hàng, 300 sản phẩm,
+81 nhà cung cấp, 100 khách hàng và một hóa đơn nhập 300 dòng. PDF hóa đơn chỉ
+được lưu làm file đính kèm, không parse dữ liệu từ PDF.
+
+Kiểm tra nhanh tính nhất quán sau khi seed:
+
+```powershell
+php artisan demo:kiemtra-du-lieu
+```
+
+Lệnh kiểm tra số lượng bản ghi, tổng hóa đơn, tồn kho và movement nhập.
 
 
 ## 4. Thiết lập thiết bị và thanh toán thực tế
@@ -354,6 +361,8 @@ Các test nghiệp vụ hiện có:
 - Không bán được sản phẩm đã tạm dừng kinh doanh.
 - Lọc hóa đơn theo khoảng ngày.
 - Thu ngân không truy cập được chức năng kho.
+- Hóa đơn nhập có thể tạo nháp, đính kèm PDF, xác nhận nhập kho một lần và hủy
+  hóa đơn nháp; xác nhận dùng transaction và khóa dòng sản phẩm.
 
 Kiểm tra cú pháp PHP:
 
@@ -389,7 +398,9 @@ Không sử dụng lệnh reset trên môi trường production.
 
 ```text
 app/
-├── Console/Commands/ResetDemoData.php
+├── Console/Commands/
+│   ├── KiemTraDuLieu.php
+│   └── ResetDemoData.php
 ├── Http/Controllers/
 │   ├── AuthController.php
 │   ├── DonHangController.php

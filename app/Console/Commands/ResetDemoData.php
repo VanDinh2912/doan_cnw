@@ -37,6 +37,7 @@ class ResetDemoData extends Command
             $this->call('view:clear');
             $this->xoaSession();
             Storage::disk('public')->deleteDirectory('sanpham');
+            Storage::disk('public')->deleteDirectory('hoadonnhap');
 
             $this->info('Đã reset demo.');
             $this->table(

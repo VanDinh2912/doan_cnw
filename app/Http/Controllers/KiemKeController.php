@@ -34,7 +34,7 @@ class KiemKeController extends Controller
                 'trang_thai' => 'dang_kiem',
                 'ghi_chu' => $validated['ghi_chu'] ?? null,
             ]);
-            $now = now();
+            $now = now()->addSecond();
             foreach (SanPham::where('trang_thai', true)->get() as $product) {
                 $phieu->chiTiets()->create([
                     'product_id' => $product->id,
@@ -60,8 +60,8 @@ class KiemKeController extends Controller
         $phieu->load('chiTiets');
         foreach ($phieu->chiTiets as $item) {
             $actual = (int) ($validated['soluong_thuc'][$item->id] ?? $item->soluong_he_thong);
-            $movement = (int) BienDongKho::where('product_id', $item->product_id)->where('created_at', '>', $item->thoi_diem_dem)->sum('soluong');
-            $item->update(['soluong_thuc' => $actual, 'chenh_lech' => $actual - ($item->soluong_he_thong + $movement)]);
+            $systemQuantity = (int) SanPham::query()->findOrFail($item->product_id)->soluong;
+            $item->update(['soluong_thuc' => $actual, 'chenh_lech' => $actual - $systemQuantity]);
         }
         $phieu->update(['trang_thai' => 'cho_duyet']);
         return back()->with('success', 'Đã gửi phiếu chờ duyệt.');

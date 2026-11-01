@@ -9,6 +9,7 @@
     <div class="card"><div class="card-body">
         <div class="row g-3">
             <div class="col-md-6"><label class="form-label">Tên nhà cung cấp</label><input class="form-control" name="ten_nhacungcap" value="{{ old('ten_nhacungcap', $nhaCungCap->ten_nhacungcap) }}" required></div>
+            <div class="col-md-6"><label class="form-label">Mã số thuế</label><input class="form-control" name="ma_so_thue" value="{{ old('ma_so_thue', $nhaCungCap->ma_so_thue) }}" required></div>
             <div class="col-md-6"><label class="form-label">Người liên hệ</label><input class="form-control" name="nguoi_lienhe" value="{{ old('nguoi_lienhe', $nhaCungCap->nguoi_lienhe) }}"></div>
             <div class="col-md-6"><label class="form-label">Số điện thoại</label><input class="form-control" name="so_dienthoai" value="{{ old('so_dienthoai', $nhaCungCap->so_dienthoai) }}"></div>
             <div class="col-md-6"><label class="form-label">Địa chỉ</label><input class="form-control" name="dia_chi" value="{{ old('dia_chi', $nhaCungCap->dia_chi) }}"></div>

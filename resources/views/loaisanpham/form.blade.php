@@ -12,8 +12,20 @@
                 @method('PUT')
             @endif
             <div class="mb-3">
+                <label class="form-label" for="ma_loai">Mã loại</label>
+                <input class="form-control" id="ma_loai" name="ma_loai" type="text" value="{{ old('ma_loai', $loai->ma_loai) }}" required>
+            </div>
+            <div class="mb-3">
                 <label class="form-label" for="ten_loai">Tên loại</label>
                 <input class="form-control" id="ten_loai" name="ten_loai" type="text" value="{{ old('ten_loai', $loai->ten_loai) }}" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="tu_khoa">Từ khóa</label>
+                <input class="form-control" id="tu_khoa" name="tu_khoa" value="{{ old('tu_khoa', $loai->tu_khoa) }}">
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="he_so_lai">Hệ số lãi</label>
+                <input class="form-control" id="he_so_lai" name="he_so_lai" type="number" step="0.01" min="1" max="5" value="{{ old('he_so_lai', $loai->he_so_lai ?: 1.30) }}" required>
             </div>
             <div class="mb-3">
                 <label class="form-label" for="mo_ta">Mô tả</label>

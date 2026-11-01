@@ -24,7 +24,7 @@ class PosWorkflowTest extends TestCase
     {
         $this->seed();
         $cashier = User::where('role', 'thungan')->firstOrFail();
-        $product = SanPham::where('sku', 'HC-C109-CL')->firstOrFail();
+        $product = SanPham::where('sku', 'CS-0001')->firstOrFail();
 
         $response = $this->actingAs($cashier)->withSession([
             'gio_hang' => [
@@ -44,7 +44,7 @@ class PosWorkflowTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $this->assertDatabaseHas('products', ['id' => $product->id, 'soluong' => 3]);
+        $this->assertDatabaseHas('products', ['id' => $product->id, 'soluong' => 5]);
         $this->assertDatabaseCount('invoices', 1);
         $this->assertDatabaseCount('invoice_details', 1);
         $this->assertDatabaseHas('stock_movements', [
@@ -58,7 +58,7 @@ class PosWorkflowTest extends TestCase
     {
         $this->seed();
         $cashier = User::where('role', 'thungan')->firstOrFail();
-        $product = SanPham::where('sku', 'HC-C109-CL')->firstOrFail();
+        $product = SanPham::where('sku', 'CS-0001')->firstOrFail();
 
         $response = $this->actingAs($cashier)->withSession([
             'gio_hang' => [(string) $product->id => [
@@ -75,7 +75,7 @@ class PosWorkflowTest extends TestCase
         $response->assertRedirect();
         $response->assertSessionHas('error');
         $this->assertDatabaseCount('invoices', 0);
-        $this->assertDatabaseHas('products', ['id' => $product->id, 'soluong' => 5]);
+        $this->assertDatabaseHas('products', ['id' => $product->id, 'soluong' => 7]);
     }
 
     public function test_cashier_cannot_access_inventory(): void
@@ -90,7 +90,7 @@ class PosWorkflowTest extends TestCase
     {
         $this->seed();
         $cashier = User::where('role', 'thungan')->firstOrFail();
-        $product = SanPham::where('sku', 'HC-C109-CL')->firstOrFail();
+        $product = SanPham::where('sku', 'CS-0001')->firstOrFail();
 
         $response = $this->actingAs($cashier)->withSession([
             'gio_hang' => [(string) $product->id => [
@@ -107,8 +107,8 @@ class PosWorkflowTest extends TestCase
         $response->assertRedirect();
         $this->assertDatabaseHas('invoices', [
             'phuong_thuc' => 'chuyenkhoan',
-            'tong_thanh_toan' => 62100,
-            'tien_khach_dua' => 62100,
+            'tong_thanh_toan' => 30600,
+            'tien_khach_dua' => 30600,
             'tien_thua' => 0,
         ]);
     }
@@ -117,7 +117,7 @@ class PosWorkflowTest extends TestCase
     {
         $this->seed();
         $cashier = User::where('role', 'thungan')->firstOrFail();
-        $product = SanPham::where('sku', 'HC-C109-CL')->firstOrFail();
+        $product = SanPham::where('sku', 'CS-0001')->firstOrFail();
         $product->update(['trang_thai' => false]);
 
         $response = $this->actingAs($cashier)->withSession([
@@ -217,7 +217,7 @@ class PosWorkflowTest extends TestCase
     {
         $this->seed();
         $cashier = User::where('role', 'thungan')->firstOrFail();
-        $product = SanPham::where('sku', 'HC-C109-CL')->firstOrFail();
+        $product = SanPham::where('sku', 'CS-0001')->firstOrFail();
         $product->update(['barcode' => '8931234567890']);
 
         $this->actingAs($cashier)
@@ -235,7 +235,7 @@ class PosWorkflowTest extends TestCase
     {
         $this->seed();
         $stockKeeper = User::where('role', 'thukho')->firstOrFail();
-        $product = SanPham::where('sku', 'HC-C109-CL')->firstOrFail();
+        $product = SanPham::where('sku', 'CS-0001')->firstOrFail();
 
         $this->actingAs($stockKeeper)
             ->get(route('sanpham.tem', [$product, 'soluong_tem' => 3]))
@@ -249,7 +249,7 @@ class PosWorkflowTest extends TestCase
     {
         $this->seed();
         $cashier = User::where('role', 'thungan')->firstOrFail();
-        $product = SanPham::where('sku', 'HC-C109-CL')->firstOrFail();
+        $product = SanPham::where('sku', 'CS-0001')->firstOrFail();
         $customer = KhachHang::create([
             'ho_ten' => 'Khách tích điểm',
             'so_dienthoai' => '0900000001',
@@ -265,7 +265,7 @@ class PosWorkflowTest extends TestCase
             'customer_id' => $customer->id,
             'diem_su_dung' => 2,
             'giam_gia_phantram' => 0,
-            'tien_khach_dua' => 136000,
+            'tien_khach_dua' => 66000,
             'phuong_thuc' => 'tienmat',
         ]);
 
@@ -274,17 +274,17 @@ class PosWorkflowTest extends TestCase
             'customer_id' => $customer->id,
             'diem_su_dung' => 2,
             'tien_giam_diem' => 2000,
-            'tong_thanh_toan' => 136000,
-            'diem_tichluy_nhan' => 1,
+            'tong_thanh_toan' => 66000,
+            'diem_tichluy_nhan' => 0,
         ]);
-        $this->assertDatabaseHas('customers', ['id' => $customer->id, 'diem_tichluy' => 1]);
+        $this->assertDatabaseHas('customers', ['id' => $customer->id, 'diem_tichluy' => 0]);
     }
 
     public function test_customer_cannot_redeem_more_points_than_balance(): void
     {
         $this->seed();
         $cashier = User::where('role', 'thungan')->firstOrFail();
-        $product = SanPham::where('sku', 'HC-C109-CL')->firstOrFail();
+        $product = SanPham::where('sku', 'CS-0001')->firstOrFail();
         $customer = KhachHang::create([
             'ho_ten' => 'Khách ít điểm',
             'so_dienthoai' => '0900000002',
@@ -310,7 +310,7 @@ class PosWorkflowTest extends TestCase
     {
         $this->seed();
         $admin = User::where('role', 'admin')->firstOrFail();
-        $product = SanPham::where('sku', 'HC-C109-CL')->firstOrFail();
+        $product = SanPham::where('sku', 'CS-0001')->firstOrFail();
 
         $this->actingAs($admin)->withSession([
             'gio_hang' => [(string) $product->id => ['id' => $product->id, 'soluong' => 1]],
@@ -333,8 +333,8 @@ class PosWorkflowTest extends TestCase
     {
         $this->seed();
         $manager = User::where('role', 'thukho')->firstOrFail();
-        $supplier = NhaCungCap::create(['ten_nhacungcap' => 'Nhà cung cấp test']);
-        $product = SanPham::where('sku', 'HC-C109-CL')->firstOrFail();
+        $supplier = NhaCungCap::create(['ten_nhacungcap' => 'Nhà cung cấp test', 'ma_so_thue' => 'TEST-MST-001']);
+        $product = SanPham::where('sku', 'CS-0001')->firstOrFail();
         $stockBefore = $product->soluong;
 
         $response = $this->actingAs($manager)->post(route('nhaphang.donnhap.postthem'), [
@@ -374,6 +374,7 @@ class PosWorkflowTest extends TestCase
 
         $this->actingAs($admin)->post(route('nhaphang.nhacungcap.postthem'), [
             'ten_nhacungcap' => 'Nhà cung cấp nhật ký',
+            'ma_so_thue' => 'TEST-MST-002',
         ])->assertRedirect();
 
         $this->actingAs($admin)->get(route('nhatky.index'))
@@ -398,7 +399,7 @@ class PosWorkflowTest extends TestCase
     {
         $this->seed();
         $cashier = User::where('role', 'thungan')->firstOrFail();
-        $product = SanPham::where('sku', 'HC-C109-CL')->firstOrFail();
+        $product = SanPham::where('sku', 'CS-0001')->firstOrFail();
         $invoice = DonHang::create([
             'ma_hoadon' => 'HD-RETURN-001',
             'user_id' => $cashier->id,
@@ -448,7 +449,7 @@ class PosWorkflowTest extends TestCase
     {
         $this->seed();
         $cashier = User::where('role', 'thungan')->firstOrFail();
-        $product = SanPham::where('sku', 'HC-C109-CL')->firstOrFail();
+        $product = SanPham::where('sku', 'CS-0001')->firstOrFail();
         $invoice = DonHang::create([
             'ma_hoadon' => 'HD-RETURN-002',
             'user_id' => $cashier->id,
@@ -474,7 +475,7 @@ class PosWorkflowTest extends TestCase
     {
         $this->seed();
         $cashier = User::where('role', 'thungan')->firstOrFail();
-        $product = SanPham::where('sku', 'HC-C109-CL')->firstOrFail();
+        $product = SanPham::where('sku', 'CS-0001')->firstOrFail();
         $cart = [(string) $product->id => [
             'id' => $product->id, 'sku' => $product->sku, 'ten_sanpham' => $product->ten_sanpham,
             'gia_ban' => (float) $product->gia_ban, 'soluong' => 1, 'ton_kho' => $product->soluong,
@@ -482,7 +483,7 @@ class PosWorkflowTest extends TestCase
         $this->actingAs($cashier)->withSession(['gio_hang' => $cart])
             ->post(route('hold.giu'), ['ten_goi' => 'Khách áo xanh'])->assertRedirect();
         $this->assertDatabaseHas('held_carts', ['ten_goi' => 'Khách áo xanh']);
-        $this->assertDatabaseHas('products', ['id' => $product->id, 'soluong' => 5]);
+        $this->assertDatabaseHas('products', ['id' => $product->id, 'soluong' => 7]);
         $gioTam = GioTam::firstOrFail();
         $this->actingAs($cashier)->get(route('hold.khoiphuc', $gioTam))->assertRedirect(route('pos.index'));
         $this->assertSame(1, session('gio_hang')[(string) $product->id]['soluong']);
@@ -502,7 +503,7 @@ class PosWorkflowTest extends TestCase
         $this->seed();
         $manager = User::where('role', 'thukho')->firstOrFail();
         $admin = User::where('role', 'admin')->firstOrFail();
-        $product = SanPham::where('sku', 'HC-C109-CL')->firstOrFail();
+        $product = SanPham::where('sku', 'CS-0001')->firstOrFail();
 
         $this->actingAs($manager)->post(route('kiemke.store'), [])->assertRedirect();
         $phieu = PhieuKiemKe::firstOrFail();

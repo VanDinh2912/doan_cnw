@@ -35,6 +35,7 @@
                     <a class="nav-link" href="{{ route('kiemke.index') }}">Kiểm kê</a>
                     <a class="nav-link" href="{{ route('nhaphang.nhacungcap') }}">Nhà cung cấp</a>
                     <a class="nav-link" href="{{ route('nhaphang.donnhap') }}">Đơn nhập hàng</a>
+                    <a class="nav-link" href="{{ route('hoadonnhap.danhsach') }}">Hóa đơn nhập</a>
                 @endif
                 @if (in_array(auth()->user()->role, ['admin', 'thungan'], true))
                     <a class="nav-link" href="{{ route('donhang.danhsach') }}">Hóa đơn</a>

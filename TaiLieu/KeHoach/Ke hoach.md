@@ -250,6 +250,12 @@ trường HTTPS. Không tự chọn nhà cung cấp hoặc dùng thông tin th�
 - Giai đoạn 1: hoàn thành phần nền tảng ban đầu.
 - Giai đoạn 2: hoàn thành lõi POS, kho và các mở rộng đã được xác định.
 - Sau Giai đoạn 2: đã triển khai nhà cung cấp/đơn nhập và audit log cơ bản.
+- Đã thay thế dữ liệu demo bằng 12 loại hàng, 300 sản phẩm, 81 nhà cung cấp,
+  100 khách hàng và một hóa đơn nhập 300 dòng. PDF mẫu chỉ được lưu làm file
+  đính kèm, không dùng để suy đoán dữ liệu sản phẩm.
+- Luồng hóa đơn nhập đã có nháp, đính kèm chứng từ, xác nhận nhập kho bằng
+  transaction/lock, movement liên kết hóa đơn và lệnh kiểm tra dữ liệu
+  `demo:kiemtra-du-lieu`.
 - Giai đoạn 3: đã triển khai Pha 18–20 phần an toàn; các phần cần xác minh vẫn
   để trong lộ trình.
 
