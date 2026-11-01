@@ -8,6 +8,7 @@ use App\Models\DonHang;
 use App\Models\KhachHang;
 use App\Models\NhaCungCap;
 use App\Models\DonNhap;
+use App\Models\ChiTietDonHang;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -389,5 +390,81 @@ class PosWorkflowTest extends TestCase
         $manager = User::where('role', 'thukho')->firstOrFail();
 
         $this->actingAs($manager)->get(route('nhatky.index'))->assertForbidden();
+    }
+
+    public function test_cashier_can_return_good_and_damaged_items_once(): void
+    {
+        $this->seed();
+        $cashier = User::where('role', 'thungan')->firstOrFail();
+        $product = SanPham::where('sku', 'HC-C109-CL')->firstOrFail();
+        $invoice = DonHang::create([
+            'ma_hoadon' => 'HD-RETURN-001',
+            'user_id' => $cashier->id,
+            'tong_tien' => 100000,
+            'tong_thanh_toan' => 100000,
+            'tien_khach_dua' => 100000,
+            'tien_thua' => 0,
+            'trang_thai' => 'da_thanh_toan',
+        ]);
+        $detail = ChiTietDonHang::create([
+            'invoice_id' => $invoice->id,
+            'product_id' => $product->id,
+            'soluong' => 2,
+            'don_gia' => 50000,
+            'gia_von' => 30000,
+            'thanh_tien' => 100000,
+        ]);
+        $stockBefore = $product->soluong;
+
+        $this->actingAs($cashier)->post(route('trahang.luu'), [
+            'invoice_id' => $invoice->id,
+            'hinh_thuc_hoan' => 'tienmat',
+            'items' => [[
+                'invoice_detail_id' => $detail->id,
+                'soluong' => 1,
+                'tinh_trang' => 'con_tot',
+            ]],
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('products', ['id' => $product->id, 'soluong' => $stockBefore + 1]);
+        $this->assertDatabaseHas('stock_movements', ['return_id' => 1, 'loai' => 'trahang', 'soluong' => 1]);
+        $this->assertDatabaseHas('returns', ['invoice_id' => $invoice->id, 'trang_thai' => 'hoan_thanh']);
+
+        $this->actingAs($cashier)->post(route('trahang.luu'), [
+            'invoice_id' => $invoice->id,
+            'hinh_thuc_hoan' => 'tienmat',
+            'items' => [[
+                'invoice_detail_id' => $detail->id,
+                'soluong' => 1,
+                'tinh_trang' => 'loi_hong',
+            ]],
+        ])->assertRedirect();
+        $this->assertDatabaseHas('products', ['id' => $product->id, 'soluong_hong' => 1]);
+    }
+
+    public function test_return_cannot_exceed_sold_quantity(): void
+    {
+        $this->seed();
+        $cashier = User::where('role', 'thungan')->firstOrFail();
+        $product = SanPham::where('sku', 'HC-C109-CL')->firstOrFail();
+        $invoice = DonHang::create([
+            'ma_hoadon' => 'HD-RETURN-002',
+            'user_id' => $cashier->id,
+            'tong_tien' => 100000,
+            'tong_thanh_toan' => 100000,
+            'tien_khach_dua' => 100000,
+            'tien_thua' => 0,
+            'trang_thai' => 'da_thanh_toan',
+        ]);
+        $detail = ChiTietDonHang::create([
+            'invoice_id' => $invoice->id, 'product_id' => $product->id,
+            'soluong' => 1, 'don_gia' => 100000, 'gia_von' => 30000, 'thanh_tien' => 100000,
+        ]);
+
+        $this->actingAs($cashier)->post(route('trahang.luu'), [
+            'invoice_id' => $invoice->id, 'hinh_thuc_hoan' => 'tienmat',
+            'items' => [['invoice_detail_id' => $detail->id, 'soluong' => 2, 'tinh_trang' => 'con_tot']],
+        ])->assertStatus(422);
+        $this->assertDatabaseCount('returns', 0);
     }
 }

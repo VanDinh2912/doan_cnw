@@ -455,6 +455,8 @@ Sau khi kiểm thử, tạo Pull Request để merge vào `main`.
 - Nhà cung cấp và đơn nhập hàng theo quy trình trạng thái nhiều bước.
 - Nhật ký hoạt động cơ bản cho đăng nhập, sản phẩm, nhập kho, nhà cung cấp và
   đơn nhập hàng.
+- Đổi/trả hàng có kiểm tra hạn, số lượng, tình trạng hàng, hoàn tiền, điểm và
+  tồn kho.
 - Tài liệu dự án được lưu trong `TaiLieu/`.
 - Lộ trình mở rộng sau demo được ghi tại
   `TaiLieu/KeHoach/Giai doan 3 - Ke hoach.md`.
@@ -499,6 +501,14 @@ URL chính:
 File Excel trong `TaiLieu/ThongTinNhaCungCap/` hiện là dữ liệu nguồn đã kiểm
 tra; chức năng import hàng loạt chưa tự động hóa vì cần đối chiếu `product_id`
 với dữ liệu sản phẩm thực tế.
+
+### Pha 18 — Đổi/trả hàng — Đã hoàn thành một phần
+
+- Đã có tạo phiếu trả, trả hàng tốt/hỏng, kiểm tra hạn và số lượng cộng dồn.
+- Đã hoàn tiền theo tỷ lệ, cập nhật tồn/kho lỗi, thu hồi điểm và ghi nhật ký.
+- Đã cập nhật thống kê doanh thu/lợi nhuận và top sản phẩm theo doanh thu ròng.
+- Chưa có luồng đổi sản phẩm tạo hóa đơn bù trừ riêng; hình thức `doi_hang`
+  hiện lưu lựa chọn hoàn và cần bổ sung nếu đồ án yêu cầu.
 
 ### Pha 16 — Nhật ký và phân quyền nâng cao
 

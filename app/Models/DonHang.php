@@ -40,4 +40,9 @@ class DonHang extends Model
     {
         return $this->hasMany(BienDongKho::class, 'invoice_id');
     }
+
+    public function phieuTras(): HasMany
+    {
+        return $this->hasMany(PhieuTra::class, 'invoice_id');
+    }
 }
