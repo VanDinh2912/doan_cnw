@@ -103,6 +103,22 @@ php artisan migrate:fresh --seed --force
 
 Không chạy lệnh này trên database có dữ liệu cần giữ.
 
+### 3.6. Nhập dữ liệu từ TaiLieu
+
+Sau khi đã chạy migration và seed, có thể nhập dữ liệu có cấu trúc từ các file
+Excel mẫu:
+
+```powershell
+php artisan documents:import
+```
+
+Lệnh này không ghi đè dữ liệu trùng; lần chạy lại sẽ bỏ qua khách hàng và nhà
+cung cấp đã tồn tại. Hiện đã nhập được 100 khách hàng và 80 nhà cung cấp.
+Đơn nhập chưa tự động nhập vì workbook tham chiếu `product_id` từ 1 đến 300,
+trong khi PDF hàng hóa thiếu SKU, barcode và giá bán để tạo sản phẩm chính xác.
+Không tự đoán các trường này; cần bảng đối chiếu sản phẩm chính thức trước khi
+nhập đơn nhập.
+
 ## 4. Thiết lập thiết bị và thanh toán thực tế
 
 Phần này dành cho lúc chạy demo tại cửa hàng. Nên kiểm thử trên bản sao dữ
@@ -458,9 +474,11 @@ Sau khi kiểm thử, tạo Pull Request để merge vào `main`.
 - Đổi/trả hàng có kiểm tra hạn, số lượng, tình trạng hàng, hoàn tiền, điểm và
   tồn kho.
 - Hold giỏ hàng và kiểm kê kho có kiểm tra bán xen, duyệt điều chỉnh và nhật ký.
+- Nhập 100 khách hàng và 80 nhà cung cấp từ file Excel mẫu, không ghi đè bản ghi
+  trùng.
 - Tài liệu dự án được lưu trong `TaiLieu/`.
 - Lộ trình mở rộng sau demo được ghi tại
-  `TaiLieu/KeHoach/Giai doan 3 - Ke hoach.md`.
+  `TaiLieu/KeHoach/Ke hoach.md`.
 
 ### Còn thiếu hoặc chưa triển khai
 
@@ -469,6 +487,7 @@ Sau khi kiểm thử, tạo Pull Request để merge vào `main`.
 - Quét barcode bằng webcam.
 - In tự động không qua hộp thoại trình duyệt.
 - CRUD tài khoản người dùng, ứng dụng mobile và API riêng.
+- Nhập tự động 200 đơn nhập từ workbook khi chưa có bảng đối chiếu 300 sản phẩm.
 
 Các phần mở rộng dưới đây chưa thuộc scope cốt lõi hiện tại:
 
