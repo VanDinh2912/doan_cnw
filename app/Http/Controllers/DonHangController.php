@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\BienDongKho;
 use App\Models\ChiTietDonHang;
 use App\Models\DonHang;
+use App\Models\LoaiSanPham;
 use App\Models\SanPham;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,7 +18,9 @@ class DonHangController extends Controller
 {
     public function getPos(): View
     {
-        return view('pos.index');
+        return view('pos.index', [
+            'loais' => LoaiSanPham::orderBy('ten_loai')->get(),
+        ]);
     }
 
     public function getDanhSach(Request $request): View

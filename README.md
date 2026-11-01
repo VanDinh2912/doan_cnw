@@ -152,7 +152,7 @@ Mật khẩu trên chỉ dùng cho demo, không dùng trong môi trường thậ
 - CRUD loại sản phẩm.
 - CRUD sản phẩm.
 - Validate tên, SKU, barcode, giá và số lượng.
-- Upload hình ảnh vào `public/upload/sanpham`.
+- Upload hình ảnh bằng `Storage::disk('public')` vào `storage/app/public/sanpham` (cần chạy `php artisan storage:link`); sản phẩm chưa có ảnh dùng `public/img/no-image.svg`.
 - Badge tồn kho:
   - Đỏ: hết hàng.
   - Vàng: tồn kho nhỏ hơn hoặc bằng ngưỡng tối thiểu.
