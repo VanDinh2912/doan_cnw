@@ -26,11 +26,13 @@
                 <a class="nav-link" href="{{ route('tongquan') }}">Tổng quan</a>
                 @if (in_array(auth()->user()->role, ['admin', 'thungan'], true))
                     <a class="nav-link" href="{{ route('pos.index') }}">Bán hàng POS</a>
+                    <a class="nav-link" href="{{ route('hold.danhsach') }}">Giỏ tạm</a>
                 @endif
                 @if (in_array(auth()->user()->role, ['admin', 'thukho'], true))
                     <a class="nav-link" href="{{ route('sanpham.danhsach') }}">Sản phẩm</a>
                     <a class="nav-link" href="{{ route('loaisanpham.danhsach') }}">Loại sản phẩm</a>
                     <a class="nav-link" href="{{ route('kho.danhsach') }}">Kho</a>
+                    <a class="nav-link" href="{{ route('kiemke.index') }}">Kiểm kê</a>
                     <a class="nav-link" href="{{ route('nhaphang.nhacungcap') }}">Nhà cung cấp</a>
                     <a class="nav-link" href="{{ route('nhaphang.donnhap') }}">Đơn nhập hàng</a>
                 @endif

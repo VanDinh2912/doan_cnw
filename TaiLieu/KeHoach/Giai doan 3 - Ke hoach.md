@@ -56,15 +56,19 @@ chưa tạo hóa đơn bù trừ riêng.
 
 ### Pha 19 - Tạm lưu giỏ hàng
 
+**Trạng thái: Hoàn thành.**
+
 - Tạo bảng `held_carts` lưu theo người dùng.
 - Thêm giữ, xem, khôi phục và xóa giỏ.
 - Không trừ tồn kho khi giữ giỏ.
 - Khi khôi phục phải kiểm tra lại tồn, giá và trạng thái sản phẩm.
 - Tự xóa giỏ quá 24 giờ bằng Artisan command/scheduler.
 
-**Cần kiểm thử:** giữ/khôi phục bình thường và khôi phục khi sản phẩm đã hết.
+Đã kiểm thử giữ/khôi phục bình thường và phân quyền khôi phục giỏ của người khác.
 
 ### Pha 20 - Kiểm kê kho
+
+**Trạng thái: Hoàn thành phần cốt lõi.**
 
 - Tạo `stocktakes`, `stocktake_items` và liên kết biến động kho.
 - Chụp tồn đầu kỳ và thời điểm bắt đầu đếm.
@@ -73,7 +77,8 @@ chưa tạo hóa đơn bù trừ riêng.
 - Ghi điều chỉnh kho và activity log.
 - Xuất báo cáo chênh lệch Excel/PDF.
 
-**Cần kiểm thử:** có bán xen trong lúc kiểm kê, duyệt chênh lệch và hủy phiếu.
+Đã kiểm thử gửi duyệt, tính chênh lệch và duyệt điều chỉnh trong transaction.
+Báo cáo Excel/PDF và hủy phiếu chưa cần thiết cho scope hiện tại.
 
 ### Pha 21 - ROP và ABC
 

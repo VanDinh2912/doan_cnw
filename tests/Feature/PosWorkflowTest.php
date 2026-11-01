@@ -9,6 +9,8 @@ use App\Models\KhachHang;
 use App\Models\NhaCungCap;
 use App\Models\DonNhap;
 use App\Models\ChiTietDonHang;
+use App\Models\GioTam;
+use App\Models\PhieuKiemKe;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -466,5 +468,52 @@ class PosWorkflowTest extends TestCase
             'items' => [['invoice_detail_id' => $detail->id, 'soluong' => 2, 'tinh_trang' => 'con_tot']],
         ])->assertStatus(422);
         $this->assertDatabaseCount('returns', 0);
+    }
+
+    public function test_cashier_can_hold_and_restore_cart_without_changing_stock(): void
+    {
+        $this->seed();
+        $cashier = User::where('role', 'thungan')->firstOrFail();
+        $product = SanPham::where('sku', 'HC-C109-CL')->firstOrFail();
+        $cart = [(string) $product->id => [
+            'id' => $product->id, 'sku' => $product->sku, 'ten_sanpham' => $product->ten_sanpham,
+            'gia_ban' => (float) $product->gia_ban, 'soluong' => 1, 'ton_kho' => $product->soluong,
+        ]];
+        $this->actingAs($cashier)->withSession(['gio_hang' => $cart])
+            ->post(route('hold.giu'), ['ten_goi' => 'Khách áo xanh'])->assertRedirect();
+        $this->assertDatabaseHas('held_carts', ['ten_goi' => 'Khách áo xanh']);
+        $this->assertDatabaseHas('products', ['id' => $product->id, 'soluong' => 5]);
+        $gioTam = GioTam::firstOrFail();
+        $this->actingAs($cashier)->get(route('hold.khoiphuc', $gioTam))->assertRedirect(route('pos.index'));
+        $this->assertSame(1, session('gio_hang')[(string) $product->id]['soluong']);
+    }
+
+    public function test_cashier_cannot_restore_another_cashiers_held_cart(): void
+    {
+        $this->seed();
+        $cashier = User::where('role', 'thungan')->firstOrFail();
+        $other = User::factory()->create(['role' => 'thungan']);
+        $gioTam = GioTam::create(['user_id' => $other->id, 'ten_goi' => 'Giỏ khác', 'du_lieu' => []]);
+        $this->actingAs($cashier)->get(route('hold.khoiphuc', $gioTam))->assertForbidden();
+    }
+
+    public function test_stock_manager_can_submit_stocktake_and_admin_can_approve_adjustment(): void
+    {
+        $this->seed();
+        $manager = User::where('role', 'thukho')->firstOrFail();
+        $admin = User::where('role', 'admin')->firstOrFail();
+        $product = SanPham::where('sku', 'HC-C109-CL')->firstOrFail();
+
+        $this->actingAs($manager)->post(route('kiemke.store'), [])->assertRedirect();
+        $phieu = PhieuKiemKe::firstOrFail();
+        $item = $phieu->chiTiets()->where('product_id', $product->id)->firstOrFail();
+        $this->actingAs($manager)->post(route('kiemke.submit', $phieu), [
+            'soluong_thuc' => [$item->id => $item->soluong_he_thong + 2],
+        ])->assertRedirect();
+        $this->assertDatabaseHas('stocktake_items', ['id' => $item->id, 'chenh_lech' => 2]);
+
+        $this->actingAs($admin)->post(route('kiemke.approve', $phieu))->assertRedirect();
+        $this->assertDatabaseHas('stocktakes', ['id' => $phieu->id, 'trang_thai' => 'da_duyet']);
+        $this->assertDatabaseHas('stock_movements', ['stocktake_id' => $phieu->id, 'loai' => 'dieuchinh', 'soluong' => 2]);
     }
 }
