@@ -6,6 +6,8 @@ use App\Models\SanPham;
 use App\Models\User;
 use App\Models\DonHang;
 use App\Models\KhachHang;
+use App\Models\NhaCungCap;
+use App\Models\DonNhap;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -322,5 +324,43 @@ class PosWorkflowTest extends TestCase
         $this->actingAs($admin)->get(route('baocao.xuatnhapton', ['dinhDang' => 'xlsx']))
             ->assertOk()->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         $this->assertDatabaseHas('invoice_details', ['gia_von' => $product->gia_nhap]);
+    }
+
+    public function test_stock_manager_can_create_and_receive_purchase_order_once(): void
+    {
+        $this->seed();
+        $manager = User::where('role', 'thukho')->firstOrFail();
+        $supplier = NhaCungCap::create(['ten_nhacungcap' => 'Nhà cung cấp test']);
+        $product = SanPham::where('sku', 'HC-C109-CL')->firstOrFail();
+        $stockBefore = $product->soluong;
+
+        $response = $this->actingAs($manager)->post(route('nhaphang.donnhap.postthem'), [
+            'supplier_id' => $supplier->id,
+            'items' => [[
+                'product_id' => $product->id,
+                'soluong_dat' => 3,
+                'don_gia_nhap' => 42000,
+            ]],
+        ]);
+        $donNhap = DonNhap::firstOrFail();
+        $response->assertRedirect(route('nhaphang.donnhap.chitiet', $donNhap));
+
+        $this->actingAs($manager)->post(route('nhaphang.donnhap.trangthai', $donNhap), ['trang_thai' => 'cho_giao']);
+        $this->actingAs($manager)->post(route('nhaphang.donnhap.trangthai', $donNhap), ['trang_thai' => 'dang_giao']);
+        $this->actingAs($manager)->post(route('nhaphang.donnhap.trangthai', $donNhap), ['trang_thai' => 'da_nhan'])->assertRedirect();
+
+        $this->assertDatabaseHas('products', ['id' => $product->id, 'soluong' => $stockBefore + 3, 'gia_nhap' => 42000]);
+        $this->assertDatabaseHas('stock_movements', ['purchase_order_id' => $donNhap->id, 'soluong' => 3]);
+        $this->assertDatabaseHas('purchase_orders', ['id' => $donNhap->id, 'trang_thai' => 'da_nhan']);
+        $this->assertDatabaseHas('purchase_order_items', ['purchase_order_id' => $donNhap->id, 'soluong_nhan' => 3]);
+    }
+
+    public function test_cashier_cannot_manage_suppliers_or_purchase_orders(): void
+    {
+        $this->seed();
+        $cashier = User::where('role', 'thungan')->firstOrFail();
+
+        $this->actingAs($cashier)->get(route('nhaphang.nhacungcap'))->assertForbidden();
+        $this->actingAs($cashier)->get(route('nhaphang.donnhap'))->assertForbidden();
     }
 }

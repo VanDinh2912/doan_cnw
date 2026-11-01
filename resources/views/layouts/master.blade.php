@@ -31,6 +31,8 @@
                     <a class="nav-link" href="{{ route('sanpham.danhsach') }}">Sản phẩm</a>
                     <a class="nav-link" href="{{ route('loaisanpham.danhsach') }}">Loại sản phẩm</a>
                     <a class="nav-link" href="{{ route('kho.danhsach') }}">Kho</a>
+                    <a class="nav-link" href="{{ route('nhaphang.nhacungcap') }}">Nhà cung cấp</a>
+                    <a class="nav-link" href="{{ route('nhaphang.donnhap') }}">Đơn nhập hàng</a>
                 @endif
                 @if (in_array(auth()->user()->role, ['admin', 'thungan'], true))
                     <a class="nav-link" href="{{ route('donhang.danhsach') }}">Hóa đơn</a>
