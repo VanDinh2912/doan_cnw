@@ -13,7 +13,7 @@ class BienDongKho extends Model
     protected $table = 'stock_movements';
 
     protected $fillable = [
-        'product_id', 'user_id', 'invoice_id', 'loai', 'soluong', 'ghi_chu',
+        'product_id', 'user_id', 'invoice_id', 'purchase_order_id', 'loai', 'soluong', 'ghi_chu',
     ];
 
     public function sanPham(): BelongsTo
@@ -29,5 +29,10 @@ class BienDongKho extends Model
     public function donHang(): BelongsTo
     {
         return $this->belongsTo(DonHang::class, 'invoice_id');
+    }
+
+    public function donNhap(): BelongsTo
+    {
+        return $this->belongsTo(DonNhap::class, 'purchase_order_id');
     }
 }

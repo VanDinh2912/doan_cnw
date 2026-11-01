@@ -53,6 +53,17 @@ Route::middleware('auth')->group(function (): void {
     });
 
     Route::middleware('role:admin,thukho')->group(function (): void {
+        Route::get('/nhaphang/nhacungcap', [\App\Http\Controllers\NhapHangController::class, 'getNhaCungCap'])->name('nhaphang.nhacungcap');
+        Route::get('/nhaphang/nhacungcap/them', [\App\Http\Controllers\NhapHangController::class, 'getThemNhaCungCap'])->name('nhaphang.nhacungcap.them');
+        Route::post('/nhaphang/nhacungcap/them', [\App\Http\Controllers\NhapHangController::class, 'postThemNhaCungCap'])->name('nhaphang.nhacungcap.postthem');
+        Route::get('/nhaphang/nhacungcap/sua/{nhaCungCap}', [\App\Http\Controllers\NhapHangController::class, 'getSuaNhaCungCap'])->name('nhaphang.nhacungcap.sua');
+        Route::put('/nhaphang/nhacungcap/sua/{nhaCungCap}', [\App\Http\Controllers\NhapHangController::class, 'postSuaNhaCungCap'])->name('nhaphang.nhacungcap.postsua');
+        Route::delete('/nhaphang/nhacungcap/xoa/{nhaCungCap}', [\App\Http\Controllers\NhapHangController::class, 'xoaNhaCungCap'])->name('nhaphang.nhacungcap.xoa');
+        Route::get('/nhaphang/donnhap', [\App\Http\Controllers\NhapHangController::class, 'getDonNhap'])->name('nhaphang.donnhap');
+        Route::get('/nhaphang/donnhap/them', [\App\Http\Controllers\NhapHangController::class, 'getThemDonNhap'])->name('nhaphang.donnhap.them');
+        Route::post('/nhaphang/donnhap/them', [\App\Http\Controllers\NhapHangController::class, 'postThemDonNhap'])->name('nhaphang.donnhap.postthem');
+        Route::get('/nhaphang/donnhap/{donNhap}', [\App\Http\Controllers\NhapHangController::class, 'getChiTietDonNhap'])->name('nhaphang.donnhap.chitiet');
+        Route::post('/nhaphang/donnhap/{donNhap}/trangthai', [\App\Http\Controllers\NhapHangController::class, 'capNhatTrangThai'])->name('nhaphang.donnhap.trangthai');
         Route::get('/kho', [\App\Http\Controllers\KhoController::class, 'getDanhSach'])->name('kho.danhsach');
         Route::get('/kho/nhap', [\App\Http\Controllers\KhoController::class, 'getNhapKho'])->name('kho.nhapkho');
         Route::post('/kho/nhap', [\App\Http\Controllers\KhoController::class, 'postNhapKho'])->name('kho.postnhapkho');

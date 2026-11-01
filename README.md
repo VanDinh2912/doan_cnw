@@ -452,11 +452,11 @@ Sau khi kiểm thử, tạo Pull Request để merge vào `main`.
 - Khách hàng và tích điểm.
 - Giá vốn, lợi nhuận và xuất báo cáo XLSX/PDF.
 - VietQR thủ công với xác nhận chuyển khoản thủ công.
+- Nhà cung cấp và đơn nhập hàng theo quy trình trạng thái nhiều bước.
 - Tài liệu dự án được lưu trong `TaiLieu/`.
 
 ### Còn thiếu hoặc chưa triển khai
 
-- Nhà cung cấp và đơn nhập hàng theo quy trình hai bước.
 - Nhật ký hoạt động/audit log đầy đủ.
 - Phân quyền động theo permission.
 - Webhook đối soát chuyển khoản tự động.
@@ -474,20 +474,28 @@ Các phần mở rộng dưới đây chưa thuộc scope cốt lõi hiện tạ
 `TaiLieu/ThongTinNhaCungCap/`, không mở rộng sang mobile hoặc API khi chưa
 cần cho đồ án.
 
-### Pha 15 — Nhà cung cấp và đơn nhập hàng
+### Pha 15 — Nhà cung cấp và đơn nhập hàng — Đã hoàn thành
 
-1. Tạo migration cho `suppliers`, `purchase_orders`,
-   `purchase_order_items` và liên kết nhập kho.
-2. Tạo model, quan hệ và validate dữ liệu.
-3. Làm CRUD nhà cung cấp.
-4. Làm tạo đơn nhập, thêm nhiều sản phẩm và tính tổng tiền.
-5. Thực hiện quy trình `cho_duyet` → `cho_giao` → `dang_giao` →
-   `da_nhan` hoặc `da_huy`.
-6. Khi nhận hàng, cập nhật tồn kho và giá vốn trong một transaction.
-7. Chặn nhận trùng, chặn nhận đơn đã hủy và ghi lịch sử kho.
-8. Giới hạn quyền: admin và thủ kho được thao tác; thu ngân nhận 403.
-9. Viết test cho CRUD, chuyển trạng thái, tồn kho, tổng tiền và rollback.
-10. Kiểm tra dữ liệu mẫu Excel chỉ sau khi sản phẩm có đúng `product_id`.
+- Có migration cho `suppliers`, `purchase_orders`, `purchase_order_items` và
+  liên kết nhập kho.
+- Có model, quan hệ, validate và CRUD nhà cung cấp.
+- Có tạo đơn nhập nhiều sản phẩm, tự tính tổng tiền.
+- Có quy trình `cho_duyet` → `cho_giao` → `dang_giao` → `da_nhan` hoặc
+  `da_huy`.
+- Khi nhận hàng, cập nhật tồn kho, giá vốn và lịch sử kho trong transaction.
+- Chặn nhận trùng, nhận sai trạng thái và xóa nhà cung cấp đã có đơn.
+- Admin/thủ kho được thao tác; thu ngân nhận 403.
+- Đã có test luồng nhận hàng một lần và kiểm tra phân quyền.
+
+URL chính:
+
+- `/nhaphang/nhacungcap`: danh sách và CRUD nhà cung cấp.
+- `/nhaphang/donnhap`: danh sách đơn nhập.
+- `/nhaphang/donnhap/them`: tạo đơn nhập.
+
+File Excel trong `TaiLieu/ThongTinNhaCungCap/` hiện là dữ liệu nguồn đã kiểm
+tra; chức năng import hàng loạt chưa tự động hóa vì cần đối chiếu `product_id`
+với dữ liệu sản phẩm thực tế.
 
 ### Pha 16 — Nhật ký và phân quyền nâng cao
 
