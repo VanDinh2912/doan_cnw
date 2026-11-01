@@ -103,6 +103,100 @@ php artisan migrate:fresh --seed --force
 
 Không chạy lệnh này trên database có dữ liệu cần giữ.
 
+## 4. Thiết lập thiết bị và thanh toán thực tế
+
+Phần này dành cho lúc chạy demo tại cửa hàng. Nên kiểm thử trên bản sao dữ
+liệu trước, không dùng `demo:reset` sau khi đã nhập dữ liệu thật.
+
+### 4.1. Máy quét barcode thật
+
+Ứng dụng hiện hỗ trợ máy quét loại **USB HID/keyboard wedge**. Loại này hoạt
+động như bàn phím nên không cần driver hoặc SDK riêng:
+
+1. Cắm máy quét vào máy tính và mở Notepad.
+2. Quét thử một mã; nếu Notepad nhận đúng chuỗi barcode thì thiết bị đã được
+   Windows nhận.
+3. Cấu hình máy quét gửi thêm phím `Enter` sau mỗi lần quét (suffix CR/LF).
+4. Đăng nhập tài khoản admin hoặc thu ngân, mở `/pos`.
+5. Đặt con trỏ vào ô tìm barcode, quét sản phẩm và kiểm tra sản phẩm được thêm
+   vào giỏ.
+6. Quét lại cùng sản phẩm để kiểm tra số lượng trong giỏ tăng lên.
+
+Nếu máy quét không tự thêm sản phẩm, kiểm tra barcode trong dữ liệu sản phẩm,
+đảm bảo sản phẩm đang bán và còn tồn, sau đó cấu hình lại suffix `Enter` theo
+hướng dẫn của nhà sản xuất. Không nên dùng máy quét webcam cho luồng này vì
+ứng dụng chưa có chức năng đọc barcode bằng camera.
+
+### 4.2. Máy in nhiệt K58/K80
+
+Ứng dụng tạo hóa đơn bằng giao diện in của trình duyệt; máy in không được
+điều khiển trực tiếp bằng Laravel:
+
+1. Cài driver đúng model máy in trên Windows.
+2. In trang test trong Windows để xác nhận máy in hoạt động.
+3. Vào `/donhang`, mở một hóa đơn và chọn khổ `K58` hoặc `K80`.
+4. Trong hộp thoại in của trình duyệt, chọn đúng máy in nhiệt.
+5. Chọn khổ giấy tương ứng (58 mm hoặc 80 mm), tắt header/footer của trình
+   duyệt và đặt lề về mức tối thiểu.
+6. In thử một hóa đơn trước khi demo; kiểm tra tiếng Việt, xuống dòng và tổng
+   tiền.
+
+Nếu chữ bị cắt, chọn đúng khổ giấy trong cả driver máy in và hộp thoại in.
+Nếu cần in tự động không qua hộp thoại trình duyệt, phải bổ sung một print
+server hoặc phần mềm trung gian như QZ Tray; tính năng đó chưa có trong
+project hiện tại.
+
+### 4.3. VietQR với tài khoản ngân hàng thật
+
+Chỉ cấu hình tài khoản do chủ dự án cho phép. Không commit các giá trị này lên
+Git và không gửi file `.env` cho người khác:
+
+```env
+POS_BANK_CODE=VCB
+POS_BANK_ACCOUNT=0123456789
+POS_BANK_NAME="TEN CHU TAI KHOAN"
+```
+
+Thay `POS_BANK_CODE` bằng mã ngân hàng được VietQR hỗ trợ, nhập đúng số tài
+ khoản và tên chủ tài khoản. Sau đó:
+
+1. Xóa cache cấu hình bằng `php artisan config:clear`.
+2. Chạy ứng dụng và mở `/pos`.
+3. Chọn thanh toán chuyển khoản để hiển thị QR.
+4. Dùng ứng dụng ngân hàng trên điện thoại quét QR.
+5. Kiểm tra đúng người nhận, số tiền và nội dung trước khi chuyển.
+6. Thu ngân chỉ xác nhận thanh toán sau khi kiểm tra giao dịch thành công
+   trong ứng dụng ngân hàng hoặc sao kê.
+
+Phiên bản hiện tại chỉ tạo QR và xác nhận thủ công; QR không tự biết giao dịch
+đã thành công. Không đánh dấu đã thanh toán chỉ dựa vào việc khách gửi ảnh
+chụp màn hình chuyển khoản.
+
+### 4.4. Webhook xác nhận thanh toán ngân hàng
+
+Webhook không thể tự triển khai chỉ bằng tài khoản ngân hàng thông thường.
+Cần đăng ký một cổng thanh toán hoặc dịch vụ trung gian có API/webhook, ví dụ
+VietQR động qua một nhà cung cấp được ngân hàng hỗ trợ. Quy trình triển khai
+an toàn:
+
+1. Chọn nhà cung cấp có tài liệu API, chữ ký webhook và môi trường sandbox.
+2. Tạo `ma_giao_dich` duy nhất cho mỗi hóa đơn, không dùng mã hóa đơn dễ đoán.
+3. Lưu hóa đơn ở trạng thái `cho_xac_nhan`, số tiền phải thu và mã giao dịch.
+4. Tạo endpoint HTTPS riêng, ví dụ `/api/payment/webhook`.
+5. Xác thực chữ ký hoặc secret của nhà cung cấp trước khi đọc payload.
+6. Kiểm tra số tiền, mã giao dịch, ngân hàng nhận và trạng thái giao dịch.
+7. Xử lý idempotent: cùng một webhook gửi lại không được tạo hóa đơn hoặc
+   cộng điểm lần thứ hai.
+8. Ghi log tối thiểu gồm mã giao dịch, trạng thái và thời điểm; không ghi
+   secret hoặc toàn bộ thông tin nhạy cảm.
+9. Chỉ chuyển hóa đơn sang `da_thanh_toan` sau khi tất cả kiểm tra thành công.
+10. Kiểm thử sandbox, webhook gửi lặp, sai chữ ký, sai số tiền và timeout
+    trước khi dùng production.
+
+Không mở endpoint webhook không xác thực và không tin dữ liệu do trình duyệt
+gửi lên. Pha webhook chưa nằm trong code hiện tại; cần chốt nhà cung cấp và
+tài liệu API trước khi lập trình.
+
 ## 4. Chạy ứng dụng
 
 ### Chạy trên port 8081
@@ -354,8 +448,7 @@ Các phần sau chưa thuộc scope cốt lõi hiện tại:
 - Webhook đối soát chuyển khoản tự động.
 - CRUD tài khoản người dùng.
 - Ứng dụng mobile hoặc API riêng.
-- Báo cáo xuất Excel/PDF nâng cao.
-- Tích hợp cổng thanh toán thật.
+- Tích hợp cổng thanh toán thật và in tự động không qua hộp thoại trình duyệt.
 
 Chỉ nên triển khai các phần mở rộng sau khi toàn bộ luồng POS, kho, hóa đơn
 và phân quyền đã được kiểm thử ổn định.
