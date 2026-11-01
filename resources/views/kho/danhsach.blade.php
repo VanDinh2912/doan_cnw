@@ -9,7 +9,7 @@
 </div>
 <div class="card">
     <div class="table-responsive">
-        <table class="table table-striped mb-0">
+        <table class="table table-striped mb-0 js-data-table">
             <thead><tr><th>SKU</th><th>Sản phẩm</th><th>Loại</th><th>Tồn kho</th><th>Ngưỡng cảnh báo</th><th>Trạng thái</th></tr></thead>
             <tbody>
             @foreach ($sanPhams as $sanPham)

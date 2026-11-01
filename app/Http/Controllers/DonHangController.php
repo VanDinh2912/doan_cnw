@@ -20,10 +20,29 @@ class DonHangController extends Controller
         return view('pos.index');
     }
 
-    public function getDanhSach(): View
+    public function getDanhSach(Request $request): View
     {
+        $validated = $request->validate([
+            'tu_ngay' => ['nullable', 'date'],
+            'den_ngay' => ['nullable', 'date', 'after_or_equal:tu_ngay'],
+        ], [
+            'tu_ngay.date' => 'Ngày bắt đầu không hợp lệ.',
+            'den_ngay.date' => 'Ngày kết thúc không hợp lệ.',
+            'den_ngay.after_or_equal' => 'Ngày kết thúc phải sau hoặc bằng ngày bắt đầu.',
+        ]);
+
+        $truyVan = DonHang::with('user')->latest();
+        if (! empty($validated['tu_ngay'])) {
+            $truyVan->whereDate('created_at', '>=', $validated['tu_ngay']);
+        }
+        if (! empty($validated['den_ngay'])) {
+            $truyVan->whereDate('created_at', '<=', $validated['den_ngay']);
+        }
+
         return view('donhang.danhsach', [
-            'donHangs' => DonHang::with('user')->latest()->paginate(20),
+            'donHangs' => $truyVan->paginate(20)->withQueryString(),
+            'tuNgay' => $validated['tu_ngay'] ?? '',
+            'denNgay' => $validated['den_ngay'] ?? '',
         ]);
     }
 
@@ -48,7 +67,7 @@ class DonHangController extends Controller
         ]);
 
         $gioHang = collect($request->session()->get('gio_hang', []))
-            ->sortKeys()
+            ->sortBy(fn (array $item, string|int $key): int => (int) ($item['id'] ?? $key))
             ->all();
         if ($gioHang === []) {
             return back()->with('error', 'Giỏ hàng đang trống.');
@@ -74,7 +93,9 @@ class DonHangController extends Controller
                 $giamGiaPhanTram = (float) $validated['giam_gia_phantram'];
                 $tienGiam = round($tongTien * $giamGiaPhanTram / 100);
                 $tongThanhToan = $tongTien - $tienGiam;
-                $tienKhachDua = (float) $validated['tien_khach_dua'];
+                $tienKhachDua = $validated['phuong_thuc'] === 'chuyenkhoan'
+                    ? $tongThanhToan
+                    : (float) $validated['tien_khach_dua'];
 
                 if ($validated['phuong_thuc'] === 'tienmat' && $tienKhachDua < $tongThanhToan) {
                     throw new \RuntimeException('Tiền khách đưa chưa đủ thanh toán.');
@@ -113,7 +134,7 @@ class DonHangController extends Controller
                 }
 
                 return $donHang;
-            });
+            }, 2);
 
             $request->session()->forget('gio_hang');
 
