@@ -9,7 +9,19 @@
         <div class="card">
             <div class="card-body">
                 <label class="form-label" for="tim-kiem">Tìm theo tên, SKU hoặc barcode</label>
-                <input class="form-control" id="tim-kiem" type="search" autocomplete="off" placeholder="Nhập từ khóa...">
+                <div class="row g-2">
+                    <div class="col-md-8">
+                        <input class="form-control" id="tim-kiem" type="search" autocomplete="off" placeholder="Nhập từ khóa...">
+                    </div>
+                    <div class="col-md-4">
+                        <select class="form-select" id="loc-loai">
+                            <option value="">Tất cả loại</option>
+                            @foreach ($loais as $loai)
+                                <option value="{{ $loai->id }}">{{ $loai->ten_loai }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
                 <div class="row g-2 mt-2" id="ket-qua"></div>
             </div>
         </div>
@@ -87,12 +99,15 @@
 <script>
 const input = document.getElementById('tim-kiem');
 const result = document.getElementById('ket-qua');
+const category = document.getElementById('loc-loai');
 const phuongThuc = document.getElementById('phuong_thuc');
 const tienKhachDua = document.getElementById('tien_khach_dua');
 const vietQrBox = document.getElementById('vietqr-box');
 const vietQrImage = document.getElementById('vietqr-image');
 let timer;
 let scannerTimer;
+let scannerBuffer = '';
+let scannerLastKeyAt = 0;
 function hienThiKetQua(products) {
     result.innerHTML = '';
     products.forEach(product => {
@@ -103,17 +118,20 @@ function hienThiKetQua(products) {
         link.href = `{{ url('/giohang/them') }}/${product.id}`;
         if (product.hinh_anh) {
             const image = document.createElement('img');
-            image.src = `{{ asset('') }}${product.hinh_anh}`;
+            image.src = product.hinh_anh.startsWith('upload/')
+                ? `{{ asset('') }}${product.hinh_anh}`
+                : `{{ asset('storage') }}/${product.hinh_anh}`;
             image.className = 'card-img-top';
             image.style = 'height:120px;object-fit:cover';
             image.alt = product.ten_sanpham;
             link.appendChild(image);
         } else {
-            const placeholder = document.createElement('div');
-            placeholder.className = 'bg-light d-flex align-items-center justify-content-center';
-            placeholder.style = 'height:120px';
-            placeholder.innerHTML = '<i class="fa-solid fa-box-open fa-2x text-secondary"></i>';
-            link.appendChild(placeholder);
+            const image = document.createElement('img');
+            image.src = `{{ asset('img/no-image.svg') }}`;
+            image.className = 'card-img-top';
+            image.style = 'height:120px;object-fit:cover';
+            image.alt = 'Chưa có ảnh';
+            link.appendChild(image);
         }
         const body = document.createElement('div');
         body.className = 'card-body p-2';
@@ -132,20 +150,35 @@ function hienThiKetQua(products) {
     if (!products.length) result.innerHTML = '<div class="text-muted p-2">Không tìm thấy sản phẩm còn hàng.</div>';
 }
 async function timKiem(query, chinhXac = false) {
-    const response = await fetch(`{{ route('sanpham.timkiem') }}?q=${encodeURIComponent(query)}${chinhXac ? '&chinhxac=1' : ''}`);
+    const categoryQuery = category.value ? `&category_id=${category.value}` : '';
+    const response = await fetch(`{{ route('sanpham.timkiem') }}?q=${encodeURIComponent(query)}${chinhXac ? '&chinhxac=1' : ''}${categoryQuery}`);
     hienThiKetQua(await response.json());
 }
-input.addEventListener('keydown', (event) => {
-    clearTimeout(scannerTimer);
-    if (event.key === 'Enter') {
-        event.preventDefault();
-        const query = input.value.trim();
-        if (query) timKiem(query, true);
-    } else {
-        scannerTimer = setTimeout(() => {
-            if (input.value.trim()) timKiem(input.value.trim());
-        }, 80);
+async function themTuBarcode(barcode) {
+    const categoryQuery = category.value ? `&category_id=${category.value}` : '';
+    const response = await fetch(`{{ route('sanpham.timkiem') }}?q=${encodeURIComponent(barcode)}&chinhxac=1${categoryQuery}`);
+    const products = await response.json();
+    if (products.length !== 1) {
+        result.innerHTML = '<div class="alert alert-warning">Không tìm thấy barcode hoặc sản phẩm đã hết hàng.</div>';
+        return;
     }
+    window.location.href = `{{ url('/giohang/them') }}/${products[0].id}`;
+}
+document.addEventListener('keydown', (event) => {
+    if (document.activeElement !== input) return;
+    const now = performance.now();
+    if (event.key === 'Enter') {
+        if (scannerBuffer.length >= 6) {
+            event.preventDefault();
+            themTuBarcode(scannerBuffer);
+        }
+        scannerBuffer = '';
+        scannerLastKeyAt = 0;
+        return;
+    }
+    if (event.key.length !== 1) return;
+    scannerBuffer = now - scannerLastKeyAt < 50 ? scannerBuffer + event.key : event.key;
+    scannerLastKeyAt = now;
 });
 input.addEventListener('input', () => {
     clearTimeout(timer);
@@ -176,6 +209,9 @@ function capNhatQr() {
 }
 phuongThuc.addEventListener('change', capNhatQr);
 document.getElementById('giam_gia_phantram').addEventListener('input', capNhatQr);
+category.addEventListener('change', () => {
+    if (input.value.trim()) timKiem(input.value.trim());
+});
 </script>
 @endpush
 @endsection

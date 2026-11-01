@@ -6,6 +6,8 @@ use App\Models\SanPham;
 use App\Models\User;
 use App\Models\DonHang;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class PosWorkflowTest extends TestCase
@@ -155,5 +157,71 @@ class PosWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee('HD20261101-0001')
             ->assertDontSee('HD20261030-0001');
+    }
+
+    public function test_admin_can_upload_product_image_to_public_storage(): void
+    {
+        Storage::fake('public');
+        $this->seed();
+        $admin = User::where('role', 'admin')->firstOrFail();
+        $category = \App\Models\LoaiSanPham::firstOrFail();
+
+        $response = $this->actingAs($admin)->post(route('sanpham.postthem'), [
+            'category_id' => $category->id,
+            'sku' => 'TEST-IMAGE',
+            'barcode' => '899000000001',
+            'ten_sanpham' => 'Sản phẩm ảnh',
+            'don_vi' => 'Cái',
+            'gia_nhap' => 10000,
+            'gia_ban' => 15000,
+            'soluong' => 2,
+            'soluong_toithieu' => 1,
+            'trang_thai' => 1,
+            'hinh_anh' => UploadedFile::fake()->image('product.png'),
+        ]);
+
+        $response->assertRedirect(route('sanpham.danhsach'));
+        $product = SanPham::where('sku', 'TEST-IMAGE')->firstOrFail();
+        Storage::disk('public')->assertExists($product->hinh_anh);
+    }
+
+    public function test_invalid_product_image_is_rejected(): void
+    {
+        $this->seed();
+        $admin = User::where('role', 'admin')->firstOrFail();
+        $category = \App\Models\LoaiSanPham::firstOrFail();
+
+        $response = $this->actingAs($admin)->from(route('sanpham.them'))->post(route('sanpham.postthem'), [
+            'category_id' => $category->id,
+            'sku' => 'TEST-BAD-IMAGE',
+            'ten_sanpham' => 'Ảnh sai',
+            'don_vi' => 'Cái',
+            'gia_nhap' => 10000,
+            'gia_ban' => 15000,
+            'soluong' => 1,
+            'soluong_toithieu' => 1,
+            'hinh_anh' => UploadedFile::fake()->create('script.exe', 100, 'application/octet-stream'),
+        ]);
+
+        $response->assertRedirect(route('sanpham.them'))->assertSessionHasErrors('hinh_anh');
+        $this->assertDatabaseMissing('products', ['sku' => 'TEST-BAD-IMAGE']);
+    }
+
+    public function test_product_search_can_filter_by_category_and_exact_barcode(): void
+    {
+        $this->seed();
+        $cashier = User::where('role', 'thungan')->firstOrFail();
+        $product = SanPham::where('sku', 'HC-C109-CL')->firstOrFail();
+        $product->update(['barcode' => '8931234567890']);
+
+        $this->actingAs($cashier)
+            ->get(route('sanpham.timkiem', [
+                'q' => '8931234567890',
+                'chinhxac' => 1,
+                'category_id' => $product->category_id,
+            ]))
+            ->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonPath('0.id', $product->id);
     }
 }

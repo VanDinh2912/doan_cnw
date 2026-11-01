@@ -21,9 +21,9 @@
                 <tr>
                     <td>
                         @if ($sanPham->hinh_anh)
-                            <img src="{{ asset($sanPham->hinh_anh) }}" alt="{{ $sanPham->ten_sanpham }}" style="height:40px;width:40px;object-fit:cover">
+                            <img src="{{ str_starts_with($sanPham->hinh_anh, 'upload/') ? asset($sanPham->hinh_anh) : asset('storage/'.$sanPham->hinh_anh) }}" alt="{{ $sanPham->ten_sanpham }}" style="height:40px;width:40px;object-fit:cover">
                         @else
-                            —
+                            <img src="{{ asset('img/no-image.svg') }}" alt="Chưa có ảnh" style="height:40px;width:40px;object-fit:cover">
                         @endif
                     </td>
                     <td>{{ $sanPham->sku }}</td>

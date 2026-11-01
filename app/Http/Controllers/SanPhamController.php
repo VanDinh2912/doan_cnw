@@ -6,7 +6,7 @@ use App\Models\LoaiSanPham;
 use App\Models\SanPham;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Illuminate\Validation\Rule;
 
@@ -84,6 +84,7 @@ class SanPhamController extends Controller
         $sanPhams = SanPham::query()
             ->where('trang_thai', true)
             ->where('soluong', '>', 0)
+            ->when($request->filled('category_id'), fn ($query) => $query->where('category_id', $request->integer('category_id')))
             ->where(function ($query) use ($tuKhoa, $request): void {
                 if ($request->boolean('chinhxac')) {
                     $query->where('barcode', $tuKhoa);
@@ -111,7 +112,7 @@ class SanPhamController extends Controller
             'gia_ban' => ['required', 'numeric', 'min:0'],
             'soluong' => ['required', 'integer', 'min:0'],
             'soluong_toithieu' => ['required', 'integer', 'min:0'],
-            'hinh_anh' => ['nullable', 'image', 'max:2048'],
+            'hinh_anh' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ];
     }
 
@@ -129,6 +130,7 @@ class SanPhamController extends Controller
             'soluong.min' => 'Số lượng không được âm.',
             'soluong_toithieu.min' => 'Ngưỡng tồn tối thiểu không được âm.',
             'hinh_anh.image' => 'Tệp tải lên phải là hình ảnh.',
+            'hinh_anh.mimes' => 'Hình ảnh phải có định dạng JPG, JPEG, PNG hoặc WEBP.',
             'hinh_anh.max' => 'Hình ảnh không được vượt quá 2MB.',
         ];
     }
@@ -139,19 +141,15 @@ class SanPhamController extends Controller
             return null;
         }
 
-        $thuMuc = public_path('upload/sanpham');
-        File::ensureDirectoryExists($thuMuc);
-        $tep = $request->file('hinh_anh');
-        $tenTep = uniqid('sp_', true).'.'.$tep->getClientOriginalExtension();
-        $tep->move($thuMuc, $tenTep);
-
-        return 'upload/sanpham/'.$tenTep;
+        return $request->file('hinh_anh')->store('sanpham', 'public');
     }
 
     private function xoaHinhAnh(?string $duongDan): void
     {
-        if ($duongDan !== null) {
-            File::delete(public_path($duongDan));
+        if ($duongDan !== null && ! str_starts_with($duongDan, 'upload/')) {
+            Storage::disk('public')->delete($duongDan);
+        } elseif ($duongDan !== null) {
+            @unlink(public_path($duongDan));
         }
     }
 }
