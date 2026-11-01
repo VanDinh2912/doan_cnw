@@ -486,8 +486,10 @@ Sau khi kiểm thử, tạo Pull Request để merge vào `main`.
 - Đổi/trả hàng có kiểm tra hạn, số lượng, tình trạng hàng, hoàn tiền, điểm và
   tồn kho.
 - Hold giỏ hàng và kiểm kê kho có kiểm tra bán xen, duyệt điều chỉnh và nhật ký.
-- Nhập 100 khách hàng và 80 nhà cung cấp từ file Excel mẫu, không ghi đè bản ghi
-  trùng.
+- Bộ dữ liệu thay thế gồm 12 loại hàng, 300 sản phẩm, 81 nhà cung cấp, 100
+  khách hàng và một hóa đơn nhập 300 dòng.
+- PDF hóa đơn mẫu chỉ được lưu làm file đính kèm; không parse PDF để suy đoán
+  SKU, barcode hoặc giá bán.
 - Tài liệu dự án được lưu trong `TaiLieu/`.
 - Lộ trình mở rộng sau demo được ghi tại
   `TaiLieu/KeHoach/Ke hoach.md`.
@@ -499,7 +501,8 @@ Sau khi kiểm thử, tạo Pull Request để merge vào `main`.
 - Quét barcode bằng webcam.
 - In tự động không qua hộp thoại trình duyệt.
 - CRUD tài khoản người dùng, ứng dụng mobile và API riêng.
-- Nhập tự động 200 đơn nhập từ workbook khi chưa có bảng đối chiếu 300 sản phẩm.
+- Chưa có các luồng ngoài scope như permission động, API/mobile và tích hợp bên
+  ngoài.
 
 Các phần mở rộng dưới đây chưa thuộc scope cốt lõi hiện tại:
 
@@ -530,9 +533,10 @@ URL chính:
 - `/nhaphang/donnhap`: danh sách đơn nhập.
 - `/nhaphang/donnhap/them`: tạo đơn nhập.
 
-File Excel trong `TaiLieu/ThongTinNhaCungCap/` hiện là dữ liệu nguồn đã kiểm
-tra; chức năng import hàng loạt chưa tự động hóa vì cần đối chiếu `product_id`
-với dữ liệu sản phẩm thực tế.
+File Excel trong `TaiLieu/ThongTinNhaCungCap/` được giữ làm tài liệu nguồn.
+Bộ dữ liệu hóa đơn nhập đang dùng workbook
+`TaiLieu/ThongTinHangHoa/LoaiHangHoa.xlsx`; có thể kiểm tra bằng
+`php artisan demo:kiemtra-du-lieu`.
 
 ### Pha 18 — Đổi/trả hàng — Đã hoàn thành một phần
 
