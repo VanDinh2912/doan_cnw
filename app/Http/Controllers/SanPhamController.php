@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Illuminate\Validation\Rule;
+use Picqer\Barcode\BarcodeGeneratorSVG;
 
 class SanPhamController extends Controller
 {
@@ -98,6 +99,27 @@ class SanPhamController extends Controller
             ->get(['id', 'sku', 'barcode', 'ten_sanpham', 'gia_ban', 'soluong', 'hinh_anh']);
 
         return response()->json($sanPhams);
+    }
+
+    public function getTem(Request $request, SanPham $sanPham): View
+    {
+        $validated = $request->validate([
+            'soluong_tem' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ], [
+            'soluong_tem.integer' => 'Số lượng tem phải là số nguyên.',
+            'soluong_tem.min' => 'Số lượng tem phải lớn hơn 0.',
+            'soluong_tem.max' => 'Số lượng tem không được vượt quá 100.',
+        ]);
+
+        $ma = $sanPham->barcode ?: $sanPham->sku;
+        $generator = new BarcodeGeneratorSVG();
+
+        return view('sanpham.tem', [
+            'sanPham' => $sanPham,
+            'soLuongTem' => $validated['soluong_tem'] ?? 1,
+            'maVach' => $ma,
+            'barcodeSvg' => $generator->getBarcode($ma, $generator::TYPE_CODE_128),
+        ]);
     }
 
     private function rules(?SanPham $sanPham = null): array

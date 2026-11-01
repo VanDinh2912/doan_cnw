@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\SanPham;
 use App\Models\User;
 use App\Models\DonHang;
+use App\Models\KhachHang;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -223,5 +224,80 @@ class PosWorkflowTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1)
             ->assertJsonPath('0.id', $product->id);
+    }
+
+    public function test_stock_manager_can_print_product_barcode_labels(): void
+    {
+        $this->seed();
+        $stockKeeper = User::where('role', 'thukho')->firstOrFail();
+        $product = SanPham::where('sku', 'HC-C109-CL')->firstOrFail();
+
+        $this->actingAs($stockKeeper)
+            ->get(route('sanpham.tem', [$product, 'soluong_tem' => 3]))
+            ->assertOk()
+            ->assertSee($product->sku)
+            ->assertSee('<svg', false)
+            ->assertSee('grid-template-columns');
+    }
+
+    public function test_customer_earns_and_redeems_loyalty_points_during_payment(): void
+    {
+        $this->seed();
+        $cashier = User::where('role', 'thungan')->firstOrFail();
+        $product = SanPham::where('sku', 'HC-C109-CL')->firstOrFail();
+        $customer = KhachHang::create([
+            'ho_ten' => 'Khách tích điểm',
+            'so_dienthoai' => '0900000001',
+            'diem_tichluy' => 2,
+        ]);
+
+        $response = $this->actingAs($cashier)->withSession([
+            'gio_hang' => [(string) $product->id => [
+                'id' => $product->id,
+                'soluong' => 2,
+            ]],
+        ])->post(route('donhang.thanhtoan'), [
+            'customer_id' => $customer->id,
+            'diem_su_dung' => 2,
+            'giam_gia_phantram' => 0,
+            'tien_khach_dua' => 136000,
+            'phuong_thuc' => 'tienmat',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('invoices', [
+            'customer_id' => $customer->id,
+            'diem_su_dung' => 2,
+            'tien_giam_diem' => 2000,
+            'tong_thanh_toan' => 136000,
+            'diem_tichluy_nhan' => 1,
+        ]);
+        $this->assertDatabaseHas('customers', ['id' => $customer->id, 'diem_tichluy' => 1]);
+    }
+
+    public function test_customer_cannot_redeem_more_points_than_balance(): void
+    {
+        $this->seed();
+        $cashier = User::where('role', 'thungan')->firstOrFail();
+        $product = SanPham::where('sku', 'HC-C109-CL')->firstOrFail();
+        $customer = KhachHang::create([
+            'ho_ten' => 'Khách ít điểm',
+            'so_dienthoai' => '0900000002',
+            'diem_tichluy' => 1,
+        ]);
+
+        $response = $this->actingAs($cashier)->withSession([
+            'gio_hang' => [(string) $product->id => ['id' => $product->id, 'soluong' => 1]],
+        ])->post(route('donhang.thanhtoan'), [
+            'customer_id' => $customer->id,
+            'diem_su_dung' => 2,
+            'giam_gia_phantram' => 0,
+            'tien_khach_dua' => 100000,
+            'phuong_thuc' => 'tienmat',
+        ]);
+
+        $response->assertRedirect()->assertSessionHas('error');
+        $this->assertDatabaseCount('invoices', 0);
+        $this->assertDatabaseHas('customers', ['id' => $customer->id, 'diem_tichluy' => 1]);
     }
 }

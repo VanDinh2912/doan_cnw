@@ -16,12 +16,19 @@ class DonHang extends Model
     protected $fillable = [
         'ma_hoadon', 'user_id', 'tong_tien', 'giam_gia_phantram',
         'tien_giam', 'tong_thanh_toan', 'tien_khach_dua',
-        'tien_thua', 'phuong_thuc',
+        'tien_thua', 'phuong_thuc', 'customer_id', 'diem_su_dung',
+        'tien_giam_diem', 'diem_tichluy_nhan', 'trang_thai', 'ma_giaodich',
+        'thoi_gian_thanh_toan',
     ];
 
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function khachHang(): BelongsTo
+    {
+        return $this->belongsTo(KhachHang::class, 'customer_id');
     }
 
     public function chiTietDonHangs(): HasMany

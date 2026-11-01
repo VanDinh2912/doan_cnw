@@ -34,6 +34,22 @@ Route::middleware('auth')->group(function (): void {
             ->name('donhang.danhsach');
         Route::get('/donhang/inhoadon/{donHang}', [\App\Http\Controllers\DonHangController::class, 'getInHoaDon'])
             ->name('donhang.inhoadon');
+        Route::get('/khachhang/timkiem', [\App\Http\Controllers\KhachHangController::class, 'getTimKiem'])
+            ->name('khachhang.timkiem');
+        Route::post('/khachhang/nhanh', [\App\Http\Controllers\KhachHangController::class, 'postTaoNhanh'])
+            ->name('khachhang.nhanh');
+        Route::get('/khachhang', [\App\Http\Controllers\KhachHangController::class, 'getDanhSach'])
+            ->name('khachhang.danhsach');
+        Route::get('/khachhang/them', [\App\Http\Controllers\KhachHangController::class, 'getThem'])
+            ->name('khachhang.them');
+        Route::post('/khachhang/them', [\App\Http\Controllers\KhachHangController::class, 'postThem'])
+            ->name('khachhang.postthem');
+        Route::get('/khachhang/sua/{khachHang}', [\App\Http\Controllers\KhachHangController::class, 'getSua'])
+            ->name('khachhang.sua');
+        Route::put('/khachhang/sua/{khachHang}', [\App\Http\Controllers\KhachHangController::class, 'postSua'])
+            ->name('khachhang.postsua');
+        Route::delete('/khachhang/xoa/{khachHang}', [\App\Http\Controllers\KhachHangController::class, 'getXoa'])
+            ->name('khachhang.xoa');
     });
 
     Route::middleware('role:admin,thukho')->group(function (): void {
@@ -49,6 +65,8 @@ Route::middleware('auth')->group(function (): void {
             ->name('sanpham.postthem');
         Route::get('/sanpham/sua/{sanPham}', [\App\Http\Controllers\SanPhamController::class, 'getSua'])
             ->name('sanpham.sua');
+        Route::get('/sanpham/tem/{sanPham}', [\App\Http\Controllers\SanPhamController::class, 'getTem'])
+            ->name('sanpham.tem');
         Route::put('/sanpham/sua/{sanPham}', [\App\Http\Controllers\SanPhamController::class, 'postSua'])
             ->name('sanpham.postsua');
         Route::delete('/sanpham/xoa/{sanPham}', [\App\Http\Controllers\SanPhamController::class, 'getXoa'])
