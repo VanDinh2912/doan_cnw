@@ -68,6 +68,8 @@ Route::middleware('auth')->group(function (): void {
     });
 
     Route::middleware('role:admin')->group(function (): void {
+        Route::get('/thongke', [\App\Http\Controllers\ThongKeController::class, 'getTrangThongKe'])
+            ->name('thongke.index');
         Route::get('/thongke/doanhthu', [\App\Http\Controllers\ThongKeController::class, 'getDoanhThu'])->name('thongke.doanhthu');
         Route::get('/thongke/topsanpham', [\App\Http\Controllers\ThongKeController::class, 'getTopSanPham'])->name('thongke.topsanpham');
     });
