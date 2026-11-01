@@ -6,6 +6,7 @@ use App\Models\BienDongKho;
 use App\Models\ChiTietDonHang;
 use App\Models\DonHang;
 use App\Models\LoaiSanPham;
+use App\Models\KhachHang;
 use App\Models\SanPham;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -67,6 +68,8 @@ class DonHangController extends Controller
             'giam_gia_phantram' => ['required', 'numeric', 'min:0', 'max:100'],
             'tien_khach_dua' => ['required', 'numeric', 'min:0'],
             'phuong_thuc' => ['required', 'in:tienmat,chuyenkhoan'],
+            'customer_id' => ['nullable', 'integer', 'exists:customers,id'],
+            'diem_su_dung' => ['nullable', 'integer', 'min:0'],
         ], [
             'giam_gia_phantram.min' => 'Giảm giá không được âm.',
             'giam_gia_phantram.max' => 'Giảm giá không được vượt quá 100%.',
@@ -100,7 +103,23 @@ class DonHangController extends Controller
 
                 $giamGiaPhanTram = (float) $validated['giam_gia_phantram'];
                 $tienGiam = round($tongTien * $giamGiaPhanTram / 100);
-                $tongThanhToan = $tongTien - $tienGiam;
+                $khachHang = null;
+                $diemSuDung = (int) ($validated['diem_su_dung'] ?? 0);
+                $tienGiamDiem = 0;
+                if (! empty($validated['customer_id'])) {
+                    $khachHang = KhachHang::query()->lockForUpdate()->findOrFail($validated['customer_id']);
+                    if ($diemSuDung > $khachHang->diem_tichluy) {
+                        throw new \RuntimeException('Số điểm sử dụng vượt quá điểm hiện có.');
+                    }
+                    $tienGiamDiem = $diemSuDung * config('pos.gia_tri_diem');
+                    if ($tienGiam + $tienGiamDiem > $tongTien) {
+                        throw new \RuntimeException('Số điểm sử dụng vượt quá giá trị hóa đơn.');
+                    }
+                } elseif ($diemSuDung > 0) {
+                    throw new \RuntimeException('Cần chọn khách hàng trước khi dùng điểm.');
+                }
+                $tongThanhToan = $tongTien - $tienGiam - $tienGiamDiem;
+                $diemTichLuyNhan = $khachHang ? (int) floor($tongThanhToan / config('pos.diem_moi_dong')) : 0;
                 $tienKhachDua = $validated['phuong_thuc'] === 'chuyenkhoan'
                     ? $tongThanhToan
                     : (float) $validated['tien_khach_dua'];
@@ -113,13 +132,19 @@ class DonHangController extends Controller
                 $donHang = DonHang::create([
                     'ma_hoadon' => $maHoaDon,
                     'user_id' => $request->user()->id,
+                    'customer_id' => $khachHang?->id,
                     'tong_tien' => $tongTien,
                     'giam_gia_phantram' => $giamGiaPhanTram,
                     'tien_giam' => $tienGiam,
+                    'diem_su_dung' => $diemSuDung,
+                    'tien_giam_diem' => $tienGiamDiem,
+                    'diem_tichluy_nhan' => $diemTichLuyNhan,
                     'tong_thanh_toan' => $tongThanhToan,
                     'tien_khach_dua' => $tienKhachDua,
                     'tien_thua' => $validated['phuong_thuc'] === 'tienmat' ? $tienKhachDua - $tongThanhToan : 0,
                     'phuong_thuc' => $validated['phuong_thuc'],
+                    'trang_thai' => 'da_thanh_toan',
+                    'thoi_gian_thanh_toan' => now(),
                 ]);
 
                 foreach ($sanPhams as [$sanPham, $soLuong, $thanhTien]) {
@@ -138,6 +163,12 @@ class DonHangController extends Controller
                         'loai' => 'ban',
                         'soluong' => -$soLuong,
                         'ghi_chu' => 'Bán hàng '.$donHang->ma_hoadon,
+                    ]);
+                }
+
+                if ($khachHang) {
+                    $khachHang->update([
+                        'diem_tichluy' => $khachHang->diem_tichluy - $diemSuDung + $diemTichLuyNhan,
                     ]);
                 }
 

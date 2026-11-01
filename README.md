@@ -170,6 +170,7 @@ Mật khẩu trên chỉ dùng cho demo, không dùng trong môi trường thậ
 - Tính giảm giá, tiền khách đưa và tiền thừa.
 - Thanh toán bằng tiền mặt hoặc chuyển khoản.
 - Hiển thị VietQR động khi đã cấu hình ngân hàng trong `.env`; thu ngân vẫn xác nhận thủ công.
+- Quản lý khách hàng theo số điện thoại và tích điểm: 100.000 đ được 1 điểm, 1 điểm giảm 1.000 đ.
 - Không cho bán vượt tồn kho.
 
 Thanh toán sử dụng một transaction duy nhất:

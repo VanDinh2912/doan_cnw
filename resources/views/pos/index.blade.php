@@ -64,6 +64,19 @@
                     <div class="text-end fs-5"><strong>Tổng: {{ number_format($tongTien, 0, ',', '.') }} đ</strong></div>
                     <form class="border-top mt-3 pt-3" method="POST" action="{{ route('donhang.thanhtoan') }}">
                         @csrf
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-8">
+                                <label class="form-label" for="so_dienthoai_khach">Số điện thoại khách</label>
+                                <input class="form-control" id="so_dienthoai_khach" type="search" autocomplete="off" placeholder="Nhập để tìm khách hàng">
+                                <input id="customer_id" name="customer_id" type="hidden">
+                                <div class="list-group mt-1" id="khach-hang-results"></div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label" for="diem_su_dung">Dùng điểm</label>
+                                <input class="form-control" id="diem_su_dung" name="diem_su_dung" type="number" min="0" value="{{ old('diem_su_dung', 0) }}">
+                                <small class="text-muted" id="diem-hien-co">Chưa chọn khách</small>
+                            </div>
+                        </div>
                         <div class="row g-2">
                             <div class="col-md-4">
                                 <label class="form-label" for="giam_gia_phantram">Giảm giá (%)</label>
@@ -104,6 +117,11 @@ const phuongThuc = document.getElementById('phuong_thuc');
 const tienKhachDua = document.getElementById('tien_khach_dua');
 const vietQrBox = document.getElementById('vietqr-box');
 const vietQrImage = document.getElementById('vietqr-image');
+const customerPhone = document.getElementById('so_dienthoai_khach');
+const customerId = document.getElementById('customer_id');
+const customerResults = document.getElementById('khach-hang-results');
+const pointsInput = document.getElementById('diem_su_dung');
+const pointsHint = document.getElementById('diem-hien-co');
 let timer;
 let scannerTimer;
 let scannerBuffer = '';
@@ -211,6 +229,28 @@ phuongThuc.addEventListener('change', capNhatQr);
 document.getElementById('giam_gia_phantram').addEventListener('input', capNhatQr);
 category.addEventListener('change', () => {
     if (input.value.trim()) timKiem(input.value.trim());
+});
+customerPhone.addEventListener('input', async () => {
+    customerId.value = '';
+    pointsHint.textContent = 'Chưa chọn khách';
+    const phone = customerPhone.value.trim();
+    customerResults.innerHTML = '';
+    if (!phone) return;
+    const response = await fetch(`{{ route('khachhang.timkiem') }}?sdt=${encodeURIComponent(phone)}`);
+    const customers = await response.json();
+    customers.forEach(customer => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'list-group-item list-group-item-action';
+        button.textContent = `${customer.ho_ten} - ${customer.so_dienthoai} (Điểm: ${customer.diem_tichluy})`;
+        button.addEventListener('click', () => {
+            customerId.value = customer.id;
+            customerPhone.value = customer.so_dienthoai;
+            pointsHint.textContent = `Điểm hiện có: ${customer.diem_tichluy}`;
+            customerResults.innerHTML = '';
+        });
+        customerResults.appendChild(button);
+    });
 });
 </script>
 @endpush

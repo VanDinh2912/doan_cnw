@@ -34,6 +34,7 @@
                 @endif
                 @if (in_array(auth()->user()->role, ['admin', 'thungan'], true))
                     <a class="nav-link" href="{{ route('donhang.danhsach') }}">Hóa đơn</a>
+                    <a class="nav-link" href="{{ route('khachhang.danhsach') }}">Khách hàng</a>
                 @endif
                 @if (auth()->user()->role === 'admin')
                     <a class="nav-link" href="{{ route('thongke.index') }}">Thống kê</a>

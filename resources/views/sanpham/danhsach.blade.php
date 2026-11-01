@@ -34,6 +34,7 @@
                     <td>{{ $sanPham->trang_thai ? 'Đang bán' : 'Tạm dừng' }}</td>
                     <td class="text-end">
                         <a class="btn btn-sm btn-outline-primary" href="{{ route('sanpham.sua', $sanPham) }}">Sửa</a>
+                        <a class="btn btn-sm btn-outline-secondary" href="{{ route('sanpham.tem', $sanPham) }}">Tem</a>
                         <form class="d-inline" method="POST" action="{{ route('sanpham.xoa', $sanPham) }}" onsubmit="return confirm('Xóa sản phẩm này?')">
                             @csrf
                             @method('DELETE')
