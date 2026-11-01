@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 use Throwable;
+use App\Services\NhatKyService;
 
 class NhapHangController extends Controller
 {
@@ -32,7 +33,8 @@ class NhapHangController extends Controller
 
     public function postThemNhaCungCap(Request $request): RedirectResponse
     {
-        NhaCungCap::create($this->validateNhaCungCap($request));
+        $nhaCungCap = NhaCungCap::create($this->validateNhaCungCap($request));
+        NhatKyService::ghi($request, 'them', 'nha_cung_cap', $nhaCungCap->id, 'Thêm nhà cung cấp');
 
         return redirect()->route('nhaphang.nhacungcap')->with('success', 'Đã thêm nhà cung cấp.');
     }
@@ -45,6 +47,7 @@ class NhapHangController extends Controller
     public function postSuaNhaCungCap(Request $request, NhaCungCap $nhaCungCap): RedirectResponse
     {
         $nhaCungCap->update($this->validateNhaCungCap($request));
+        NhatKyService::ghi($request, 'sua', 'nha_cung_cap', $nhaCungCap->id, 'Cập nhật nhà cung cấp');
 
         return redirect()->route('nhaphang.nhacungcap')->with('success', 'Đã cập nhật nhà cung cấp.');
     }
@@ -56,6 +59,7 @@ class NhapHangController extends Controller
         }
 
         $nhaCungCap->delete();
+        NhatKyService::ghi($request, 'xoa', 'nha_cung_cap', $nhaCungCap->id, 'Xóa nhà cung cấp');
 
         return back()->with('success', 'Đã xóa nhà cung cấp.');
     }
@@ -112,6 +116,7 @@ class NhapHangController extends Controller
 
             return $donNhap;
         });
+        NhatKyService::ghi($request, 'tao_don_nhap', 'don_nhap', $donNhap->id, 'Tạo đơn '.$donNhap->ma_don);
 
         return redirect()->route('nhaphang.donnhap.chitiet', $donNhap)->with('success', 'Đã tạo đơn nhập.');
     }
@@ -170,6 +175,7 @@ class NhapHangController extends Controller
                 'nguoi_nhan_id' => $request->user()->id,
                 'ngay_nhan' => now(),
             ]);
+            NhatKyService::ghi($request, 'nhan_hang', 'don_nhap', $donNhap->id, 'Nhận hàng từ đơn '.$donNhap->ma_don);
         });
     }
 

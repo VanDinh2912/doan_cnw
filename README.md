@@ -453,11 +453,12 @@ Sau khi kiểm thử, tạo Pull Request để merge vào `main`.
 - Giá vốn, lợi nhuận và xuất báo cáo XLSX/PDF.
 - VietQR thủ công với xác nhận chuyển khoản thủ công.
 - Nhà cung cấp và đơn nhập hàng theo quy trình trạng thái nhiều bước.
+- Nhật ký hoạt động cơ bản cho đăng nhập, sản phẩm, nhập kho, nhà cung cấp và
+  đơn nhập hàng.
 - Tài liệu dự án được lưu trong `TaiLieu/`.
 
 ### Còn thiếu hoặc chưa triển khai
 
-- Nhật ký hoạt động/audit log đầy đủ.
 - Phân quyền động theo permission.
 - Webhook đối soát chuyển khoản tự động.
 - Quét barcode bằng webcam.
@@ -499,9 +500,15 @@ với dữ liệu sản phẩm thực tế.
 
 ### Pha 16 — Nhật ký và phân quyền nâng cao
 
-Chỉ làm sau khi Pha 15 ổn định:
+Phần nhật ký hoạt động cơ bản đã hoàn thành:
 
-- Ghi người dùng, hành động, đối tượng, thời gian và kết quả.
+- Admin xem tại `/nhatky`, có lọc theo hành động.
+- Ghi người dùng, hành động, đối tượng, thời gian, IP và mô tả.
+- Đã tích hợp đăng nhập/đăng xuất, sản phẩm, nhập kho, nhà cung cấp và đơn
+  nhập.
+
+Phần còn lại của Pha 16:
+
 - Thêm permission cho từng nhóm chức năng.
 - Giữ tương thích với middleware role hiện tại trong thời gian chuyển đổi.
 - Test không làm thay đổi quyền POS, kho và thống kê đang hoạt động.

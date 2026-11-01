@@ -40,6 +40,7 @@
                 @endif
                 @if (auth()->user()->role === 'admin')
                     <a class="nav-link" href="{{ route('thongke.index') }}">Thống kê</a>
+                    <a class="nav-link" href="{{ route('nhatky.index') }}">Nhật ký hoạt động</a>
                 @endif
             </div>
         </aside>

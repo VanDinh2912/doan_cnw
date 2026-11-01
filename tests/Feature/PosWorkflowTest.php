@@ -363,4 +363,31 @@ class PosWorkflowTest extends TestCase
         $this->actingAs($cashier)->get(route('nhaphang.nhacungcap'))->assertForbidden();
         $this->actingAs($cashier)->get(route('nhaphang.donnhap'))->assertForbidden();
     }
+
+    public function test_admin_can_view_activity_log_and_supplier_action_is_recorded(): void
+    {
+        $this->seed();
+        $admin = User::where('role', 'admin')->firstOrFail();
+
+        $this->actingAs($admin)->post(route('nhaphang.nhacungcap.postthem'), [
+            'ten_nhacungcap' => 'Nhà cung cấp nhật ký',
+        ])->assertRedirect();
+
+        $this->actingAs($admin)->get(route('nhatky.index'))
+            ->assertOk()
+            ->assertSee('Thêm nhà cung cấp');
+        $this->assertDatabaseHas('activity_logs', [
+            'user_id' => $admin->id,
+            'hanh_dong' => 'them',
+            'doi_tuong' => 'nha_cung_cap',
+        ]);
+    }
+
+    public function test_non_admin_cannot_view_activity_log(): void
+    {
+        $this->seed();
+        $manager = User::where('role', 'thukho')->firstOrFail();
+
+        $this->actingAs($manager)->get(route('nhatky.index'))->assertForbidden();
+    }
 }

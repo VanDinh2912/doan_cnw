@@ -6,6 +6,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
+use App\Services\NhatKyService;
 
 class AuthController extends Controller
 {
@@ -36,12 +37,14 @@ class AuthController extends Controller
         }
 
         $request->session()->regenerate();
+        NhatKyService::ghi($request, 'dang_nhap', 'user', $request->user()?->id, 'Đăng nhập thành công');
 
         return redirect()->intended(route('tongquan'));
     }
 
     public function getDangXuat(Request $request): RedirectResponse
     {
+        NhatKyService::ghi($request, 'dang_xuat', 'user', $request->user()?->id, 'Đăng xuất');
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
