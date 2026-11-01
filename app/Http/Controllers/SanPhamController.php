@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Illuminate\Validation\Rule;
 use Picqer\Barcode\BarcodeGeneratorSVG;
+use App\Services\NhatKyService;
 
 class SanPhamController extends Controller
 {
@@ -34,7 +35,8 @@ class SanPhamController extends Controller
         $validated['hinh_anh'] = $this->luuHinhAnh($request);
         $validated['trang_thai'] = $request->boolean('trang_thai');
 
-        SanPham::create($validated);
+        $sanPham = SanPham::create($validated);
+        NhatKyService::ghi($request, 'them', 'san_pham', $sanPham->id, 'Thêm sản phẩm '.$sanPham->sku);
 
         return redirect()->route('sanpham.danhsach')->with('success', 'Đã thêm sản phẩm.');
     }
@@ -58,6 +60,7 @@ class SanPhamController extends Controller
         $validated['trang_thai'] = $request->boolean('trang_thai');
 
         $sanPham->update($validated);
+        NhatKyService::ghi($request, 'sua', 'san_pham', $sanPham->id, 'Cập nhật sản phẩm '.$sanPham->sku);
 
         return redirect()->route('sanpham.danhsach')->with('success', 'Đã cập nhật sản phẩm.');
     }
@@ -70,6 +73,7 @@ class SanPhamController extends Controller
 
         $this->xoaHinhAnh($sanPham->hinh_anh);
         $sanPham->delete();
+        NhatKyService::ghi($request, 'xoa', 'san_pham', $sanPham->id, 'Xóa sản phẩm '.$sanPham->sku);
 
         return redirect()->route('sanpham.danhsach')->with('success', 'Đã xóa sản phẩm.');
     }

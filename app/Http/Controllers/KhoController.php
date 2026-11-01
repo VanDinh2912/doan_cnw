@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 use Throwable;
+use App\Services\NhatKyService;
 
 class KhoController extends Controller
 {
@@ -54,6 +55,7 @@ class KhoController extends Controller
                     'ghi_chu' => $validated['ghi_chu'] ?? 'Nhập kho',
                 ]);
             });
+            NhatKyService::ghi($request, 'nhap_kho', 'san_pham', (int) $validated['product_id'], 'Nhập kho trực tiếp');
         } catch (Throwable $exception) {
             Log::error('Nhập kho thất bại.', ['message' => $exception->getMessage()]);
 
