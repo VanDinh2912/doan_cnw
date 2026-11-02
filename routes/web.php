@@ -10,6 +10,10 @@ Route::get('/dangxuat', [\App\Http\Controllers\AuthController::class, 'getDangXu
     ->middleware('auth')
     ->name('auth.dangxuat');
 
+Route::post('/api/webhook/thanhtoan', [\App\Http\Controllers\WebhookController::class, 'postThanhToan'])
+    ->middleware('throttle:60,1')
+    ->name('webhook.thanhtoan');
+
 Route::middleware('auth')->group(function (): void {
     Route::get('/', fn () => redirect()->route('tongquan'))->name('trangchu');
     Route::get('/tongquan', [\App\Http\Controllers\ThongKeController::class, 'getTongQuan'])->name('tongquan');
@@ -25,6 +29,10 @@ Route::middleware('auth')->group(function (): void {
         Route::get('/trahang/xem/{phieuTra}', [\App\Http\Controllers\TraHangController::class, 'getXem'])->name('trahang.xem');
         Route::get('/pos', [\App\Http\Controllers\DonHangController::class, 'getPos'])->name('pos.index');
         Route::get('/pos/vietqr', [\App\Http\Controllers\DonHangController::class, 'getVietQr'])->name('pos.vietqr');
+        Route::post('/donhang/taoqr', [\App\Http\Controllers\DonHangController::class, 'postTaoQr'])->name('donhang.taoqr');
+        Route::get('/donhang/trangthai/{donHang}', [\App\Http\Controllers\DonHangController::class, 'getTrangThai'])->name('donhang.trangthai');
+        Route::post('/donhang/xacnhan/{donHang}', [\App\Http\Controllers\DonHangController::class, 'postXacNhanThanhToan'])->name('donhang.xacnhan');
+        Route::post('/donhang/huycho/{donHang}', [\App\Http\Controllers\DonHangController::class, 'postHuyCho'])->name('donhang.huycho');
         Route::post('/hold', [\App\Http\Controllers\HoldController::class, 'giu'])->name('hold.giu');
         Route::get('/hold', [\App\Http\Controllers\HoldController::class, 'danhSach'])->name('hold.danhsach');
         Route::get('/hold/{gioTam}/khoiphuc', [\App\Http\Controllers\HoldController::class, 'khoiPhuc'])->name('hold.khoiphuc');

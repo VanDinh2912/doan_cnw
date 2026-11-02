@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 
 Schedule::command('hold:clean')->daily();
+Schedule::command('donhang:huy-qua-han')->everyMinute();
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());

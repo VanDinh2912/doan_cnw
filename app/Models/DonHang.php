@@ -16,10 +16,17 @@ class DonHang extends Model
     protected $fillable = [
         'ma_hoadon', 'user_id', 'tong_tien', 'giam_gia_phantram',
         'tien_giam', 'tong_thanh_toan', 'tien_khach_dua',
-        'tien_thua', 'phuong_thuc', 'ma_giao_dich', 'customer_id', 'diem_su_dung',
+        'tien_thua', 'phuong_thuc', 'ma_giao_dich', 'ma_giaodich', 'customer_id', 'diem_su_dung',
         'tien_giam_diem', 'diem_tichluy_nhan', 'trang_thai',
-        'thoi_gian_thanh_toan',
+        'thoi_gian_thanh_toan', 'ghi_chu',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'thoi_gian_thanh_toan' => 'datetime',
+        ];
+    }
 
     public function user(): BelongsTo
     {

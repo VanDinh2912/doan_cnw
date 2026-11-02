@@ -8,6 +8,7 @@ use App\Models\DonHang;
 use App\Models\LoaiSanPham;
 use App\Models\KhachHang;
 use App\Models\SanPham;
+use App\Services\ThanhToanChuyenKhoanService;
 use App\Services\VietQrService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -47,6 +48,107 @@ class DonHangController extends Controller
         ]);
     }
 
+    /**
+     * Tạo hóa đơn chờ thanh toán (cho_thanh_toan) và trả về URL ảnh VietQR kèm hạn chờ.
+     * POST /donhang/taoqr
+     */
+    public function postTaoQr(Request $request, ThanhToanChuyenKhoanService $service, VietQrService $vietQr): JsonResponse
+    {
+        $validated = $request->validate([
+            'giam_gia_phantram' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'customer_id'       => ['nullable', 'integer', 'exists:customers,id'],
+            'diem_su_dung'      => ['nullable', 'integer', 'min:0'],
+        ]);
+
+        $gioHang = $request->session()->get('gio_hang', []);
+        if (empty($gioHang)) {
+            return response()->json(['error' => 'Giỏ hàng đang trống.'], 422);
+        }
+
+        try {
+            $donHang = $service->taoHoaDonChoThanhToan($gioHang, $validated, $request->user());
+
+            // Xóa giỏ trong session sau khi đã chuyển thành hóa đơn cho_thanh_toan và giữ tồn kho
+            $request->session()->forget('gio_hang');
+
+            $phut = (int) config('pos.cho_thanh_toan_phut', 15);
+            $hetHanLuc = $donHang->created_at->addMinutes($phut)->toIso8601String();
+
+            // Sinh URL VietQR với nội dung là mã hóa đơn
+            $urlQr = $vietQr->url((int) $donHang->tong_thanh_toan, $donHang->ma_hoadon);
+
+            return response()->json([
+                'id'              => $donHang->id,
+                'ma_hoadon'       => $donHang->ma_hoadon,
+                'tong_thanh_toan' => (int) $donHang->tong_thanh_toan,
+                'url_qr'          => $urlQr,
+                'het_han_luc'     => $hetHanLuc,
+            ]);
+        } catch (Throwable $e) {
+            return response()->json(['error' => $e->getMessage()], 422);
+        }
+    }
+
+    /**
+     * Tra cứu trạng thái hóa đơn cho POS polling.
+     * Áp dụng cơ chế hủy lười (lazy expiration) nếu hóa đơn cho_thanh_toan đã quá hạn.
+     * GET /donhang/trangthai/{donHang}
+     */
+    public function getTrangThai(DonHang $donHang, ThanhToanChuyenKhoanService $service): JsonResponse
+    {
+        $phut = (int) config('pos.cho_thanh_toan_phut', 15);
+        if ($donHang->trang_thai === 'cho_thanh_toan' && $donHang->created_at->addMinutes($phut)->isPast()) {
+            $service->huyChoThanhToan($donHang, 'Quá hạn chờ thanh toán (hủy lười)');
+            $donHang->refresh();
+        }
+
+        return response()->json([
+            'trang_thai' => $donHang->trang_thai,
+            'url_in'     => $donHang->trang_thai === 'da_thanh_toan' ? route('donhang.inhoadon', $donHang) : null,
+        ]);
+    }
+
+    /**
+     * Xác nhận thanh toán thủ công từ thu ngân (phương án dự phòng khi mất mạng / khách chuyển không quét webhook).
+     * POST /donhang/xacnhan/{donHang}
+     */
+    public function postXacNhanThanhToan(DonHang $donHang, ThanhToanChuyenKhoanService $service): JsonResponse
+    {
+        $res = $service->hoanTatThanhToan($donHang, null, auth()->user(), 'Thu ngân xác nhận thủ công');
+
+        if (! $res['success']) {
+            return response()->json(['error' => $res['message']], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã xác nhận thanh toán thành công.',
+            'url_in'  => route('donhang.inhoadon', $donHang),
+        ]);
+    }
+
+    /**
+     * Thu ngân chủ động hủy chờ thanh toán (khách đổi ý sang tiền mặt hoặc không mua nữa).
+     * POST /donhang/huycho/{donHang}
+     */
+    public function postHuyCho(DonHang $donHang, ThanhToanChuyenKhoanService $service): JsonResponse
+    {
+        if ($donHang->trang_thai !== 'cho_thanh_toan') {
+            return response()->json(['error' => 'Chỉ có thể hủy hóa đơn đang chờ thanh toán.'], 422);
+        }
+
+        $res = $service->huyChoThanhToan($donHang, 'Thu ngân hủy chờ thanh toán');
+
+        if (! $res['success']) {
+            return response()->json(['error' => $res['message']], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã hủy chờ thanh toán và hoàn trả tồn kho.',
+        ]);
+    }
+
     public function getDanhSach(Request $request): View
     {
         $validated = $request->validate([
@@ -75,6 +177,10 @@ class DonHangController extends Controller
 
     public function getInHoaDon(Request $request, DonHang $donHang): View
     {
+        if ($donHang->trang_thai !== 'da_thanh_toan') {
+            abort(403, 'Chỉ có thể in hóa đơn đã thanh toán.');
+        }
+
         $donHang->load(['user', 'chiTietDonHangs.sanPham']);
 
         $kho = $request->query('kho', 'k80');

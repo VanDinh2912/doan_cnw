@@ -23,7 +23,7 @@
 <div class="card">
     <div class="table-responsive">
         <table class="table table-striped mb-0 js-data-table">
-            <thead><tr><th>Mã hóa đơn</th><th>Thu ngân</th><th>Ngày</th><th>Tổng thanh toán</th><th></th></tr></thead>
+            <thead><tr><th>Mã hóa đơn</th><th>Thu ngân</th><th>Ngày</th><th>Tổng thanh toán</th><th>Trạng thái</th><th></th></tr></thead>
             <tbody>
             @forelse ($donHangs as $donHang)
                 <tr>
@@ -31,15 +31,28 @@
                     <td>{{ $donHang->user->name }}</td>
                     <td>{{ $donHang->created_at->format('d/m/Y H:i') }}</td>
                     <td>{{ number_format($donHang->tong_thanh_toan, 0, ',', '.') }} đ</td>
-                    <td class="text-nowrap">
-                        <a class="btn btn-sm btn-outline-primary" href="{{ route('donhang.inhoadon', $donHang) }}">Xem/in</a>
+                    <td>
                         @if ($donHang->trang_thai === 'da_thanh_toan')
+                            <span class="badge bg-success">Đã thanh toán</span>
+                        @elseif ($donHang->trang_thai === 'cho_thanh_toan')
+                            <span class="badge bg-warning text-dark">Chờ thanh toán</span>
+                        @elseif ($donHang->trang_thai === 'da_huy')
+                            <span class="badge bg-secondary">Đã hủy</span>
+                        @else
+                            <span class="badge bg-light text-dark">{{ $donHang->trang_thai }}</span>
+                        @endif
+                    </td>
+                    <td class="text-nowrap">
+                        @if ($donHang->trang_thai === 'da_thanh_toan')
+                            <a class="btn btn-sm btn-outline-primary" href="{{ route('donhang.inhoadon', $donHang) }}">Xem/in</a>
                             <a class="btn btn-sm btn-outline-warning" href="{{ route('trahang.chon', $donHang) }}">Đổi trả</a>
+                        @else
+                            <button class="btn btn-sm btn-outline-secondary" disabled>Chưa thanh toán</button>
                         @endif
                     </td>
                 </tr>
             @empty
-                <tr><td class="text-center" colspan="5">Chưa có hóa đơn.</td></tr>
+                <tr><td class="text-center" colspan="6">Chưa có hóa đơn.</td></tr>
             @endforelse
             </tbody>
         </table>

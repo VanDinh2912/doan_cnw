@@ -459,3 +459,50 @@ Tài liệu `Giai doan 4.pdf` (được chuẩn hóa từ phụ lục VietQR) m�
 | `app/Models/DonHang.php` | Sửa fillable `ma_giao_dich`, thêm relationship `paymentWebhooks()` |
 | `resources/views/pos/index.blade.php` | Refactor `capNhatQr()` từ client-side sang AJAX fetch server |
 
+---
+
+# Giai đoạn 5 - Thanh toán Chuyển khoản Tự động SePay (Test Mode) + Thông báo Telegram
+
+**Mục tiêu**: Khách chuyển khoản theo QR VietQR, hệ thống nhận webhook từ SePay (Test mode / Mô phỏng), tự chuyển hóa đơn sang `da_thanh_toan`, Web POS tự đóng modal QR và chuyển sang in hóa đơn, đồng thời gửi thông báo Telegram về điện thoại. Nút "Xác nhận đã nhận tiền" thủ công giữ nguyên làm phương án dự phòng.
+
+*Nguồn tài liệu*: [developer.sepay.vn](https://developer.sepay.vn) (SePay Webhooks & Test mode, truy cập ngày 02/11/2026).
+
+## 1. Các mốc triển khai (Milestones)
+
+- **M1. Hạ tầng lõi**:
+  - Migration bổ sung cột `ghi_chu` vào `invoices`.
+  - Config `pos.cho_thanh_toan_phut` (15), `sepay_webhook_api_key`, `telegram_bot_token`, `telegram_chat_id`.
+  - Lớp xử lý lõi `ThanhToanChuyenKhoanService` (`taoHoaDonChoThanhToan`, `hoanTatThanhToan`, `huyChoThanhToan`). Thứ tự khóa chuẩn: sản phẩm (`id` tăng dần) $\to$ khách hàng $\to$ hóa đơn.
+  - Lớp đọc payload `SepayWebhook` (`xacThuc` qua API Key bằng `hash_equals`, `validate`, `chuanHoa`, trích xuất mã hóa đơn bằng regex).
+- **M2. Luồng POS & Endpoint Webhook**:
+  - Route POS: `POST /donhang/taoqr`, `GET /donhang/trangthai/{id}`, `POST /donhang/xacnhan/{id}`, `POST /donhang/huycho/{id}`.
+  - Endpoint `POST /api/webhook/thanhtoan` (name `webhook.thanhtoan`), loại trừ CSRF trong `bootstrap/app.php`, gắn rate limit `throttle:60,1`.
+  - Giao diện POS: Modal VietQR với mã QR động, bộ đếm ngược, polling mỗi 3 giây, nút xác nhận thủ công và nút hủy chờ.
+- **M3. Tự hủy quá hạn & Thông báo Telegram**:
+  - Cơ chế hủy lười (Lazy expiration) trong `donhang.trangthai`.
+  - Artisan command `php artisan donhang:huy-qua-han` và lập lịch chạy mỗi phút trong `routes/console.php`.
+  - Lớp `ThongBaoService` gửi tin nhắn Telegram Bot API (thành công, cảnh báo thiếu tiền, cảnh báo không khớp hóa đơn), timeout 5s, không bao giờ chặn luồng thanh toán.
+- **M4. Kiểm thử toàn diện & Rà soát tính toàn vẹn**:
+  - Viết bộ test `tests/Feature/ThanhToanChuyenKhoanTest.php` gồm 16 ca test (T-CK01 đến T-CK16) xanh 100%.
+  - Bổ sung truy vấn kiểm tra tính toàn vẹn thanh toán, biến động kho và không trùng `ma_giaodich` vào lệnh `php artisan demo:kiemtra-du-lieu`.
+  - Cập nhật tài liệu `README.md` và `TaiLieu/KeHoach/Ke hoach.md`.
+
+## 2. Danh mục ca kiểm thử T-CK01 đến T-CK16
+- **T-CK01**: Thu ngân tạo QR $\to$ tạo hóa đơn `cho_thanh_toan`, trừ tồn kho, ghi stock movement `ban`, trừ điểm sử dụng, trả URL QR và hạn chờ.
+- **T-CK02**: Tạo QR khi giỏ hàng rỗng $\to$ trả lỗi 422.
+- **T-CK03**: Webhook SePay hợp lệ (`transferType: in`, đúng số tiền) $\to$ chuyển `da_thanh_toan`, ghi `ma_giaodich`, cộng điểm tích lũy nhận.
+- **T-CK04**: Webhook SePay sai API Key $\to$ trả 401 Unauthorized.
+- **T-CK05**: Webhook SePay gửi trùng lặp (idempotent) $\to$ trả 200 `{success: true}`, không cộng điểm lần 2.
+- **T-CK06**: Webhook SePay số tiền lớn hơn tổng thanh toán $\to$ hoàn tất thanh toán, ghi chú khách chuyển dư.
+- **T-CK07**: Webhook SePay số tiền nhỏ hơn tổng thanh toán $\to$ giữ nguyên `cho_thanh_toan`, trả 200, ghi cảnh báo.
+- **T-CK08**: Webhook SePay có `transferType: out` (tiền ra) $\to$ bỏ qua, trả 200.
+- **T-CK09**: Webhook SePay nội dung không chứa mã hóa đơn $\to$ bỏ qua, trả 200.
+- **T-CK10**: Thu ngân xác nhận thanh toán thủ công $\to$ chuyển `da_thanh_toan`, cộng điểm tích lũy.
+- **T-CK11**: Thu ngân bấm xác nhận khi hóa đơn đã được xử lý trước đó $\to$ trả lỗi 422 an toàn, không cộng trùng điểm.
+- **T-CK12**: Thu ngân hủy chờ $\to$ chuyển `da_huy`, hoàn tồn kho (movement `dieuchinh` dương), hoàn điểm đã dùng.
+- **T-CK13**: POS polling trạng thái khi chưa quá hạn $\to$ trả `cho_thanh_toan`.
+- **T-CK14**: POS polling trạng thái khi đã quá hạn $\to$ kích hoạt hủy lười, chuyển `da_huy`, hoàn kho và điểm.
+- **T-CK15**: Lệnh Artisan `donhang:huy-qua-han` quét và hủy các hóa đơn quá hạn.
+- **T-CK16**: Hóa đơn `cho_thanh_toan` bị chặn in (403) và không tính vào doanh thu; sau khi `da_thanh_toan` thì in được và tính doanh thu bình thường.
+
+
