@@ -216,23 +216,29 @@ input.addEventListener('input', () => {
         timKiem(query);
     }, 250);
 });
-function capNhatQr() {
+async function capNhatQr() {
     const hienThi = phuongThuc.value === 'chuyenkhoan';
     vietQrBox.classList.toggle('d-none', !hienThi);
     tienKhachDua.readOnly = hienThi;
     if (!hienThi) return;
-    const tong = {{ $tongTien ?? 0 }};
     const giam = Number(document.getElementById('giam_gia_phantram').value || 0);
-    const thanhToan = Math.round(tong * (1 - giam / 100));
-    const bank = @json(config('pos.bank_code'));
-    const account = @json(config('pos.bank_account'));
-    const name = @json(config('pos.bank_name'));
-    if (!bank || !account) {
-        vietQrBox.insertAdjacentHTML('beforeend', '<small class="text-danger d-block mt-2">Chưa cấu hình POS_BANK_CODE và POS_BANK_ACCOUNT trong .env.</small>');
-        return;
+    try {
+        const res = await fetch(`{{ route('pos.vietqr') }}?giam_gia_phantram=${giam}`);
+        const data = await res.json();
+        if (!data.enabled || !data.url) {
+            vietQrImage.classList.add('d-none');
+            vietQrImage.removeAttribute('src');
+            vietQrBox.querySelector('.text-danger')?.remove();
+            vietQrBox.insertAdjacentHTML('beforeend', '<small class="text-danger d-block mt-2">Chưa cấu hình POS_BANK_CODE và POS_BANK_ACCOUNT trong .env.</small>');
+            return;
+        }
+        vietQrBox.querySelector('.text-danger')?.remove();
+        tienKhachDua.value = data.amount;
+        vietQrImage.src = data.url;
+        vietQrImage.classList.remove('d-none');
+    } catch (e) {
+        console.error('VietQR error:', e);
     }
-    tienKhachDua.value = thanhToan;
-    vietQrImage.src = `https://img.vietqr.io/image/${encodeURIComponent(bank)}-${encodeURIComponent(account)}-compact2.png?amount=${thanhToan}&addInfo=${encodeURIComponent('Thanh toan Web POS')}&accountName=${encodeURIComponent(name)}`;
 }
 phuongThuc.addEventListener('change', capNhatQr);
 document.getElementById('giam_gia_phantram').addEventListener('input', capNhatQr);

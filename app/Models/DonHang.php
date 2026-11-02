@@ -16,8 +16,8 @@ class DonHang extends Model
     protected $fillable = [
         'ma_hoadon', 'user_id', 'tong_tien', 'giam_gia_phantram',
         'tien_giam', 'tong_thanh_toan', 'tien_khach_dua',
-        'tien_thua', 'phuong_thuc', 'customer_id', 'diem_su_dung',
-        'tien_giam_diem', 'diem_tichluy_nhan', 'trang_thai', 'ma_giaodich',
+        'tien_thua', 'phuong_thuc', 'ma_giao_dich', 'customer_id', 'diem_su_dung',
+        'tien_giam_diem', 'diem_tichluy_nhan', 'trang_thai',
         'thoi_gian_thanh_toan',
     ];
 
@@ -44,5 +44,10 @@ class DonHang extends Model
     public function phieuTras(): HasMany
     {
         return $this->hasMany(PhieuTra::class, 'invoice_id');
+    }
+
+    public function paymentWebhooks(): HasMany
+    {
+        return $this->hasMany(PaymentWebhook::class, 'invoice_id');
     }
 }
