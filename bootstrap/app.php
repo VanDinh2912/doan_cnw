@@ -16,6 +16,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'api/webhook/*',
         ]);
 
+        $middleware->redirectGuestsTo(fn () => route('auth.dangnhap'));
+
         $middleware->alias([
             'role' => \App\Http\Middleware\CheckRole::class,
         ]);
