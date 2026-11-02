@@ -194,19 +194,76 @@ khoản, tên chủ tài khoản và template hiển thị (`compact`, `compact2
 4. Dùng ứng dụng ngân hàng trên điện thoại quét QR để thanh toán.
 5. Thu ngân kiểm tra giao dịch và xác nhận, hoặc hệ thống tự động cập nhật qua webhook.
 
-### 4.4. Webhook xác nhận thanh toán ngân hàng (Đã triển khai)
+### 4.4. Thanh toán chuyển khoản tự động qua SePay (Test Mode) & Thông báo Telegram (Đã triển khai)
 
-Hệ thống cung cấp endpoint webhook tại `POST /api/webhook/thanhtoan` để nhận
-thông báo thanh toán tự động từ cổng thanh toán/ngân hàng (VietQR, SePay, Casso, payOS):
+Hệ thống hỗ trợ thanh toán chuyển khoản VietQR tự động qua Webhook SePay (Test mode / Mô phỏng) kết hợp thông báo Telegram về điện thoại khi có giao dịch. Nút "Xác nhận đã nhận tiền" thủ công được giữ nguyên làm phương án dự phòng.
 
-- **Xác thực chữ ký**: Hỗ trợ xác thực chữ ký HMAC-SHA256 qua header `X-Webhook-Signature`
-  dựa trên `POS_WEBHOOK_SECRET`.
-- **Chống trùng lặp (Idempotent)**: Kiểm tra `ma_giao_dich_ngoai` trong bảng `payment_webhooks`.
-  Giao dịch gửi lại sẽ trả về HTTP 200 mà không cập nhật hay ghi đè.
-- **An toàn dữ liệu**: Chạy trong `DB::transaction()` với `lockForUpdate()`, kiểm tra khớp
-  `ma_hoadon` và đối soát chính xác `so_tien` thanh toán.
-- **Lưu vết giao dịch**: Lưu lịch sử thanh toán vào bảng `payment_webhooks` và cập nhật
-  `ma_giao_dich` vào bảng `invoices`.
+*Nguồn tài liệu tham khảo*: [developer.sepay.vn](https://developer.sepay.vn) (SePay Webhooks & Chế độ Test mode, truy cập ngày 02/11/2026).
+
+#### A. Cấu hình biến môi trường (`.env`)
+```env
+# Ngân hàng & VietQR
+POS_BANK_CODE=MB
+POS_BANK_ACCOUNT=0388888888
+POS_BANK_NAME="NGUYEN VAN A"
+POS_QR_TEMPLATE=compact2
+
+# Thời hạn chờ thanh toán (phút, mặc định 15)
+POS_CHO_THANH_TOAN_PHUT=15
+
+# SePay Webhook API Key (lấy từ SePay Dashboard)
+SEPAY_WEBHOOK_API_KEY=your_sepay_api_key_here
+
+# Thông báo Telegram Bot (tùy chọn)
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
+TELEGRAM_CHAT_ID=your_telegram_chat_id_here
+```
+
+#### B. Hướng dẫn thiết lập SePay Test Mode & Webhook
+1. **Đăng nhập SePay**: Truy cập [my.sepay.vn](https://my.sepay.vn) và đăng nhập hoặc tạo tài khoản miễn phí.
+2. **Kích hoạt Test Mode**: Vào phần **Cài đặt** (Settings) -> Bật **Chế độ mô phỏng / Test Mode**.
+3. **Cấu hình Webhook**:
+   - Vào mục **Tích hợp Webhook** (Webhooks).
+   - Nhập URL Webhook của bạn (phải là URL public internet, xem hướng dẫn Tunnel bên dưới):  
+     `https://<your-tunnel-subdomain>/api/webhook/thanhtoan`
+   - Phương thức xác thực: Chọn **API Key** (gửi qua header `Authorization: Apikey <KEY>`).
+   - Copy mã API Key này và điền vào biến `SEPAY_WEBHOOK_API_KEY` trong file `.env`.
+4. **Mô phỏng giao dịch (Test)**:
+   - Vào mục **Mô phỏng giao dịch** trên SePay Dashboard.
+   - Nhập số tiền chuyển và nội dung chuyển khoản chứa mã hóa đơn (ví dụ: `HD202611020001` hoặc `HD20261102-0001`).
+   - Bấm **Gửi Webhook**. Hệ thống POS sẽ tự động nhận diện và hoàn tất hóa đơn trong vòng vài giây.
+
+#### C. Hướng dẫn tạo Tunnel công khai (Cloudflare Tunnel / ngrok)
+Vì SePay gửi webhook từ internet về máy local, bạn cần mở tunnel:
+- **Cách 1: Dùng Cloudflare Tunnel (Khuyên dùng, miễn phí, không giới hạn session)**
+  ```powershell
+  cloudflared tunnel --url http://127.0.0.1:8081
+  ```
+  Copy URL `https://xxxx.trycloudflare.com` dán vào SePay Webhook URL: `https://xxxx.trycloudflare.com/api/webhook/thanhtoan`.
+- **Cách 2: Dùng ngrok**
+  ```powershell
+  ngrok http 8081
+  ```
+  Copy URL `https://xxxx.ngrok-free.app` dán vào SePay Webhook URL: `https://xxxx.ngrok-free.app/api/webhook/thanhtoan`.
+
+#### D. Hướng dẫn tạo Telegram Bot & Lấy Chat ID
+1. Mở ứng dụng Telegram, tìm kiếm bot `@BotFather`.
+2. Gửi lệnh `/newbot`, đặt tên và username cho bot (ví dụ: `MyPosStoreBot`).
+3. `@BotFather` sẽ gửi lại mã HTTP API Token. Copy mã này vào `TELEGRAM_BOT_TOKEN` trong file `.env`.
+4. Mở bot bạn vừa tạo trên Telegram và bấm **Start**.
+5. Để lấy Chat ID cá nhân: tìm bot `@userinfobot`, bấm Start để xem ID của bạn (hoặc thêm bot vào group và lấy Group ID). Copy ID này vào `TELEGRAM_CHAT_ID` trong `.env`.
+6. Xóa cache cấu hình:
+   ```powershell
+   php artisan config:clear
+   ```
+
+#### E. Cơ chế tự động hủy hóa đơn quá hạn
+- **Cơ chế Hủy lười (Lazy Expiration)**: Khi màn hình POS polling trạng thái hoặc người dùng truy vấn hóa đơn mà thời gian chờ đã vượt quá `POS_CHO_THANH_TOAN_PHUT`, hệ thống tự động hoàn kho, hoàn điểm và chuyển trạng thái sang `da_huy`.
+- **Lệnh tự động định kỳ (Scheduler)**:
+  ```powershell
+  php artisan donhang:huy-qua-han
+  ```
+  Lệnh này đã được khai báo chạy mỗi phút (`everyMinute`) trong `routes/console.php`. Bạn có thể cấu hình Windows Task Scheduler hoặc cron job chạy `php artisan schedule:run`.
 
 ## 5. Chạy ứng dụng
 

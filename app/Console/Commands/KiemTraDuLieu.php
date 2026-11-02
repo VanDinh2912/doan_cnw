@@ -36,6 +36,26 @@ class KiemTraDuLieu extends Command
             $this->error('Có SKU trùng.');
             return self::FAILURE;
         }
+
+        // Kiểm tra tính toàn vẹn thanh toán chuyển khoản và hóa đơn
+        $duplicateTrans = DB::select("SELECT ma_giaodich FROM invoices WHERE ma_giaodich IS NOT NULL AND ma_giaodich != '' GROUP BY ma_giaodich HAVING COUNT(*) > 1");
+        if ($duplicateTrans !== []) {
+            $this->error('Có mã giao dịch (ma_giaodich) bị trùng lặp.');
+            return self::FAILURE;
+        }
+
+        $orphanInvoices = DB::select("SELECT id FROM invoices WHERE id NOT IN (SELECT DISTINCT invoice_id FROM invoice_details WHERE invoice_id IS NOT NULL)");
+        if ($orphanInvoices !== []) {
+            $this->error('Có hóa đơn mồ côi không có chi tiết sản phẩm.');
+            return self::FAILURE;
+        }
+
+        $orphanMovements = DB::select("SELECT id FROM stock_movements WHERE invoice_id IS NOT NULL AND invoice_id NOT IN (SELECT id FROM invoices)");
+        if ($orphanMovements !== []) {
+            $this->error('Có biến động kho liên kết với hóa đơn không tồn tại.');
+            return self::FAILURE;
+        }
+
         $this->info('Dữ liệu hợp lệ.');
         return self::SUCCESS;
     }
