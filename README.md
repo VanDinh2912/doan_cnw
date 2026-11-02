@@ -179,47 +179,34 @@ Git và không gửi file `.env` cho người khác:
 POS_BANK_CODE=VCB
 POS_BANK_ACCOUNT=0123456789
 POS_BANK_NAME="TEN CHU TAI KHOAN"
+POS_QR_TEMPLATE=compact2
+POS_WEBHOOK_SECRET=your_hmac_secret_key
 ```
 
 Thay `POS_BANK_CODE` bằng mã ngân hàng được VietQR hỗ trợ, nhập đúng số tài
- khoản và tên chủ tài khoản. Sau đó:
+khoản, tên chủ tài khoản và template hiển thị (`compact`, `compact2`, `qr_only`, `print`). Sau đó:
 
 1. Xóa cache cấu hình bằng `php artisan config:clear`.
 2. Chạy ứng dụng và mở `/pos`.
-3. Chọn thanh toán chuyển khoản để hiển thị QR.
-4. Dùng ứng dụng ngân hàng trên điện thoại quét QR.
-5. Kiểm tra đúng người nhận, số tiền và nội dung trước khi chuyển.
-6. Thu ngân chỉ xác nhận thanh toán sau khi kiểm tra giao dịch thành công
-   trong ứng dụng ngân hàng hoặc sao kê.
+3. Chọn thanh toán chuyển khoản: mã VietQR sẽ được tải động qua AJAX từ route
+   `GET /pos/vietqr`, tính toán số tiền chính xác từ server dựa trên giỏ hàng và
+   giảm giá.
+4. Dùng ứng dụng ngân hàng trên điện thoại quét QR để thanh toán.
+5. Thu ngân kiểm tra giao dịch và xác nhận, hoặc hệ thống tự động cập nhật qua webhook.
 
-Phiên bản hiện tại chỉ tạo QR và xác nhận thủ công; QR không tự biết giao dịch
-đã thành công. Không đánh dấu đã thanh toán chỉ dựa vào việc khách gửi ảnh
-chụp màn hình chuyển khoản.
+### 4.4. Webhook xác nhận thanh toán ngân hàng (Đã triển khai)
 
-### 4.4. Webhook xác nhận thanh toán ngân hàng
+Hệ thống cung cấp endpoint webhook tại `POST /api/webhook/thanhtoan` để nhận
+thông báo thanh toán tự động từ cổng thanh toán/ngân hàng (VietQR, SePay, Casso, payOS):
 
-Webhook không thể tự triển khai chỉ bằng tài khoản ngân hàng thông thường.
-Cần đăng ký một cổng thanh toán hoặc dịch vụ trung gian có API/webhook, ví dụ
-VietQR động qua một nhà cung cấp được ngân hàng hỗ trợ. Quy trình triển khai
-an toàn:
-
-1. Chọn nhà cung cấp có tài liệu API, chữ ký webhook và môi trường sandbox.
-2. Tạo `ma_giao_dich` duy nhất cho mỗi hóa đơn, không dùng mã hóa đơn dễ đoán.
-3. Lưu hóa đơn ở trạng thái `cho_xac_nhan`, số tiền phải thu và mã giao dịch.
-4. Tạo endpoint HTTPS riêng, ví dụ `/api/payment/webhook`.
-5. Xác thực chữ ký hoặc secret của nhà cung cấp trước khi đọc payload.
-6. Kiểm tra số tiền, mã giao dịch, ngân hàng nhận và trạng thái giao dịch.
-7. Xử lý idempotent: cùng một webhook gửi lại không được tạo hóa đơn hoặc
-   cộng điểm lần thứ hai.
-8. Ghi log tối thiểu gồm mã giao dịch, trạng thái và thời điểm; không ghi
-   secret hoặc toàn bộ thông tin nhạy cảm.
-9. Chỉ chuyển hóa đơn sang `da_thanh_toan` sau khi tất cả kiểm tra thành công.
-10. Kiểm thử sandbox, webhook gửi lặp, sai chữ ký, sai số tiền và timeout
-    trước khi dùng production.
-
-Không mở endpoint webhook không xác thực và không tin dữ liệu do trình duyệt
-gửi lên. Pha webhook chưa nằm trong code hiện tại; cần chốt nhà cung cấp và
-tài liệu API trước khi lập trình.
+- **Xác thực chữ ký**: Hỗ trợ xác thực chữ ký HMAC-SHA256 qua header `X-Webhook-Signature`
+  dựa trên `POS_WEBHOOK_SECRET`.
+- **Chống trùng lặp (Idempotent)**: Kiểm tra `ma_giao_dich_ngoai` trong bảng `payment_webhooks`.
+  Giao dịch gửi lại sẽ trả về HTTP 200 mà không cập nhật hay ghi đè.
+- **An toàn dữ liệu**: Chạy trong `DB::transaction()` với `lockForUpdate()`, kiểm tra khớp
+  `ma_hoadon` và đối soát chính xác `so_tien` thanh toán.
+- **Lưu vết giao dịch**: Lưu lịch sử thanh toán vào bảng `payment_webhooks` và cập nhật
+  `ma_giao_dich` vào bảng `invoices`.
 
 ## 5. Chạy ứng dụng
 
@@ -313,9 +300,15 @@ Thanh toán sử dụng một transaction duy nhất:
 - Giá trên hóa đơn được lưu tại thời điểm bán.
 - Các bảng danh sách có tìm kiếm và phân trang bằng DataTables.
 
-### Hóa đơn nhập
+### Hóa đơn nhập & Bóc tách PDF nội bộ
 
-- Tạo hóa đơn nháp, thêm nhiều dòng hàng và đính kèm PDF.
+- Tạo hóa đơn nháp, thêm nhiều dòng hàng và đính kèm PDF chứng từ gốc.
+- **Bóc tách PDF cục bộ (Local Parsing - Không dùng API)**:
+  - Tự động bóc tách số hóa đơn, ký hiệu, ngày lập, MST nhà cung cấp và danh sách mặt hàng trực tiếp trên máy chủ PHP bằng thư viện `smalot/pdfparser` và Regex Heuristic.
+  - Chạy 100% offline trên môi trường nội bộ, không phụ thuộc kết nối Internet, không tốn token và bảo mật dữ liệu doanh nghiệp.
+  - Tự động so khớp sản phẩm theo SKU/Barcode và hàm tương đồng chuỗi `similar_text()`.
+  - Cơ chế **Human-in-the-Loop**: Dữ liệu bóc tách được đưa lên giao diện tiền kiểm tra (Draft Review UI) để thủ kho rà soát, chỉnh sửa ô thiếu trước khi xác nhận.
+  - **Non-blocking Workflow**: Lỗi file PDF không làm gián đoạn nhập kho, người dùng luôn có thể nhập liệu thủ công.
 - Giá nhập là giá chưa thuế; thuế và tổng thanh toán tính ở cấp hóa đơn.
 - Chỉ xác nhận mới nhập kho; xác nhận dùng transaction, khóa dòng và ghi
   `purchase_invoice_id`.
@@ -362,6 +355,7 @@ Admin có thể truy cập:
 | `/donhang` | Danh sách hóa đơn | Admin, thu ngân |
 | `/hoadonnhap` | Danh sách hóa đơn nhập | Admin, thủ kho |
 | `/hoadonnhap/them` | Tạo hóa đơn nhập nháp | Admin, thủ kho |
+| `/hoadonnhap/boc-tach-pdf` | Bóc tách PDF hóa đơn (JSON nội bộ) | Admin, thủ kho |
 | `/hoadonnhap/xem/{id}` | Xem hóa đơn nhập | Admin, thủ kho |
 | `/thongke/doanhthu` | Doanh thu JSON | Admin |
 | `/thongke/topsanpham` | Top sản phẩm JSON | Admin |

@@ -8,6 +8,8 @@ use App\Models\LoaiSanPham;
 use App\Models\NhaCungCap;
 use App\Models\SanPham;
 use App\Services\HoaDonNhapService;
+use App\Services\PdfInvoiceParserService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -35,6 +37,18 @@ class HoaDonNhapController extends Controller
     {
         $hoaDon = DB::transaction(fn () => $this->luu($request, new HoaDonNhap()));
         return redirect()->route('hoadonnhap.xem', $hoaDon)->with('success', 'Đã lưu hóa đơn nhập tạm.');
+    }
+
+    public function postBocTachPdf(Request $request, PdfInvoiceParserService $parserService): JsonResponse
+    {
+        $request->validate([
+            'file_pdf' => ['required', 'file', 'mimes:pdf', 'max:20480'],
+        ]);
+
+        $file = $request->file('file_pdf');
+        $result = $parserService->parse($file->getRealPath());
+
+        return response()->json($result);
     }
 
     public function getXem(HoaDonNhap $hoaDon): View

@@ -8,6 +8,8 @@ use App\Models\DonHang;
 use App\Models\LoaiSanPham;
 use App\Models\KhachHang;
 use App\Models\SanPham;
+use App\Services\VietQrService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -21,6 +23,27 @@ class DonHangController extends Controller
     {
         return view('pos.index', [
             'loais' => LoaiSanPham::orderBy('ten_loai')->get(),
+        ]);
+    }
+
+    /**
+     * Trả về URL ảnh VietQR dựa trên giỏ hàng trong session.
+     * GET /pos/vietqr?giam_gia_phantram=0
+     */
+    public function getVietQr(Request $request, VietQrService $vietQr): JsonResponse
+    {
+        $gioHang = collect($request->session()->get('gio_hang', []));
+        $tongTien = $gioHang->sum(fn (array $item) => $item['gia_ban'] * $item['soluong']);
+
+        $giamGia = min(100, max(0, (float) $request->query('giam_gia_phantram', 0)));
+        $thanhToan = (int) round($tongTien * (1 - $giamGia / 100));
+
+        $url = $vietQr->url($thanhToan, 'Thanh toan Web POS');
+
+        return response()->json([
+            'enabled' => $vietQr->enabled(),
+            'url'     => $url,
+            'amount'  => $thanhToan,
         ]);
     }
 

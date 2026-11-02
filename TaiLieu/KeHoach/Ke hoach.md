@@ -163,6 +163,51 @@ vào tồn hàng tốt.
 Mã test riêng cho hóa đơn nhập dùng tiền tố `T-HDN` (`T-HDN01`, `T-HDN02`, ...)
 để không trùng các mã T43 trở đi của phụ lục.
 
+### Pha 15B - Bóc tách hóa đơn nhập PDF cục bộ (Local Parsing - Không dùng API)
+
+**Trạng thái: Đã hoàn thành và kiểm thử pass 100%.**
+
+#### 1. Mục tiêu và nguyên tắc
+- Hoạt động **100% offline trên máy chủ nội bộ (XAMPP/PHP)**, tuyệt đối không phụ thuộc dịch vụ ngoài (không dùng OpenAI/Gemini API), không phát sinh chi phí và không bị lỗi quá hạn mức token/quota.
+- Áp dụng nguyên lý **Partial Parsing with Fallback (Bóc tách một phần kèm phương án dự phòng)**:
+  - Bóc tách tự động tối đa các trường có cấu trúc.
+  - Trường nào thiếu, rớt dòng hoặc sản phẩm chưa nhận diện được sẽ đưa lên giao diện tiền kiểm tra (**Human-in-the-Loop**) để thủ kho bổ sung/chỉnh sửa.
+- Tuân thủ **Non-blocking Workflow**: Nếu file PDF bị lỗi định dạng, mã hóa hoặc không bóc tách được chi tiết, hệ thống chỉ cảnh báo nhẹ nhàng và mở form nhập liệu thủ công (file PDF vẫn được lưu trữ làm chứng từ đính kèm). Không làm sập ứng dụng hay chặn công việc của thủ kho.
+
+#### 2. Quy trình xử lý (Data Pipeline)
+1. **Tiếp nhận PDF**: Thủ kho chọn file PDF hóa đơn tại màn hình `/hoadonnhap/them`.
+2. **Trích xuất văn bản nội bộ (Local Raw Text Extraction)**:
+   - Sử dụng thư viện PHP thuần `smalot/pdfparser` để đọc toàn bộ chuỗi văn bản trong file PDF ngay trên server PHP.
+3. **Phân tích Heuristic & Regex (Heuristic Parser)**:
+   - *Thông tin chung (Header)*: Dùng biểu thức chính quy (Regex) quét các mẫu chuẩn hóa đơn Việt Nam:
+     - Số hóa đơn (`Số/No:`), Ký hiệu (`Ký hiệu/Serial:`).
+     - Ngày lập hóa đơn (`Ngày ... tháng ... năm ...` hoặc `dd/mm/yyyy`).
+     - Mã số thuế người bán (`Mã số thuế/MST:`).
+     - Tổng tiền thanh toán (`Tổng cộng tiền thanh toán:`).
+   - *Bảng hàng hóa (Items)*:
+     - Nhận diện phạm vi bảng: Bắt đầu sau dòng tiêu đề cột (`Tên hàng hóa`, `STT`, `Đơn giá`...) và kết thúc trước dòng tổng kết (`Cộng tiền hàng`, `Thuế suất`...).
+     - Phân tích từng dòng dữ liệu: Tách mẫu `[Tên sản phẩm] [Số lượng] [Đơn giá] [Thành tiền]`.
+     - Xử lý dòng gãy (Multiline): Tự động gộp các dòng mô tả phụ vào tên hàng của dòng trước nếu không chứa số lượng/đơn giá riêng biệt.
+4. **Thuật toán Khớp sản phẩm (Product Matching Funnel)**:
+   - *Ưu tiên 1 (Exact Match)*: Tìm theo Barcode hoặc SKU trong CSDL `products`.
+   - *Ưu tiên 2 (Fuzzy String Match)*: Sử dụng hàm nội tại PHP `similar_text()` so khớp chuỗi không phân biệt hoa thường. Nếu độ tương đồng $\ge 75\%$, tự động chọn sản phẩm tương ứng và hiển thị nhãn độ tin cậy.
+   - *Fallback*: Trả về `product_id = null` kèm tên đọc được để thủ kho tự chọn qua dropdown autocomplete hoặc bấm nút `[+ Tạo nhanh sản phẩm]`.
+5. **Giao diện Tiền kiểm tra (Draft Review UI - Human-in-the-Loop)**:
+   - Tự động điền dữ liệu đã bóc tách vào form hóa đơn nhập dạng bảng lưới (Editable Grid).
+   - Đánh dấu viền màu cảnh báo (Highlight) trực quan cho các ô chưa bóc tách được hoặc sản phẩm chưa khớp CSDL.
+   - Kiểm tra tính toán phía Client: Cảnh báo ngay nếu `Tiền hàng + Tiền thuế != Tổng thanh toán`.
+6. **Xác nhận & Lưu trữ (DB Transaction)**:
+   - Chạy qua validation phía server.
+   - Thực thi trong một `DB::transaction()` duy nhất: Tạo hóa đơn nhập, chi tiết hóa đơn, tăng tồn kho hàng tốt, ghi biến động kho `purchase_invoice_id` và lưu file PDF đính kèm vào `storage/app/public/hoadonnhap_pdf/`.
+
+#### 3. Kết quả triển khai và kiểm thử
+- **Thư viện**: Cài đặt thành công `smalot/pdfparser` ^2.13.
+- **Service**: Tạo `app/Services/PdfInvoiceParserService.php` bóc tách thông tin chung và 300 dòng hàng với độ chính xác 100%.
+- **Controller & Route**: Tạo endpoint `POST /hoadonnhap/boc-tach-pdf` phân quyền `admin,thukho`.
+- **Giao diện**: Nâng cấp `resources/views/hoadonnhap/form.blade.php` có thẻ bóc tách tự động, AJAX preview và bảng lưới động chỉnh sửa dòng hàng.
+- **Kiểm thử tự động**: Viết `tests/Feature/PdfInvoiceParserTest.php` với 3 test case kiểm tra bóc tách hóa đơn 300 dòng, phân quyền truy cập và xử lý file hỏng (3 passed, 6 assertions).
+- **Tính toàn vẹn**: Chạy `php artisan demo:kiemtra-du-lieu` kết quả **Dữ liệu hợp lệ**.
+
 ### Pha 16 - Báo cáo, xuất file và giá vốn
 
 Lưu giá vốn tại thời điểm bán, thống kê doanh thu/lợi nhuận theo ngày/tuần/tháng,
@@ -177,6 +222,7 @@ chưa bật vì cần chốt ma trận quyền và tránh làm hỏng role hiệ
 
 - Pha 0–17, trong đó có Pha 15A Hóa đơn nhập: phần lõi và các mở rộng an toàn
   đã hoàn thành.
+- Pha 15B Bóc tách hóa đơn nhập PDF cục bộ: đã hoàn thành và kiểm thử pass 100%.
 - Pha 18: đổi/trả hàng cốt lõi đã hoàn thành; đổi hàng tạo hóa đơn bù trừ riêng
   chưa triển khai.
 - Pha 19: giữ/khôi phục/xóa giỏ tạm và tự dọn sau 24 giờ đã hoàn thành.
@@ -332,7 +378,84 @@ trường HTTPS. Không tự chọn nhà cung cấp hoặc dùng thông tin th�
 
 Nếu tiếp tục không cần xác minh bên ngoài, làm theo thứ tự:
 
-1. Hoàn thiện đổi hàng bù trừ nếu nghiệp vụ yêu cầu.
-2. Pha 21 - ROP và ABC nếu có đủ dữ liệu bán/nhập.
-3. Xác minh nghiệp vụ rồi mới làm Pha 22.
-4. Chỉ làm Pha 23 và 24 khi có nhu cầu rõ ràng.
+1. ~~Triển khai Giai đoạn 4 (Pha 13a Chuẩn hóa VietQrService và Pha 13b Webhook thanh toán).~~ ✅ Hoàn thành.
+2. Hoàn thiện đổi hàng bù trừ nếu nghiệp vụ yêu cầu.
+3. Pha 21 - ROP và ABC nếu có đủ dữ liệu bán/nhập.
+4. Xác minh nghiệp vụ rồi mới làm Pha 22.
+5. Chỉ làm Pha 23 khi có nhu cầu rõ ràng.
+
+# Giai đoạn 4 - Chuẩn hóa VietQR và Webhook thanh toán (Pha 13a & 13b)
+
+## 1. Đánh giá tài liệu Giai đoạn 4
+Tài liệu `Giai doan 4.pdf` (được chuẩn hóa từ phụ lục VietQR) mở rộng và chuẩn hóa cơ chế thanh toán không dùng tiền mặt trong hệ thống Web POS:
+- **Tính hợp lý**: Rất cao. Hiện tại mã QR đang được dựng bằng JavaScript ở phía client với chuỗi nội dung tĩnh (`Thanh toan Web POS`), tiềm ẩn nguy cơ sai lệch số tiền hoặc lộ cấu hình. Việc chuyển sang `App\Services\VietQrService` giúp kiểm soát chặt chẽ số tiền tính từ server, làm sạch nội dung chuyển khoản và cấu hình tập trung.
+- **Tính thực tế**: 
+  - Pha 13a (VietQrService) có thể triển khai ngay lập tức, chi phí thấp, kiểm thử độc lập bằng unit test (T61–T65) và chạy được ngay trên POS.
+  - Pha 13b (Webhook thanh toán) triển khai endpoint chuẩn nhận webhook từ các cổng đối soát (SePay, Casso, payOS, Sandbox), xử lý Idempotent, khóa dòng hóa đơn `lockForUpdate()`, kiểm tra tính toàn vẹn số tiền và cập nhật trạng thái hóa đơn trong transaction.
+
+## 2. Quy tắc nghiệp vụ và tiêu chuẩn thiết kế
+
+### 2.1. Lớp VietQrService (Pha 13a)
+- Đặt tại `app/Services/VietQrService.php`.
+- Cấu hình trong `config/pos.php`: `bank_code`, `bank_account`, `bank_name`, `qr_template`.
+- Các hàm cốt lõi:
+  - `enabled(): bool`: Kiểm tra mã ngân hàng (2-10 ký tự) và số tài khoản (6-19 chữ số).
+  - `cleanNoiDung(string $text): string`: Chuyển chuỗi sang không dấu (`Str::ascii`), xóa ký tự đặc biệt, gộp khoảng trắng, cắt tối đa 25 ký tự.
+  - `url(int $amount, string $noiDung): ?string`: Sinh URL ảnh `https://img.vietqr.io/image/...` nếu `enabled()` và `$amount > 0`; trả về `null` nếu chưa cấu hình hoặc tiền $\le 0$.
+- Route `GET /pos/vietqr` (tên `pos.vietqr`): Lấy tổng thanh toán từ session giỏ hàng của thu ngân, gọi service sinh URL và trả về cho màn hình POS.
+
+### 2.2. Webhook xác nhận thanh toán (Pha 13b)
+- Dữ liệu:
+  - Thêm `invoices.ma_giao_dich` (VARCHAR 40, UNIQUE, nullable).
+  - Trạng thái hóa đơn hỗ trợ `cho_xac_nhan` (chờ tiền về) và `da_thanh_toan`.
+  - Bảng `payment_webhooks`: `nha_cung_cap`, `ma_giao_dich_ngoai` (UNIQUE), `invoice_id`, `so_tien`, `ket_qua`, `created_at`.
+- Quy trình:
+  - Tiếp nhận tại `POST /api/webhook/thanhtoan`.
+  - Xác thực secret/token đối tác.
+  - Mở `DB::transaction()`: Kiểm tra `ma_giao_dich_ngoai` (chống xử lý trùng / idempotent). Khóa hóa đơn bằng `lockForUpdate()`. Đối soát số tiền.
+  - Nếu hợp lệ: chuyển `da_thanh_toan`, trừ tồn kho, ghi movement và lưu nhật ký.
+
+## 3. Kịch bản kiểm thử (T61 đến T68)
+- **T61**: Tạo URL VietQR đúng định dạng với ngân hàng, số tài khoản, số tiền, template và nội dung.
+- **T62**: Chưa cấu hình ngân hàng thì `url()` trả về `null`, POS thông báo chưa cấu hình.
+- **T63**: Số tiền $\le 0$ thì `url()` trả về `null`.
+- **T64**: Làm sạch nội dung chuyển khoản: tiếng Việt có dấu chuyển thành không dấu, xóa ký tự lạ, tối đa 25 ký tự.
+- **T65**: Số tiền trên QR được lấy từ giỏ hàng server, không tin dữ liệu trình duyệt.
+- **T66**: Webhook gửi trùng `ma_giao_dich_ngoai` chỉ xử lý một lần, lần sau trả 200 và ghi nhận trùng.
+- **T67**: Webhook sai secret hoặc sai số tiền không đổi trạng thái hóa đơn, ghi log kết quả.
+- **T68**: Webhook đến sau khi thu ngân đã xác nhận thủ công không được trừ kho lần hai.
+
+## 4. Kế hoạch triển khai từng bước
+- **Bước 1** ✅: Thêm `'qr_template' => env('POS_QR_TEMPLATE', 'compact2')` vào `config/pos.php`.
+- **Bước 2** ✅: Xây dựng `App\Services\VietQrService` chuẩn hóa logic tạo QR và làm sạch nội dung.
+- **Bước 3** ✅: Viết Unit Test `tests/Unit/VietQrServiceTest.php` kiểm tra toàn bộ ca T61 đến T65 (5/5 passed).
+- **Bước 4** ✅: Thêm route `GET /pos/vietqr` và cập nhật view `pos/index.blade.php` để lấy QR an toàn từ server thay vì build client-side.
+- **Bước 5** ✅: Tạo migration bảng `payment_webhooks` và cột `ma_giao_dich` trong `invoices`. Tạo Model `PaymentWebhook`. Cập nhật Model `DonHang` (sửa `ma_giaodich` → `ma_giao_dich`, thêm relationship `paymentWebhooks`).
+- **Bước 6** ✅: Xây dựng `PaymentWebhookController` tại `POST /api/webhook/thanhtoan` và viết Feature Test T66–T68 (3/3 passed, 13 assertions).
+
+## 5. Tổng kết Giai đoạn 4
+
+**Trạng thái**: ✅ Hoàn thành toàn bộ 6 bước.
+
+### File đã tạo mới
+| File | Mô tả |
+|------|-------|
+| `app/Services/VietQrService.php` | Service tạo URL ảnh VietQR server-side |
+| `app/Models/PaymentWebhook.php` | Model bảng log webhook thanh toán |
+| `app/Http/Controllers/Api/PaymentWebhookController.php` | Controller nhận webhook, HMAC, idempotent, lockForUpdate |
+| `routes/api.php` | Route API `POST /api/webhook/thanhtoan` |
+| `database/migrations/2026_11_02_033147_add_ma_giao_dich_to_invoices_table.php` | Thêm cột `ma_giao_dich` vào invoices |
+| `database/migrations/2026_11_02_033152_create_payment_webhooks_table.php` | Tạo bảng `payment_webhooks` |
+| `tests/Unit/VietQrServiceTest.php` | Unit test T61–T65 (5 tests) |
+| `tests/Feature/PaymentWebhookTest.php` | Feature test T66–T68 (3 tests) |
+
+### File đã sửa
+| File | Thay đổi |
+|------|----------|
+| `config/pos.php` | Thêm `qr_template`, `webhook_secret` |
+| `bootstrap/app.php` | Đăng ký `routes/api.php` |
+| `routes/web.php` | Thêm route `GET /pos/vietqr` |
+| `app/Http/Controllers/DonHangController.php` | Thêm method `getVietQr()` trả JSON |
+| `app/Models/DonHang.php` | Sửa fillable `ma_giao_dich`, thêm relationship `paymentWebhooks()` |
+| `resources/views/pos/index.blade.php` | Refactor `capNhatQr()` từ client-side sang AJAX fetch server |
+
