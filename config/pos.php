@@ -10,4 +10,8 @@ return [
     'han_tra_ngay' => (int) env('POS_HAN_TRA_NGAY', 7),
     'nguong_tra_khong_duyet' => (int) env('POS_NGUONG_TRA_KHONG_DUYET', 500000),
     'webhook_secret' => env('POS_WEBHOOK_SECRET', ''),
+    'cho_thanh_toan_phut' => (int) env('POS_CHO_THANH_TOAN_PHUT', 15),
+    'sepay_webhook_api_key' => env('SEPAY_WEBHOOK_API_KEY', ''),
+    'telegram_bot_token' => env('TELEGRAM_BOT_TOKEN', ''),
+    'telegram_chat_id' => env('TELEGRAM_CHAT_ID', ''),
 ];
