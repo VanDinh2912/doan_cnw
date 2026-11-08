@@ -9,12 +9,34 @@ kiện điện thoại. Đây là đồ án Laravel, tập trung vào quy trình
                               Trừ tồn kho / Lịch sử kho
 ```
 
+## Mục lục
+
+1. [Công nghệ sử dụng](#1-công-nghệ-sử-dụng)
+2. [Yêu cầu môi trường](#2-yêu-cầu-môi-trường)
+3. [Cài đặt dự án](#3-cài-đặt-dự-án)
+4. [Thiết lập thiết bị và thanh toán thực tế](#4-thiết-lập-thiết-bị-và-thanh-toán-thực-tế)
+5. [Chạy ứng dụng](#5-chạy-ứng-dụng)
+6. [Tài khoản demo](#6-tài-khoản-demo)
+7. [Chức năng chính](#7-chức-năng-chính)
+8. [Các URL chính](#8-các-url-chính)
+9. [Kiểm thử](#9-kiểm-thử)
+10. [Reset dữ liệu demo](#10-reset-dữ-liệu-demo)
+11. [Cấu trúc thư mục chính](#11-cấu-trúc-thư-mục-chính)
+12. [Cơ sở dữ liệu](#12-cơ-sở-dữ-liệu)
+13. [Quy trình Git đề xuất](#13-quy-trình-git-đề-xuất)
+14. [Phạm vi chưa triển khai](#14-phạm-vi-chưa-triển-khai)
+15. [Lộ trình triển khai tiếp theo](#15-lộ-trình-triển-khai-tiếp-theo)
+16. [Lưu ý bảo mật](#16-lưu-ý-bảo-mật)
+17. [Giới hạn đã biết](#17-giới-hạn-đã-biết)
+
+---
+
 ## 1. Công nghệ sử dụng
 
-- PHP 8.4.x
+- PHP 8.2+ (kiểm tra trên PHP 8.4.15)
 - Laravel 12
 - Composer 2.x
-- MySQL 8.x
+- MySQL 8.x / SQLite (mặc định)
 - Bootstrap 5
 - jQuery và DataTables
 - Font Awesome
@@ -25,8 +47,8 @@ kiện điện thoại. Đây là đồ án Laravel, tập trung vào quy trình
 
 Đảm bảo máy đã cài:
 
-- PHP và Composer.
-- WAMP/XAMPP với Apache và MySQL.
+- PHP 8.2+ và Composer.
+- WAMP/XAMPP với Apache và MySQL (hoặc SQLite).
 - PHP extensions: `pdo_mysql`, `mbstring`, `openssl`, `fileinfo`, `xml`.
 - Git (nếu cần lấy mã nguồn).
 
@@ -36,7 +58,7 @@ Phiên bản đã kiểm tra trên máy phát triển:
 PHP       8.4.15
 Composer  2.10.3
 Laravel   12.68.0
-MySQL     8.4.7
+MySQL     8.4.7 (hoặc SQLite)
 ```
 
 ## 3. Cài đặt dự án
@@ -63,10 +85,11 @@ Copy-Item .env.example .env
 php artisan key:generate
 ```
 
-### 3.4. Cấu hình MySQL
+### 3.4. Cấu hình Database & Môi trường
 
-Tạo database tên `doan_cnw` trong phpMyAdmin, sau đó kiểm tra `.env`:
+Tạo database (MySQL) hoặc dùng SQLite mặc định, sau đó kiểm tra `.env`:
 
+**MySQL (khuyên dùng cho production):**
 ```env
 APP_NAME="Web POS"
 APP_ENV=local
@@ -81,13 +104,13 @@ DB_USERNAME=root
 DB_PASSWORD=
 ```
 
-Nếu muốn dùng QR chuyển khoản trong màn hình POS, thêm cấu hình:
-
+**SQLite (mặc định, tiện cho dev/test):**
 ```env
-POS_BANK_CODE=VCB
-POS_BANK_ACCOUNT=0123456789
-POS_BANK_NAME="TEN CHU TAI KHOAN"
+DB_CONNECTION=sqlite
+# DB_DATABASE=database/database.sqlite (tự tạo)
 ```
+
+Nếu muốn dùng QR chuyển khoản trong màn hình POS, thêm cấu hình ngân hàng (xem [Bảng biến môi trường](#bảng-biến-môi-trường-đầy-đủ) bên dưới).
 
 Chỉ dùng thông tin tài khoản demo hoặc tài khoản do chủ dự án cung cấp. Tính năng hiện không có webhook đối soát tự động.
 
@@ -125,6 +148,36 @@ php artisan demo:kiemtra-du-lieu
 ```
 
 Lệnh kiểm tra số lượng bản ghi, tổng hóa đơn, tồn kho và movement nhập.
+
+### Bảng biến môi trường đầy đủ
+
+| Biến | Bắt buộc | Mặc định | Ý nghĩa | Dùng ở |
+|------|----------|----------|---------|--------|
+| `APP_NAME` | Có | "Web POS" | Tên ứng dụng | Toàn hệ thống |
+| `APP_ENV` | Có | local | Môi trường | Toàn hệ thống |
+| `APP_DEBUG` | Có | true | Debug mode | Toàn hệ thống |
+| `APP_URL` | Có | http://127.0.0.1:8081 | URL gốc | Toàn hệ thống |
+| `DB_CONNECTION` | Có | sqlite | Driver DB (mysql/sqlite) | Database |
+| `DB_HOST` | MySQL | 127.0.0.1 | Host MySQL | Database |
+| `DB_PORT` | MySQL | 3306 | Port MySQL | Database |
+| `DB_DATABASE` | MySQL | doan_cnw | Tên DB | Database |
+| `DB_USERNAME` | MySQL | root | User MySQL | Database |
+| `DB_PASSWORD` | MySQL | (rỗng) | Pass MySQL | Database |
+| `POS_BANK_CODE` | Không | (rỗng) | Mã ngân hàng VietQR (VCB, MB, TCB...) | VietQR |
+| `POS_BANK_ACCOUNT` | Không | (rỗng) | Số tài khoản ngân hàng | VietQR |
+| `POS_BANK_NAME` | Không | "Cửa hàng phụ kiện điện thoại" | Tên chủ tài khoản | VietQR |
+| `POS_QR_TEMPLATE` | Không | compact2 | Template QR (compact, compact2, qr_only, print) | VietQR |
+| `POS_CHO_THANH_TOAN_PHUT` | Không | 15 | Thời hạn chờ thanh toán (phút) | Webhook/QR |
+| `SEPAY_WEBHOOK_API_KEY` | Không | (rỗng) | API Key SePay (header `Authorization: Apikey`) | Webhook |
+| `TELEGRAM_BOT_TOKEN` | Không | (rỗng) | Token Telegram Bot | Thông báo |
+| `TELEGRAM_CHAT_ID` | Không | (rỗng) | Chat ID nhận thông báo | Thông báo |
+| `POS_DIEM_MOI_DONG` | Không | 100000 | Doanh thu để được 1 điểm | Tích điểm |
+| `POS_GIA_TRI_DIEM` | Không | 1000 | Giá trị 1 điểm (VNĐ) | Tích điểm |
+| `POS_HAN_TRA_NGAY` | Không | 7 | Hạn trả hàng (ngày) | Trả hàng |
+| `POS_NGUONG_TRA_KHONG_DUYET` | Không | 500000 | Ngưỡng tự duyệt trả hàng (VNĐ) | Trả hàng |
+| `POS_WEBHOOK_SECRET` | Không | (rỗng) | *Đang không dùng* (dự phòng HMAC) | — |
+
+> **Lưu ý:** Hệ thống hiện chỉ dùng **API Key** (`SEPAY_WEBHOOK_API_KEY`) để xác thực webhook SePay. Biến `POS_WEBHOOK_SECRET` (HMAC) hiện không được sử dụng trong code.
 
 
 ## 4. Thiết lập thiết bị và thanh toán thực tế
@@ -170,56 +223,11 @@ Nếu cần in tự động không qua hộp thoại trình duyệt, phải bổ
 server hoặc phần mềm trung gian như QZ Tray; tính năng đó chưa có trong
 project hiện tại.
 
-### 4.3. VietQR với tài khoản ngân hàng thật
+### 4.3. VietQR & Webhook SePay (Test Mode) & Telegram
 
-Chỉ cấu hình tài khoản do chủ dự án cho phép. Không commit các giá trị này lên
-Git và không gửi file `.env` cho người khác:
+Cấu hình biến môi trường theo [Bảng biến môi trường đầy đủ](#bảng-biến-môi-trường-đầy-đủ) ở trên.
 
-```env
-POS_BANK_CODE=VCB
-POS_BANK_ACCOUNT=0123456789
-POS_BANK_NAME="TEN CHU TAI KHOAN"
-POS_QR_TEMPLATE=compact2
-POS_WEBHOOK_SECRET=your_hmac_secret_key
-```
-
-Thay `POS_BANK_CODE` bằng mã ngân hàng được VietQR hỗ trợ, nhập đúng số tài
-khoản, tên chủ tài khoản và template hiển thị (`compact`, `compact2`, `qr_only`, `print`). Sau đó:
-
-1. Xóa cache cấu hình bằng `php artisan config:clear`.
-2. Chạy ứng dụng và mở `/pos`.
-3. Chọn thanh toán chuyển khoản: mã VietQR sẽ được tải động qua AJAX từ route
-   `GET /pos/vietqr`, tính toán số tiền chính xác từ server dựa trên giỏ hàng và
-   giảm giá.
-4. Dùng ứng dụng ngân hàng trên điện thoại quét QR để thanh toán.
-5. Thu ngân kiểm tra giao dịch và xác nhận, hoặc hệ thống tự động cập nhật qua webhook.
-
-### 4.4. Thanh toán chuyển khoản tự động qua SePay (Test Mode) & Thông báo Telegram (Đã triển khai)
-
-Hệ thống hỗ trợ thanh toán chuyển khoản VietQR tự động qua Webhook SePay (Test mode / Mô phỏng) kết hợp thông báo Telegram về điện thoại khi có giao dịch. Nút "Xác nhận đã nhận tiền" thủ công được giữ nguyên làm phương án dự phòng.
-
-*Nguồn tài liệu tham khảo*: [developer.sepay.vn](https://developer.sepay.vn) (SePay Webhooks & Chế độ Test mode, truy cập ngày 02/11/2026).
-
-#### A. Cấu hình biến môi trường (`.env`)
-```env
-# Ngân hàng & VietQR
-POS_BANK_CODE=MB
-POS_BANK_ACCOUNT=0388888888
-POS_BANK_NAME="NGUYEN VAN A"
-POS_QR_TEMPLATE=compact2
-
-# Thời hạn chờ thanh toán (phút, mặc định 15)
-POS_CHO_THANH_TOAN_PHUT=15
-
-# SePay Webhook API Key (lấy từ SePay Dashboard)
-SEPAY_WEBHOOK_API_KEY=your_sepay_api_key_here
-
-# Thông báo Telegram Bot (tùy chọn)
-TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
-TELEGRAM_CHAT_ID=your_telegram_chat_id_here
-```
-
-#### B. Hướng dẫn thiết lập SePay Test Mode & Webhook
+**Thiết lập SePay Test Mode & Webhook:**
 1. **Đăng nhập SePay**: Truy cập [my.sepay.vn](https://my.sepay.vn) và đăng nhập hoặc tạo tài khoản miễn phí.
 2. **Kích hoạt Test Mode**: Vào phần **Cài đặt** (Settings) -> Bật **Chế độ mô phỏng / Test Mode**.
 3. **Cấu hình Webhook**:
@@ -233,7 +241,7 @@ TELEGRAM_CHAT_ID=your_telegram_chat_id_here
    - Nhập số tiền chuyển và nội dung chuyển khoản chứa mã hóa đơn (ví dụ: `HD202611020001` hoặc `HD20261102-0001`).
    - Bấm **Gửi Webhook**. Hệ thống POS sẽ tự động nhận diện và hoàn tất hóa đơn trong vòng vài giây.
 
-#### C. Hướng dẫn tạo Tunnel công khai (Cloudflare Tunnel / ngrok)
+**Tạo Tunnel công khai (Cloudflare Tunnel / ngrok):**
 Vì SePay gửi webhook từ internet về máy local, bạn cần mở tunnel:
 - **Cách 1: Dùng Cloudflare Tunnel (Khuyên dùng, miễn phí, không giới hạn session)**
   ```powershell
@@ -246,7 +254,7 @@ Vì SePay gửi webhook từ internet về máy local, bạn cần mở tunnel:
   ```
   Copy URL `https://xxxx.ngrok-free.app` dán vào SePay Webhook URL: `https://xxxx.ngrok-free.app/api/webhook/thanhtoan`.
 
-#### D. Hướng dẫn tạo Telegram Bot & Lấy Chat ID
+**Tạo Telegram Bot & Lấy Chat ID:**
 1. Mở ứng dụng Telegram, tìm kiếm bot `@BotFather`.
 2. Gửi lệnh `/newbot`, đặt tên và username cho bot (ví dụ: `MyPosStoreBot`).
 3. `@BotFather` sẽ gửi lại mã HTTP API Token. Copy mã này vào `TELEGRAM_BOT_TOKEN` trong file `.env`.
@@ -257,7 +265,7 @@ Vì SePay gửi webhook từ internet về máy local, bạn cần mở tunnel:
    php artisan config:clear
    ```
 
-#### E. Cơ chế tự động hủy hóa đơn quá hạn
+**Cơ chế tự động hủy hóa đơn quá hạn:**
 - **Cơ chế Hủy lười (Lazy Expiration)**: Khi màn hình POS polling trạng thái hoặc người dùng truy vấn hóa đơn mà thời gian chờ đã vượt quá `POS_CHO_THANH_TOAN_PHUT`, hệ thống tự động hoàn kho, hoàn điểm và chuyển trạng thái sang `da_huy`.
 - **Lệnh tự động định kỳ (Scheduler)**:
   ```powershell
@@ -490,56 +498,104 @@ Không sử dụng lệnh reset trên môi trường production.
 ```text
 app/
 ├── Console/Commands/
+│   ├── HuyHoaDonQuaHan.php
 │   ├── KiemTraDuLieu.php
-│   └── ResetDemoData.php
+│   ├── NhapDuLieuTaiLieu.php
+│   ├── ResetDemoData.php
+│   └── XoaGioTamHetHan.php
 ├── Http/Controllers/
 │   ├── AuthController.php
+│   ├── BaoCaoController.php
 │   ├── DonHangController.php
 │   ├── GioHangController.php
+│   ├── HoaDonNhapController.php
+│   ├── HoldController.php
+│   ├── KhachHangController.php
 │   ├── KhoController.php
+│   ├── KiemKeController.php
 │   ├── LoaiSanPhamController.php
+│   ├── NhatKyController.php
+│   ├── NhapHangController.php
 │   ├── SanPhamController.php
 │   ├── ThongKeController.php
-│   ├── HoaDonNhapController.php
-│   ├── WebhookController.php
-│   ├── HoldController.php
-│   ├── KiemKeController.php
-│   ├── NhapHangController.php
 │   ├── TraHangController.php
-│   └── ThongBaoService.php
+│   └── WebhookController.php
 ├── Http/Middleware/CheckRole.php
-└── Models/
-    ├── BienDongKho.php
-    ├── ChiTietDonHang.php
-    ├── DonHang.php
-    ├── LoaiSanPham.php
-    ├── HoaDonNhap.php
-    ├── ChiTietHoaDonNhap.php
-    ├── PaymentWebhook.php
-    └── SanPham.php
-
+├── Models/
+│   ├── BienDongKho.php
+│   ├── ChiTietDonHang.php
+│   ├── ChiTietDonNhap.php
+│   ├── ChiTietHoaDonNhap.php
+│   ├── ChiTietKiemKe.php
+│   ├── ChiTietPhieuTra.php
+│   ├── DonHang.php
+│   ├── DonNhap.php
+│   ├── GioTam.php
+│   ├── HoaDonNhap.php
+│   ├── KhachHang.php
+│   ├── LoaiSanPham.php
+│   ├── NhaCungCap.php
+│   ├── NhatKyHoatDong.php
+│   ├── PaymentWebhook.php
+│   ├── PhieuKiemKe.php
+│   ├── PhieuTra.php
+│   ├── SanPham.php
+│   └── User.php
+├── Services/
+│   ├── HoaDonNhapService.php
+│   ├── NhatKyService.php
+│   ├── PdfInvoiceParserService.php
+│   ├── ThanhToanChuyenKhoanService.php
+│   ├── ThongBaoService.php
+│   ├── VietQrService.php
+│   └── Payment/
+│       └── SepayWebhook.php
 database/
 ├── migrations/
+│   ├── 0001_01_01_000000_create_users_table.php
+│   ├── 0001_01_01_000001_create_cache_table.php
+│   ├── 0001_01_01_000002_create_jobs_table.php
+│   ├── 2026_01_01_000000_add_role_to_users_table.php
+│   ├── 2026_01_01_000001_create_categories_table.php
+│   ├── 2026_01_01_000002_create_products_table.php
+│   ├── 2026_01_01_000003_create_invoices_table.php
+│   ├── 2026_01_01_000004_create_invoice_details_table.php
+│   ├── 2026_01_01_000005_create_stock_movements_table.php
+│   ├── 2026_01_01_000006_create_customers_table.php
+│   ├── 2026_01_01_000007_add_customer_loyalty_to_invoices_table.php
+│   ├── 2026_01_01_000008_add_cost_to_invoice_details_table.php
+│   ├── 2026_01_01_000009_create_suppliers_table.php
+│   ├── 2026_01_01_000010_create_purchase_orders_table.php
+│   ├── 2026_01_01_000011_create_purchase_order_items_table.php
+│   ├── 2026_01_01_000012_add_purchase_order_to_stock_movements.php
+│   ├── 2026_01_01_000013_create_activity_logs_table.php
+│   ├── 2026_01_01_000014_create_returns_tables.php
+│   ├── 2026_01_01_000015_create_held_carts_table.php
+│   ├── 2026_01_01_000016_create_stocktakes_tables.php
 │   ├── 2026_01_01_000017_add_import_invoice_fields.php
 │   ├── 2026_01_01_000018_create_purchase_invoices_tables.php
-│   └── 2026_01_01_000019_add_purchase_invoice_to_stock_movements.php
+│   ├── 2026_01_01_000019_add_purchase_invoice_to_stock_movements.php
+│   ├── 2026_11_02_033147_add_ma_gia_dich_to_invoices_table.php
+│   ├── 2026_11_02_033152_create_payment_webhooks_table.php
+│   └── 2026_11_02_055338_add_ghi_chu_to_invoices_table.php
 └── seeders/DatabaseSeeder.php
-
-app/Services/
-└── HoaDonNhapService.php
 
 resources/views/
 ├── auth/
+├── baocao/
 ├── donhang/
+├── errors/
 ├── hoadonnhap/
 ├── hold/
 ├── kho/
+├── khachhang/
 ├── layouts/
 ├── loaisanpham/
 ├── nhaphang/
 ├── nhatky/
 ├── pos/
 ├── sanpham/
+├── thongke/
 └── trahang/
 ```
 
@@ -549,8 +605,8 @@ Các bảng nghiệp vụ:
 
 - `users`: tài khoản và vai trò.
 - `categories`: loại sản phẩm.
-- `products`: sản phẩm và tồn kho.
-- `invoices`: hóa đơn.
+- `products`: sản phẩm và tồn kho (có `soluong_hong`).
+- `invoices`: hóa đơn (có `ma_giaodich`, `ghi_chu`).
 - `invoice_details`: chi tiết hóa đơn.
 - `stock_movements`: lịch sử nhập/bán/điều chỉnh kho.
 - `purchase_invoices`: hóa đơn nhập, thuế, tổng tiền và trạng thái.
@@ -560,8 +616,9 @@ Các bảng nghiệp vụ:
 - `returns`, `return_items`: trả hàng; `held_carts`: giỏ tạm.
 - `stocktakes`, `stocktake_items`: kiểm kê và chênh lệch tồn.
 - `activity_logs`: nhật ký hoạt động.
+- `payment_webhooks`: log webhook thanh toán (SePay).
 
-Quy ước biến động kho:
+Quy ước biến động kho (`stock_movements.loai`):
 
 - `nhap`: số lượng dương, `invoice_id` là `NULL`.
 - `ban`: số lượng âm, có `invoice_id`.
@@ -724,3 +781,27 @@ merge vào `main`. Không import dữ liệu mẫu hoặc reset database product
 - Không hiển thị dữ liệu người dùng bằng `{!! !!}`.
 - Không dùng tài khoản demo trong môi trường production.
 - Không chạy `migrate:fresh` hoặc `demo:reset` trên dữ liệu thật.
+
+## 17. Giới hạn đã biết
+
+- **Không có đối soát tự động** nếu không cấu hình `SEPAY_WEBHOOK_API_KEY` và tunnel công khai.
+- **Không đọc barcode bằng webcam** (chỉ hỗ trợ máy quét USB HID/keyboard wedge).
+- **Không in tự động** không qua hộp thoại trình duyệt (cần QZ Tray hoặc print server).
+- **Không có ứng dụng mobile / API REST** (chỉ web POS).
+- **Không có phân quyền động** (chỉ role-based: admin, thu ngân, thủ kho).
+- **Không có khuyến mãi/voucher** (Pha 22).
+- **Không có ROP/ABC** (Pha 21, cần dữ liệu bán 30 ngày).
+- **Không tích hợp hóa đơn điện tử, Zalo ZNS/SMS, Shopee/TikTok** (Pha 24, cần sandbox & xác nhận).
+- **Draft Review UI cho PDF parsing** chưa triển khai (README mô tả nhưng code chưa có view/controller).
+
+## 18. Kết quả kiểm tra (2026-11-09)
+
+| Kiểm tra | Kết quả | Ghi chú |
+|----------|---------|---------|
+| `php artisan test` | **49 passed** (183 assertions) | Tất cả test suite pass |
+| `php artisan route:list` | ✅ Hoạt động | 87 routes đăng ký |
+| `php artisan demo:kiemtra-du-lieu` | ⚠️ Chạy trên DB thật | Không chạy trong audit (ghi dữ liệu) |
+| `php artisan demo:reset` | ⚠️ Chạy trên DB thật | Không chạy trong audit (xóa dữ liệu) |
+| Cú pháp PHP (`php -l`) | ✅ Không lỗi | Toàn bộ file `.php` hợp lệ |
+
+> **Lưu ý:** Kết quả trên chạy trên nhánh `docs/ra-soat-readme` với database test (SQLite in-memory qua `RefreshDatabase`).
