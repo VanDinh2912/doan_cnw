@@ -371,6 +371,18 @@ Thanh toán sử dụng một transaction duy nhất:
   `purchase_invoice_id`.
 - Hóa đơn đã nhập kho không được sửa/hủy hoặc xác nhận lần hai.
 
+### Thanh toán chuyển khoản & Webhook SePay
+
+- Tạo QR VietQR động trên màn hình POS, thu ngân bấm "Tạo QR" để chuyển hóa đơn sang trạng thái `cho_thanh_toan` (trừ kho, trừ điểm dùng ngay).
+- Webhook endpoint: `POST /api/webhook/thanhtoan` nhận callback từ SePay.
+- Xác thực API Key, validate payload, chống trùng lặp (idempotent) bằng `ma_giao_dich`.
+- Tự động tìm mã hóa đơn trong nội dung chuyển khoản, đối chiếu số tiền.
+- Nếu đủ tiền: chuyển `da_thanh_toan`, ghi `ma_giaodich`, cộng điểm, gửi Telegram.
+- Nếu thiếu tiền: giữ `cho_thanh_toan`, cảnh báo Telegram.
+- Thu ngân có thể bấm "Xác nhận đã nhận tiền" hoặc "Hủy chờ" thủ công trên POS.
+- Lệnh `php artisan donhang:huy-qua-han` (lập lịch mỗi phút) tự hủy đơn quá hạn, hoàn kho/điểm.
+- Cấu hình trong `.env`: `SEPAY_WEBHOOK_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `POS_CHO_THANH_TOAN_PHUT`.
+
 ### Quản lý kho
 
 - Xem tồn kho.
@@ -414,6 +426,7 @@ Admin có thể truy cập:
 | `/hoadonnhap/them` | Tạo hóa đơn nhập nháp | Admin, thủ kho |
 | `/hoadonnhap/boc-tach-pdf` | Bóc tách PDF hóa đơn (JSON nội bộ) | Admin, thủ kho |
 | `/hoadonnhap/xem/{id}` | Xem hóa đơn nhập | Admin, thủ kho |
+| `/api/webhook/thanhtoan` | Webhook SePay thanh toán | Public (có API Key) |
 | `/thongke/doanhthu` | Doanh thu JSON | Admin |
 | `/thongke/topsanpham` | Top sản phẩm JSON | Admin |
 
@@ -425,7 +438,7 @@ Chạy toàn bộ test:
 php artisan test
 ```
 
-Các test nghiệp vụ hiện có:
+Các test nghiệp vụ hiện có (POS + Thanh toán chuyển khoản):
 
 - Khách mở được trang đăng nhập.
 - Thu ngân thanh toán thành công và tồn kho giảm đúng.
@@ -436,6 +449,7 @@ Các test nghiệp vụ hiện có:
 - Thu ngân không truy cập được chức năng kho.
 - Hóa đơn nhập có thể tạo nháp, đính kèm PDF, xác nhận nhập kho một lần và hủy
   hóa đơn nháp; xác nhận dùng transaction và khóa dòng sản phẩm.
+- Webhook SePay: T-CK01..T-CK16 (tạo QR, webhook hợp lệ/sai key/trùng lặp/dư/thiếu/out, xác nhận/hủy thủ công, polling, hủy quá hạn, in/doanh thu).
 
 Kiểm tra cú pháp PHP:
 
@@ -486,7 +500,13 @@ app/
 │   ├── LoaiSanPhamController.php
 │   ├── SanPhamController.php
 │   ├── ThongKeController.php
-│   └── HoaDonNhapController.php
+│   ├── HoaDonNhapController.php
+│   ├── WebhookController.php
+│   ├── HoldController.php
+│   ├── KiemKeController.php
+│   ├── NhapHangController.php
+│   ├── TraHangController.php
+│   └── ThongBaoService.php
 ├── Http/Middleware/CheckRole.php
 └── Models/
     ├── BienDongKho.php
@@ -495,6 +515,7 @@ app/
     ├── LoaiSanPham.php
     ├── HoaDonNhap.php
     ├── ChiTietHoaDonNhap.php
+    ├── PaymentWebhook.php
     └── SanPham.php
 
 database/
@@ -510,12 +531,16 @@ app/Services/
 resources/views/
 ├── auth/
 ├── donhang/
+├── hoadonnhap/
+├── hold/
 ├── kho/
 ├── layouts/
-├── hoadonnhap/
 ├── loaisanpham/
+├── nhaphang/
+├── nhatky/
 ├── pos/
-└── sanpham/
+├── sanpham/
+└── trahang/
 ```
 
 ## 12. Cơ sở dữ liệu
@@ -588,42 +613,40 @@ Sau khi kiểm thử, tạo Pull Request để merge vào `main`.
 
 ### Đã hoàn thành
 
-- Luồng đăng nhập và phân quyền theo ba vai trò.
-- CRUD sản phẩm, loại sản phẩm, POS, thanh toán và hóa đơn.
-- Quản lý tồn kho, nhập kho trực tiếp và lịch sử biến động.
+- Luồng đăng nhập và phân quyền theo ba vai trò (admin, thu ngân, thủ kho).
+- CRUD sản phẩm, loại sản phẩm (có `ma_loai`, `tu_khoa`, `he_so_lai`), POS, thanh toán và hóa đơn.
+- Quản lý tồn kho, nhập kho trực tiếp và lịch sử biến động (có `trahang_hong`).
 - Upload ảnh, POS dạng thẻ, tìm barcode và in tem Code 128.
 - In hóa đơn K58/K80 bằng trình duyệt.
-- Khách hàng và tích điểm.
+- Khách hàng và tích điểm (100k = 1 điểm, 1 điểm = 1k).
 - Giá vốn, lợi nhuận và xuất báo cáo XLSX/PDF.
-- VietQR thủ công với xác nhận chuyển khoản thủ công.
+- **Thanh toán chuyển khoản VietQR + Webhook SePay tự động** (T-CK01..T-CK16).
+- **Bóc tách PDF hóa đơn nhập cục bộ** (`smalot/pdfparser`, Human-in-the-Loop).
 - Nhà cung cấp và đơn nhập hàng theo quy trình trạng thái nhiều bước.
 - Nhật ký hoạt động cơ bản cho đăng nhập, sản phẩm, nhập kho, nhà cung cấp và
   đơn nhập hàng.
 - Đổi/trả hàng có kiểm tra hạn, số lượng, tình trạng hàng, hoàn tiền, điểm và
   tồn kho.
-- Hold giỏ hàng và kiểm kê kho có kiểm tra bán xen, duyệt điều chỉnh và nhật ký.
+- Hold giỏ hàng (tự xóa sau 24h qua `hold:clean`) và kiểm kê kho có kiểm tra bán xen, duyệt điều chỉnh và nhật ký.
 - Bộ dữ liệu thay thế gồm 12 loại hàng, 300 sản phẩm, 81 nhà cung cấp, 100
   khách hàng và một hóa đơn nhập 300 dòng.
-- PDF hóa đơn mẫu chỉ được lưu làm file đính kèm; không parse PDF để suy đoán
-  SKU, barcode hoặc giá bán.
 - Tài liệu dự án được lưu trong `TaiLieu/`.
 - Lộ trình mở rộng sau demo được ghi tại
   `TaiLieu/KeHoach/Ke hoach.md`.
 
 ### Còn thiếu hoặc chưa triển khai
 
-- Phân quyền động theo permission.
-- Webhook đối soát chuyển khoản tự động.
+- Phân quyền động theo permission (Pha 23).
 - Quét barcode bằng webcam.
-- In tự động không qua hộp thoại trình duyệt.
-- CRUD tài khoản người dùng, ứng dụng mobile và API riêng.
-- Các luồng ngoài scope như permission động, API/mobile và tích hợp bên ngoài.
+- In tự động không qua hộp thoại trình duyệt (cần QZ Tray).
+- CRUD tài khoản người dùng, ứng dụng mobile và API riêng (Pha 23).
+- Khuyến mãi/voucher (Pha 22), ROP/ABC (Pha 21).
+- Tích hợp bên ngoài: hóa đơn điện tử, Zalo ZNS/SMS, đồng bộ Shopee/TikTok (Pha 24).
 
 ## 15. Lộ trình triển khai tiếp theo
 
-Ưu tiên các phần đã có dữ liệu mẫu trong
-`TaiLieu/ThongTinNhaCungCap/`, không mở rộng sang mobile hoặc API khi chưa
-cần cho đồ án.
+Ưu tiên các phần đã có dữ liệu mẫu trong `TaiLieu/`, không mở rộng sang mobile
+hoặc API khi chưa cần cho đồ án.
 
 ### Pha 15 — Nhà cung cấp và đơn nhập hàng — Đã hoàn thành
 
@@ -649,18 +672,19 @@ Bộ dữ liệu hóa đơn nhập đang dùng workbook
 `TaiLieu/ThongTinHangHoa/LoaiHangHoa.xlsx`; có thể kiểm tra bằng
 `php artisan demo:kiemtra-du-lieu`.
 
-### Pha 15A — Hóa đơn nhập — Đã hoàn thành
+### Pha 15A — Hóa đơn nhập & Bóc tách PDF — Đã hoàn thành
 
 Chi tiết quy tắc, checklist, nhật ký thay đổi, bảng số kiểm tra và kết quả
 thực tế nằm trong [Ke hoach.md](TaiLieu/KeHoach/Ke%20hoach.md). Mã test riêng
 dùng tiền tố `T-HDN01`, `T-HDN02`, ... để không trùng T43 của phụ lục.
+Test webhook thanh toán: `T-CK01`..`T-CK16` trong `ThanhToanChuyenKhoanTest.php`.
 
 ### Pha 16 — Báo cáo, xuất file và giá vốn — Đã hoàn thành
 
 ### Pha 17 — Nhật ký hoạt động và phân quyền nâng cao — Đã hoàn thành một phần
 
 Nhật ký cơ bản có tại `/nhatky`, ghi người dùng, hành động, đối tượng, thời gian,
-IP và mô tả. Permission động vẫn chờ chốt ma trận quyền.
+IP và mô tả. Permission động vẫn chờ chốt ma trận quyền (Pha 23).
 
 ### Pha 18 — Đổi/trả hàng — Đã hoàn thành một phần
 
@@ -670,17 +694,17 @@ IP và mô tả. Permission động vẫn chờ chốt ma trận quyền.
 - Chưa có luồng đổi sản phẩm tạo hóa đơn bù trừ riêng; hình thức `doi_hang`
   hiện lưu lựa chọn hoàn và cần bổ sung nếu đồ án yêu cầu.
 
-### Pha 19 — Tạm lưu giỏ hàng — Đã hoàn thành
+### Pha 19 — Tạm lưu giỏ hàng — Đã hoàn thành (tự dọn 24h)
 
 ### Pha 20 — Kiểm kê kho — Đã hoàn thành phần cốt lõi
 
-### Pha 21 — ROP và ABC — Chưa triển khai
+### Pha 21 — ROP và ABC — Chưa triển khai (cần dữ liệu bán 30 ngày)
 
-### Pha 22 — Khuyến mãi và voucher — Chưa triển khai
+### Pha 22 — Khuyến mãi và voucher — Chưa triển khai (cần xác minh quy tắc)
 
-### Pha 23 — Tài khoản, permission và REST API — Chưa triển khai
+### Pha 23 — Tài khoản, permission và REST API — Chưa triển khai (cần xác minh)
 
-### Pha 24 — Tích hợp bên ngoài — Chưa triển khai
+### Pha 24 — Tích hợp bên ngoài — Chưa triển khai (cần sandbox & xác nhận)
 
 Các tích hợp thanh toán/webhook, hóa đơn điện tử, in ESC/POS và sàn thương mại
 điện tử chỉ làm sau khi có tài khoản sandbox, tài liệu API và xác nhận.
