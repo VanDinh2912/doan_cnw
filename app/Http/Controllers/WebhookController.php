@@ -65,6 +65,7 @@ class WebhookController extends Controller
             ]);
 
             $this->thongBaoService->canhBaoKhongKhopHoaDon($txn['so_tien'], $txn['noi_dung'], $txn['ma_giaodich']);
+            $this->ghiCanDoiSoat($txn, null, null, 'khong_tim_thay_ma_hoadon');
 
             return response()->json(['success' => true, 'message' => 'Không tìm thấy mã hóa đơn hợp lệ.']);
         }
@@ -79,6 +80,7 @@ class WebhookController extends Controller
             ]);
 
             $this->thongBaoService->canhBaoKhongKhopHoaDon($txn['so_tien'], $txn['noi_dung'], $txn['ma_giaodich']);
+            $this->ghiCanDoiSoat($txn, null, $maHoaDon, 'hoadon_khong_ton_tai');
 
             return response()->json(['success' => true, 'message' => 'Hóa đơn không tồn tại.']);
         }
@@ -92,6 +94,7 @@ class WebhookController extends Controller
             ]);
 
             $this->thongBaoService->canhBaoKhongKhopHoaDon($txn['so_tien'], "Hóa đơn {$maHoaDon} đã bị hủy trước đó: ".$txn['noi_dung'], $txn['ma_giaodich']);
+            $this->ghiCanDoiSoat($txn, $donHang->id, $maHoaDon, 'don_da_huy');
 
             return response()->json(['success' => true, 'message' => 'Hóa đơn đã bị hủy trước đó.']);
         }
@@ -116,6 +119,7 @@ class WebhookController extends Controller
             ]);
 
             $this->thongBaoService->canhBaoThieuTien($soTienChuyen, $tongThanhToan, $maHoaDon, $txn['ma_giaodich']);
+            $this->ghiCanDoiSoat($txn, $donHang->id, $maHoaDon, 'thieu_tien');
 
             return response()->json(['success' => true, 'message' => 'Số tiền không đủ, giữ nguyên chờ xử lý.']);
         }
@@ -125,6 +129,15 @@ class WebhookController extends Controller
         if ($soTienChuyen > $tongThanhToan) {
             $du = $soTienChuyen - $tongThanhToan;
             $ghiChuDu = 'khách chuyển dư '.number_format($du, 0, ',', '.').' đ';
+        }
+
+        // Đơn đã quá hạn chờ nhưng chưa bị hủy: vẫn hoàn tất (hàng đang giữ, tiền đã về),
+        // song phải để lại dấu vết trên đơn và báo thu ngân.
+        $soPhutHan = (int) config('pos.cho_thanh_toan_phut', 15);
+        $treHan = $donHang->created_at->lt(now()->subMinutes($soPhutHan));
+        if ($treHan) {
+            $ghiChuTre = 'Thanh toán trễ hạn (hạn chờ '.$soPhutHan.' phút), tiền về '.now()->format('H:i:s d/m/Y');
+            $ghiChuDu = $ghiChuDu ? $ghiChuDu.' | '.$ghiChuTre : $ghiChuTre;
         }
 
         try {
@@ -141,16 +154,48 @@ class WebhookController extends Controller
                 ]);
 
                 // Thông báo Telegram sau khi giao dịch đã hoàn tất
-                DB::afterCommit(function () use ($soTienChuyen, $maHoaDon, $ghiChuDu) {
+                DB::afterCommit(function () use ($soTienChuyen, $maHoaDon, $ghiChuDu, $treHan, $txn, $soPhutHan) {
                     $this->thongBaoService->thongBaoThanhToanThanhCong($soTienChuyen, $maHoaDon, $ghiChuDu);
+                    if ($treHan) {
+                        $this->thongBaoService->canhBaoThanhToanTreHan($soTienChuyen, $maHoaDon, $txn['ma_giaodich'], $soPhutHan);
+                    }
                 });
+
+                return response()->json(['success' => true, 'message' => 'Xác nhận thanh toán thành công.']);
             }
 
-            return response()->json(['success' => true, 'message' => 'Xác nhận thanh toán thành công.']);
+            // Tiền đã về nhưng đơn không hoàn tất được (đổi trạng thái giữa lúc kiểm tra và khóa)
+            $this->ghiCanDoiSoat($txn, $donHang->id, $maHoaDon, 'don_khong_hoan_tat_duoc');
+
+            return response()->json(['success' => true, 'message' => $res['message']]);
         } catch (Throwable $e) {
             Log::error('SePay Webhook: Lỗi xử lý giao dịch', ['message' => $e->getMessage()]);
+            $this->ghiCanDoiSoat($txn, $donHang->id, $maHoaDon, 'loi_he_thong');
 
             return response()->json(['success' => true, 'message' => 'Lỗi hệ thống nhưng đã ghi nhận.']);
         }
+    }
+
+    /**
+     * Ghi mọi giao dịch tiền về mà không hoàn tất được đơn vào hàng chờ đối soát.
+     * Idempotent theo ma_giao_dich_ngoai (unique) nên SePay gửi lại không tạo bản ghi trùng.
+     * Payload chỉ chứa nội dung chuyển khoản, không bao gồm header xác thực.
+     */
+    private function ghiCanDoiSoat(array $txn, ?int $invoiceId, ?string $maHoaDon, string $lyDo): void
+    {
+        PaymentWebhook::updateOrCreate(
+            ['ma_giao_dich_ngoai' => $txn['ma_giaodich']],
+            [
+                'nha_cung_cap' => 'sepay',
+                'invoice_id' => $invoiceId,
+                'so_tien' => $txn['so_tien'],
+                'ket_qua' => 'can_doi_soat',
+                'ly_do' => $lyDo,
+                'ma_hoadon' => $maHoaDon,
+                'noi_dung' => mb_substr($txn['noi_dung'], 0, 255),
+                'payload' => $txn,
+                'trang_thai_xu_ly' => 'chua_xu_ly',
+            ]
+        );
     }
 }

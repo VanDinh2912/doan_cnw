@@ -75,6 +75,19 @@ class ThongBaoService
     }
 
     /**
+     * Cảnh báo tiền về cho đơn đã quá hạn chờ thanh toán nhưng chưa bị hủy.
+     * Đơn vẫn được hoàn tất (hàng đang giữ, tiền đã về); thu ngân cần biết để đối soát.
+     */
+    public function canhBaoThanhToanTreHan(int $soTien, string $maHoaDon, string $maGiaoDich, int $soPhutHan): void
+    {
+        $gio = now()->format('H:i:s d/m/Y');
+        $soTienFmt = number_format($soTien, 0, ',', '.');
+        $msg = "⚠️ <b>THANH TOÁN TRỄ HẠN</b>\nHóa đơn: <b>{$maHoaDon}</b>\nSố tiền: {$soTienFmt} đ\nMã GD: {$maGiaoDich}\nHạn chờ: {$soPhutHan} phút\nĐơn quá hạn nhưng chưa bị hủy, tiền đã về nên vẫn hoàn tất.\nThời gian: {$gio}";
+
+        $this->guiTelegram($msg);
+    }
+
+    /**
      * Cảnh báo giao dịch không tìm thấy hóa đơn khớp.
      */
     public function canhBaoKhongKhopHoaDon(int $soTien, string $noiDung, string $maGiaoDich): void

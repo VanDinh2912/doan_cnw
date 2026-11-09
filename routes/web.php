@@ -150,6 +150,9 @@ Route::middleware(['auth', 'staff.only'])->group(function (): void {
     Route::middleware('role:admin')->group(function (): void {
         Route::post('/kiemke/{phieu}/duyet', [\App\Http\Controllers\KiemKeController::class, 'approve'])->name('kiemke.approve');
         Route::get('/nhatky', [\App\Http\Controllers\NhatKyController::class, 'index'])->name('nhatky.index');
+        Route::get('/doisoat', [\App\Http\Controllers\DoiSoatController::class, 'index'])->name('doisoat.index');
+        Route::get('/doisoat/{webhook}', [\App\Http\Controllers\DoiSoatController::class, 'show'])->name('doisoat.show');
+        Route::post('/doisoat/{webhook}/xuly', [\App\Http\Controllers\DoiSoatController::class, 'xuLy'])->name('doisoat.xuly');
         Route::post('/trahang/duyet/{phieuTra}', [\App\Http\Controllers\TraHangController::class, 'postDuyet'])->name('trahang.duyet');
         Route::get('/thongke', [\App\Http\Controllers\ThongKeController::class, 'getTrangThongKe'])
             ->name('thongke.index');

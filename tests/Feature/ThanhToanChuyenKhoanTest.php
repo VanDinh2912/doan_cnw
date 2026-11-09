@@ -10,6 +10,7 @@ use App\Models\SanPham;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class ThanhToanChuyenKhoanTest extends TestCase
@@ -598,16 +599,37 @@ class ThanhToanChuyenKhoanTest extends TestCase
         $this->assertNull($donHang->thoi_gian_thanh_toan);
         $this->assertSame($tonKhoSauHuy, $sp->fresh()->soluong);
         $this->assertSame($diemSauHuy, $kh->fresh()->diem_tichluy);
-        $this->assertDatabaseCount('payment_webhooks', 0);
+
+        // Tiền đã về mà không hoàn tất được đơn => phải nằm trong hàng chờ đối soát.
+        $this->assertDatabaseHas('payment_webhooks', [
+            'ma_giao_dich_ngoai' => '778899',
+            'invoice_id' => $donHang->id,
+            'ket_qua' => 'can_doi_soat',
+            'ly_do' => 'don_da_huy',
+            'trang_thai_xu_ly' => 'chua_xu_ly',
+            'so_tien' => 200000,
+        ]);
+        $this->assertDatabaseCount('payment_webhooks', 1);
+
+        // SePay gửi lại cùng mã giao dịch: không nhân đôi bản ghi đối soát.
+        $this->guiSepayWebhook([
+            'id' => 778899, 'transferType' => 'in',
+            'transferAmount' => 200000, 'content' => 'THANH TOAN DON ' . $cleanMa,
+        ])->assertOk();
+        $this->assertDatabaseCount('payment_webhooks', 1);
     }
 
     // ----------------------------------------------------------------
-    // T-CK18: Webhook tới đơn quá hạn nhưng CHƯA bị hủy ➜ vẫn hoàn tất.
-    // Test này GHI NHẬN HÀNH VI HIỆN TẠI, không thay đổi logic: WebhookController
-    // chỉ kiểm tra trang_thai chứ không kiểm tra thời hạn chờ thanh toán.
+    // T-CK18: Webhook tới đơn quá hạn nhưng CHƯA bị hủy ➜ vẫn hoàn tất,
+    // kèm ghi chú "Thanh toán trễ hạn" trên đơn và cảnh báo Telegram cho thu ngân.
+    // Hành vi hoàn tất được giữ nguyên; chỉ bổ sung dấu vết để đối soát.
     // ----------------------------------------------------------------
     public function test_T_CK18_webhook_toi_don_qua_han_chua_huy_van_hoan_tat(): void
     {
+        Http::fake(['api.telegram.org/*' => Http::response(['ok' => true], 200)]);
+        Config::set('pos.telegram_bot_token', 'test_telegram_token');
+        Config::set('pos.telegram_chat_id', '123456');
+
         $sp = SanPham::firstOrFail();
 
         $kh = KhachHang::create([
@@ -647,6 +669,21 @@ class ThanhToanChuyenKhoanTest extends TestCase
         // Tồn kho giữ nguyên mức đã trừ lúc tạo đơn chờ: không trừ lần 2, không hoàn kho.
         $this->assertSame($tonKhoSauKhiCho, $sp->fresh()->soluong);
 
+        // Dấu vết trễ hạn để thu ngân biết mà đối soát.
+        $this->assertNotNull($donHang->ghi_chu);
+        $this->assertStringContainsString('Thanh toán trễ hạn', $donHang->ghi_chu);
+        $this->assertStringContainsString('15 phút', $donHang->ghi_chu);
+
+        // Đơn hoàn tất thành công nên KHÔNG nằm trong hàng chờ đối soát.
+        $this->assertDatabaseHas('payment_webhooks', [
+            'ma_giao_dich_ngoai' => '334455',
+            'ket_qua' => 'success',
+        ]);
         $this->assertDatabaseCount('payment_webhooks', 1);
+
+        // Telegram phải nhận cả thông báo thành công lẫn cảnh báo trễ hạn.
+        Http::assertSent(fn ($request) => str_contains($request['text'] ?? '', 'THANH TOÁN TRỄ HẠN')
+            && str_contains($request['text'] ?? '', $donHang->ma_hoadon));
+        Http::assertSent(fn ($request) => str_contains($request['text'] ?? '', 'Đã nhận'));
     }
 }
