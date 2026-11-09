@@ -28,6 +28,7 @@ kiện điện thoại. Đây là đồ án Laravel, tập trung vào quy trình
 15. [Lộ trình triển khai tiếp theo](#15-lộ-trình-triển-khai-tiếp-theo)
 16. [Lưu ý bảo mật](#16-lưu-ý-bảo-mật)
 17. [Giới hạn đã biết](#17-giới-hạn-đã-biết)
+18. [Kết quả kiểm tra](#18-kết-quả-kiểm-tra)
 
 ---
 
@@ -112,7 +113,9 @@ DB_CONNECTION=sqlite
 
 Nếu muốn dùng QR chuyển khoản trong màn hình POS, thêm cấu hình ngân hàng (xem [Bảng biến môi trường](#bảng-biến-môi-trường-đầy-đủ) bên dưới).
 
-Chỉ dùng thông tin tài khoản demo hoặc tài khoản do chủ dự án cung cấp. Tính năng hiện không có webhook đối soát tự động.
+Chỉ dùng thông tin tài khoản demo hoặc tài khoản do chủ dự án cung cấp. Đối soát
+chuyển khoản tự động qua webhook SePay đã được triển khai (xem mục 4.3 và mục 7);
+chỉ hoạt động khi cấu hình `SEPAY_WEBHOOK_API_KEY` và có tunnel công khai.
 
 Nếu MySQL có mật khẩu, điền mật khẩu vào `DB_PASSWORD`.
 
@@ -175,9 +178,16 @@ Lệnh kiểm tra số lượng bản ghi, tổng hóa đơn, tồn kho và move
 | `POS_GIA_TRI_DIEM` | Không | 1000 | Giá trị 1 điểm (VNĐ) | Tích điểm |
 | `POS_HAN_TRA_NGAY` | Không | 7 | Hạn trả hàng (ngày) | Trả hàng |
 | `POS_NGUONG_TRA_KHONG_DUYET` | Không | 500000 | Ngưỡng tự duyệt trả hàng (VNĐ) | Trả hàng |
-| `POS_WEBHOOK_SECRET` | Không | (rỗng) | *Đang không dùng* (dự phòng HMAC) | — |
 
-> **Lưu ý:** Hệ thống hiện chỉ dùng **API Key** (`SEPAY_WEBHOOK_API_KEY`) để xác thực webhook SePay. Biến `POS_WEBHOOK_SECRET` (HMAC) hiện không được sử dụng trong code.
+> **Lưu ý:** Luồng webhook (`WebhookController`) chỉ xác thực bằng **API Key**
+> (`SEPAY_WEBHOOK_API_KEY`, header `Authorization: Apikey <KEY>`, so sánh bằng
+> `hash_equals`; để trống key thì từ chối toàn bộ — 401, tức **fail-closed**).
+> Biến `POS_WEBHOOK_SECRET` (HMAC) **đã được gỡ bỏ** khỏi `.env.example`,
+> `config/pos.php` và `phpunit.xml`, cùng controller legacy
+> `app/Http/Controllers/Api/PaymentWebhookController.php`. Controller đó không
+> được đăng ký ở bất kỳ route nào và xác thực kiểu **fail-open**
+> (`if ($secret) { ... }` — secret rỗng thì bỏ qua kiểm tra chữ ký), nên bị xóa
+> để tránh rủi ro nếu sau này bị route lại.
 
 
 ## 4. Thiết lập thiết bị và thanh toán thực tế
@@ -266,12 +276,20 @@ Vì SePay gửi webhook từ internet về máy local, bạn cần mở tunnel:
    ```
 
 **Cơ chế tự động hủy hóa đơn quá hạn:**
-- **Cơ chế Hủy lười (Lazy Expiration)**: Khi màn hình POS polling trạng thái hoặc người dùng truy vấn hóa đơn mà thời gian chờ đã vượt quá `POS_CHO_THANH_TOAN_PHUT`, hệ thống tự động hoàn kho, hoàn điểm và chuyển trạng thái sang `da_huy`.
+- **Cơ chế Hủy lười (Lazy Expiration)**: Chỉ kích hoạt khi POS polling
+  `GET /donhang/trangthai/{id}` (`DonHangController::getTrangThai`) mà thời gian
+  chờ đã vượt quá `POS_CHO_THANH_TOAN_PHUT`: hệ thống hoàn kho, hoàn điểm đã dùng
+  và chuyển trạng thái sang `da_huy`. Mở danh sách/chi tiết hóa đơn không kích
+  hoạt hủy lười.
 - **Lệnh tự động định kỳ (Scheduler)**:
   ```powershell
   php artisan donhang:huy-qua-han
   ```
-  Lệnh này đã được khai báo chạy mỗi phút (`everyMinute`) trong `routes/console.php`. Bạn có thể cấu hình Windows Task Scheduler hoặc cron job chạy `php artisan schedule:run`.
+  Lệnh này được khai báo chạy mỗi phút (`everyMinute`) trong `routes/console.php`,
+  nhưng chỉ thực sự chạy khi cron hoặc Windows Task Scheduler gọi
+  `php artisan schedule:run` mỗi phút. Máy phát triển hiện chưa cấu hình task
+  này (kiểm tra ngày 2026-11-10), nên trên máy demo việc hủy quá hạn chủ yếu
+  dựa vào hủy lười khi POS polling.
 
 ## 5. Chạy ứng dụng
 
@@ -295,6 +313,23 @@ Port chỉ có hiệu lực trong lần chạy server hiện tại. Dừng serve
 npm install
 npm run build
 ```
+
+### Chạy lịch hẹn khi demo (hủy đơn quá hạn, dọn giỏ tạm)
+
+```powershell
+php artisan schedule:work
+```
+
+Lệnh chạy ở foreground và thực thi các task khai báo trong `routes/console.php`:
+`donhang:huy-qua-han` (mỗi phút) và `hold:clean` (mỗi ngày). Giữ lệnh này chạy
+trong lúc demo, hoặc cấu hình Windows Task Scheduler gọi `php artisan schedule:run`
+mỗi phút.
+
+Nếu **không** chạy, đơn `cho_thanh_toan` quá hạn chỉ bị hủy "lười" khi POS poll
+trạng thái (`DonHangController@getTrangThai`) hoặc khi thu ngân bấm hủy; đơn không
+ai poll sẽ giữ tồn kho và điểm của khách vô thời hạn. Lưu ý webhook SePay **không**
+kiểm tra thời hạn, nên tiền về trễ cho đơn quá hạn chưa hủy vẫn hoàn tất thanh toán
+(xem test T-CK18 ở mục 9).
 
 ## 6. Tài khoản demo
 
@@ -383,10 +418,15 @@ Thanh toán sử dụng một transaction duy nhất:
 
 - Tạo QR VietQR động trên màn hình POS, thu ngân bấm "Tạo QR" để chuyển hóa đơn sang trạng thái `cho_thanh_toan` (trừ kho, trừ điểm dùng ngay).
 - Webhook endpoint: `POST /api/webhook/thanhtoan` nhận callback từ SePay.
-- Xác thực API Key, validate payload, chống trùng lặp (idempotent) bằng `ma_giao_dich`.
+- Xác thực API Key (so sánh `hash_equals`), validate payload, chống trùng lặp
+  (idempotent) bằng cả hai cột `ma_giaodich` và `ma_giao_dich` (đều có unique
+  index trong migration).
 - Tự động tìm mã hóa đơn trong nội dung chuyển khoản, đối chiếu số tiền.
 - Nếu đủ tiền: chuyển `da_thanh_toan`, ghi `ma_giaodich`, cộng điểm, gửi Telegram.
 - Nếu thiếu tiền: giữ `cho_thanh_toan`, cảnh báo Telegram.
+- Nếu hóa đơn đã `da_huy`: bỏ qua, ghi log và cảnh báo Telegram (chưa có test).
+- Webhook không kiểm tra hạn chờ: đơn quá hạn nhưng chưa bị hủy (chưa polling,
+  scheduler chưa chạy) vẫn có thể được hoàn tất khi webhook tới (chưa có test).
 - Thu ngân có thể bấm "Xác nhận đã nhận tiền" hoặc "Hủy chờ" thủ công trên POS.
 - Lệnh `php artisan donhang:huy-qua-han` (lập lịch mỗi phút) tự hủy đơn quá hạn, hoàn kho/điểm.
 - Cấu hình trong `.env`: `SEPAY_WEBHOOK_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `POS_CHO_THANH_TOAN_PHUT`.
@@ -421,8 +461,11 @@ Admin có thể truy cập:
 
 | URL | Chức năng | Quyền |
 |---|---|---|
+| `/` | Trang chủ storefront | Công khai |
+| `/danh-muc/{loai}`, `/san-pham/{id}`, `/tim-kiem`, `/gio-hang` | Storefront: danh mục, sản phẩm, tìm kiếm, giỏ hàng | Công khai |
 | `/dangnhap` | Đăng nhập | Khách |
-| `/tongquan` | Dashboard | Mọi vai trò |
+| `/dang-ky` | Đăng ký tài khoản khách hàng | Khách |
+| `/tongquan` | Dashboard | Mọi vai trò nhân viên |
 | `/pos` | Màn hình bán hàng | Admin, thu ngân |
 | `/sanpham` | Quản lý sản phẩm | Admin, thủ kho |
 | `/loaisanpham` | Quản lý loại sản phẩm | Admin, thủ kho |
@@ -434,9 +477,17 @@ Admin có thể truy cập:
 | `/hoadonnhap/them` | Tạo hóa đơn nhập nháp | Admin, thủ kho |
 | `/hoadonnhap/boc-tach-pdf` | Bóc tách PDF hóa đơn (JSON nội bộ) | Admin, thủ kho |
 | `/hoadonnhap/xem/{id}` | Xem hóa đơn nhập | Admin, thủ kho |
-| `/api/webhook/thanhtoan` | Webhook SePay thanh toán | Public (có API Key) |
+| `/api/webhook/thanhtoan` | Webhook SePay thanh toán | Public (có API Key, throttle 60/phút) |
+| `/trahang` | Trả hàng: danh sách, tạo phiếu, duyệt | Admin, thu ngân (duyệt: admin) |
+| `/khachhang` | Quản lý khách hàng | Admin, thu ngân |
+| `/hold` | Giỏ tạm | Admin, thu ngân |
+| `/kiemke` | Kiểm kê kho | Admin, thủ kho (duyệt: admin) |
+| `/nhatky` | Nhật ký hoạt động | Admin |
+| `/thongke` | Trang thống kê | Admin |
 | `/thongke/doanhthu` | Doanh thu JSON | Admin |
 | `/thongke/topsanpham` | Top sản phẩm JSON | Admin |
+| `/baocao/hoadon/{dinhDang}` | Xuất báo cáo hóa đơn XLSX/PDF | Admin |
+| `/baocao/xuatnhapton/{dinhDang}` | Xuất báo cáo xuất nhập tồn | Admin, thủ kho |
 
 ## 9. Kiểm thử
 
@@ -446,18 +497,40 @@ Chạy toàn bộ test:
 php artisan test
 ```
 
-Các test nghiệp vụ hiện có (POS + Thanh toán chuyển khoản):
+Các test nghiệp vụ hiện có (66 test, xem kết quả chạy thực tế ở mục 18):
 
-- Khách mở được trang đăng nhập.
-- Thu ngân thanh toán thành công và tồn kho giảm đúng.
-- Thanh toán vượt tồn kho không tạo hóa đơn.
-- Thanh toán chuyển khoản tự động ghi đúng tổng thanh toán và không có tiền thừa.
-- Không bán được sản phẩm đã tạm dừng kinh doanh.
-- Lọc hóa đơn theo khoảng ngày.
-- Thu ngân không truy cập được chức năng kho.
-- Hóa đơn nhập có thể tạo nháp, đính kèm PDF, xác nhận nhập kho một lần và hủy
-  hóa đơn nháp; xác nhận dùng transaction và khóa dòng sản phẩm.
-- Webhook SePay: T-CK01..T-CK16 (tạo QR, webhook hợp lệ/sai key/trùng lặp/dư/thiếu/out, xác nhận/hủy thủ công, polling, hủy quá hạn, in/doanh thu).
+- `AuthFlowTest` (7 test): đăng ký khách hàng, liên kết khách walk-in, chặn trùng
+  số điện thoại, chuyển hướng theo vai trò, chặn khách hàng vào trang nhân viên.
+- `StorefrontHomeTest` (6 test): trang chủ storefront, sản phẩm thật, sắp xếp
+  loại theo số sản phẩm, trạng thái rỗng, header theo vai trò.
+- `PosWorkflowTest` (25 test): thanh toán tiền mặt/chuyển khoản, vượt tồn kho,
+  sản phẩm tạm dừng, lọc hóa đơn theo ngày, upload ảnh, tìm kiếm, tem barcode,
+  tích điểm, xuất báo cáo, đơn nhập/hóa đơn nhập, phân quyền, nhật ký, trả hàng
+  (quá hạn bị từ chối; hóa đơn có giảm giá + đã dùng điểm: hoàn theo tỷ lệ và thu
+  hồi điểm không âm), hold giỏ, kiểm kê.
+- `ThanhToanChuyenKhoanTest` (18 test, T-CK01..T-CK18): tạo QR, webhook hợp
+  lệ/sai key/trùng lặp/dư/thiếu/out, xác nhận/hủy thủ công, polling, hủy lười,
+  lệnh hủy quá hạn, in/doanh thu, webhook tới đơn đã hủy (T-CK17), webhook tới
+  đơn quá hạn chưa hủy (T-CK18).
+- `PdfInvoiceParserTest` (3 test): bóc tách PDF mẫu, phân quyền, PDF lỗi.
+- `VietQrServiceTest` (5 test, t61..t65): URL VietQR, chưa cấu hình, số tiền âm,
+  làm sạch nội dung, template dự phòng.
+- `ExampleTest` Unit + Feature (2 test).
+
+Lưu ý khi chạy test:
+
+- Test dùng SQLite `:memory:` qua `RefreshDatabase` (`phpunit.xml`), không đụng
+  database MySQL thật.
+- Phải build asset trước (`npm ci` và `npm run build`) để có
+  `public/build/manifest.json`; nếu không, các test render Blade dùng `@vite`
+  sẽ lỗi 500. Lượt chạy chưa build cho 10 fail/52 pass. Sau khi build còn
+  2 fail do lệch chữ giữa test và view; đã sửa theo view (nguồn đúng) nên
+  hiện tại **66 passed / 0 failed** (xem mục 18).
+- Chưa có test cho: cảnh báo lệch giá nhập >10%, `hold:clean`, nhánh API key
+  webhook rỗng (fail-closed), validate biên giảm giá 0–100, `limit(10)` ở
+  thống kê, việc đăng ký lịch trong `routes/console.php`, xác nhận nhập kho
+  chống bấm 2 lần, nhánh gửi Telegram thành công, và hành vi khi 2 webhook
+  đến đồng thời (concurrency thật).
 
 Kiểm tra cú pháp PHP:
 
@@ -502,6 +575,8 @@ app/
 │   ├── KiemTraDuLieu.php
 │   ├── NhapDuLieuTaiLieu.php
 │   ├── ResetDemoData.php
+│   ├── ScrapeProductImagesCommand.php
+│   ├── SyncTaiLieuDataCommand.php
 │   └── XoaGioTamHetHan.php
 ├── Http/Controllers/
 │   ├── AuthController.php
@@ -517,6 +592,8 @@ app/
 │   ├── NhatKyController.php
 │   ├── NhapHangController.php
 │   ├── SanPhamController.php
+│   ├── StorefrontCartController.php
+│   ├── StorefrontController.php
 │   ├── ThongKeController.php
 │   ├── TraHangController.php
 │   └── WebhookController.php
@@ -575,9 +652,11 @@ database/
 │   ├── 2026_01_01_000017_add_import_invoice_fields.php
 │   ├── 2026_01_01_000018_create_purchase_invoices_tables.php
 │   ├── 2026_01_01_000019_add_purchase_invoice_to_stock_movements.php
-│   ├── 2026_11_02_033147_add_ma_gia_dich_to_invoices_table.php
+│   ├── 2026_11_02_033147_add_ma_giao_dich_to_invoices_table.php
 │   ├── 2026_11_02_033152_create_payment_webhooks_table.php
-│   └── 2026_11_02_055338_add_ghi_chu_to_invoices_table.php
+│   ├── 2026_11_02_055338_add_ghi_chu_to_invoices_table.php
+│   ├── 2026_11_09_000001_add_khachhang_role_to_users_table.php
+│   └── 2026_11_09_000002_add_user_id_to_customers_table.php
 └── seeders/DatabaseSeeder.php
 
 resources/views/
@@ -589,12 +668,14 @@ resources/views/
 ├── hold/
 ├── kho/
 ├── khachhang/
+├── kiemke/
 ├── layouts/
 ├── loaisanpham/
 ├── nhaphang/
 ├── nhatky/
 ├── pos/
 ├── sanpham/
+├── storefront/
 ├── thongke/
 └── trahang/
 ```
@@ -603,10 +684,11 @@ resources/views/
 
 Các bảng nghiệp vụ:
 
-- `users`: tài khoản và vai trò.
+- `users`: tài khoản và vai trò (`admin`, `thungan`, `thukho`, `khachhang`).
 - `categories`: loại sản phẩm.
 - `products`: sản phẩm và tồn kho (có `soluong_hong`).
-- `invoices`: hóa đơn (có `ma_giaodich`, `ghi_chu`).
+- `customers`: khách hàng, điểm tích lũy, `user_id` liên kết tài khoản (unique, nullable).
+- `invoices`: hóa đơn (có `ma_giaodich` và `ma_giao_dich` — cả hai unique, `ghi_chu`).
 - `invoice_details`: chi tiết hóa đơn.
 - `stock_movements`: lịch sử nhập/bán/điều chỉnh kho.
 - `purchase_invoices`: hóa đơn nhập, thuế, tổng tiền và trạng thái.
@@ -670,14 +752,17 @@ Sau khi kiểm thử, tạo Pull Request để merge vào `main`.
 
 ### Đã hoàn thành
 
-- Luồng đăng nhập và phân quyền theo ba vai trò (admin, thu ngân, thủ kho).
+- Luồng đăng nhập và phân quyền theo ba vai trò nhân viên (admin, thu ngân, thủ kho).
+- Storefront công khai (trang chủ, danh mục, sản phẩm, tìm kiếm, giỏ hàng) và
+  đăng ký tài khoản khách hàng (`khachhang`), liên kết khách walk-in theo số
+  điện thoại; khách hàng bị chặn khỏi trang nhân viên.
 - CRUD sản phẩm, loại sản phẩm (có `ma_loai`, `tu_khoa`, `he_so_lai`), POS, thanh toán và hóa đơn.
 - Quản lý tồn kho, nhập kho trực tiếp và lịch sử biến động (có `trahang_hong`).
 - Upload ảnh, POS dạng thẻ, tìm barcode và in tem Code 128.
 - In hóa đơn K58/K80 bằng trình duyệt.
 - Khách hàng và tích điểm (100k = 1 điểm, 1 điểm = 1k).
 - Giá vốn, lợi nhuận và xuất báo cáo XLSX/PDF.
-- **Thanh toán chuyển khoản VietQR + Webhook SePay tự động** (T-CK01..T-CK16).
+- **Thanh toán chuyển khoản VietQR + Webhook SePay tự động** (T-CK01..T-CK18).
 - **Bóc tách PDF hóa đơn nhập cục bộ** (`smalot/pdfparser`, Human-in-the-Loop).
 - Nhà cung cấp và đơn nhập hàng theo quy trình trạng thái nhiều bước.
 - Nhật ký hoạt động cơ bản cho đăng nhập, sản phẩm, nhập kho, nhà cung cấp và
@@ -732,9 +817,10 @@ Bộ dữ liệu hóa đơn nhập đang dùng workbook
 ### Pha 15A — Hóa đơn nhập & Bóc tách PDF — Đã hoàn thành
 
 Chi tiết quy tắc, checklist, nhật ký thay đổi, bảng số kiểm tra và kết quả
-thực tế nằm trong [Ke hoach.md](TaiLieu/KeHoach/Ke%20hoach.md). Mã test riêng
-dùng tiền tố `T-HDN01`, `T-HDN02`, ... để không trùng T43 của phụ lục.
-Test webhook thanh toán: `T-CK01`..`T-CK16` trong `ThanhToanChuyenKhoanTest.php`.
+thực tế nằm trong [Ke hoach.md](TaiLieu/KeHoach/Ke%20hoach.md). Hóa đơn nhập được
+kiểm thử trong `PosWorkflowTest` (tạo nháp + đính kèm PDF) và
+`PdfInvoiceParserTest` (3 test); không có bộ test mang mã `T-HDN` trong code.
+Test webhook thanh toán: `T-CK01`..`T-CK18` trong `ThanhToanChuyenKhoanTest.php`.
 
 ### Pha 16 — Báo cáo, xuất file và giá vốn — Đã hoàn thành
 
@@ -746,7 +832,14 @@ IP và mô tả. Permission động vẫn chờ chốt ma trận quyền (Pha 23
 ### Pha 18 — Đổi/trả hàng — Đã hoàn thành một phần
 
 - Đã có tạo phiếu trả, trả hàng tốt/hỏng, kiểm tra hạn và số lượng cộng dồn.
-- Đã hoàn tiền theo tỷ lệ, cập nhật tồn/kho lỗi, thu hồi điểm và ghi nhật ký.
+- Đã hoàn tiền theo tỷ lệ `tong_thanh_toan/tong_tien` (phân bổ cả giảm giá % lẫn
+  giảm giá điểm), cập nhật tồn/kho lỗi, thu hồi điểm và ghi nhật ký.
+- Điểm thu hồi = `floor(tong_hoan / POS_DIEM_MOI_DONG)`, không vượt số dư hiện
+  tại; phiếu vượt `POS_NGUONG_TRA_KHONG_DUYET` phải chờ admin duyệt.
+- Chưa hoàn lại điểm đã dùng (`diem_su_dung`) khi trả hàng — khách mất điểm đã
+  dùng nếu trả toàn bộ hóa đơn.
+- Chưa có test cho hạn trả 7 ngày, ngưỡng duyệt, và hoàn tiền/thu hồi điểm khi
+  hóa đơn gốc có giảm giá hoặc dùng điểm.
 - Đã cập nhật thống kê doanh thu/lợi nhuận và top sản phẩm theo doanh thu ròng.
 - Chưa có luồng đổi sản phẩm tạo hóa đơn bù trừ riêng; hình thức `doi_hang`
   hiện lưu lựa chọn hoàn và cần bổ sung nếu đồ án yêu cầu.
@@ -792,16 +885,82 @@ merge vào `main`. Không import dữ liệu mẫu hoặc reset database product
 - **Không có khuyến mãi/voucher** (Pha 22).
 - **Không có ROP/ABC** (Pha 21, cần dữ liệu bán 30 ngày).
 - **Không tích hợp hóa đơn điện tử, Zalo ZNS/SMS, Shopee/TikTok** (Pha 24, cần sandbox & xác nhận).
-- **Draft Review UI cho PDF parsing** chưa triển khai (README mô tả nhưng code chưa có view/controller).
+- **Bóc tách PDF là heuristic**: kết quả bóc tách được điền vào form hóa đơn
+  nhập nháp để thủ kho rà soát trước khi xác nhận (Human-in-the-Loop ngay trong
+  `resources/views/hoadonnhap/form.blade.php`); không tự động xác nhận nhập kho.
+- **Lịch hẹn chưa được cấu hình trên Windows**: `donhang:huy-qua-han` và
+  `hold:clean` đã khai báo trong `routes/console.php` nhưng máy chưa có Task
+  Scheduler gọi `schedule:run`, nên thực tế đơn quá hạn chỉ bị hủy "lười" khi POS
+  poll. Phải chạy `php artisan schedule:work` khi demo (xem mục 5).
+- **Webhook không kiểm tra thời hạn chờ**: đơn `cho_thanh_toan` đã quá hạn nhưng
+  chưa bị hủy, nếu tiền về vẫn được hoàn tất (hành vi hiện tại, được ghi nhận bởi
+  test T-CK18 — chưa phải quyết định nghiệp vụ đã chốt).
+- **Trả hàng không hoàn `diem_su_dung`**: điểm khách đã tiêu để giảm giá không được
+  trả lại khi trả hàng; chỉ thu hồi điểm tích lũy và bị chặn ở số dư hiện có
+  (test `test_return_of_discounted_invoice_refunds_proportionally_and_caps_point_clawback`).
+- **Còn 2 cột mã giao dịch song song** trên `invoices` (`ma_giaodich` 100 ký tự và
+  `ma_giao_dich` 40 ký tự, đều unique); service ghi cả hai, webhook kiểm cả hai.
+  Nên gộp về một cột.
+- **Route webhook bị khai báo trùng**: `routes/api.php` và `routes/web.php` cùng đăng
+  ký `POST /api/webhook/thanhtoan`; bản trong `web.php` (có `throttle:60,1`) thắng,
+  bản trong `api.php` bị che khuất và không xuất hiện trong `route:list`.
 
-## 18. Kết quả kiểm tra (2026-11-09)
+## 18. Kết quả kiểm tra
+
+Cập nhật lần cuối: **2026-11-10**, trên nhánh `docs/ra-soat-readme`.
 
 | Kiểm tra | Kết quả | Ghi chú |
 |----------|---------|---------|
-| `php artisan test` | **49 passed** (183 assertions) | Tất cả test suite pass |
-| `php artisan route:list` | ✅ Hoạt động | 87 routes đăng ký |
-| `php artisan demo:kiemtra-du-lieu` | ⚠️ Chạy trên DB thật | Không chạy trong audit (ghi dữ liệu) |
-| `php artisan demo:reset` | ⚠️ Chạy trên DB thật | Không chạy trong audit (xóa dữ liệu) |
-| Cú pháp PHP (`php -l`) | ✅ Không lỗi | Toàn bộ file `.php` hợp lệ |
+| `php artisan test` (chưa build asset) | 52 passed / 10 failed (206 assertions, 133s) | 10 fail do thiếu `public/build/manifest.json` (Vite) |
+| `npm ci` + `npm run build` | ✅ Thành công | Tạo `public/build/manifest.json` |
+| `php artisan test` (sau build, trước khi sửa) | 60 passed / 2 failed (228 assertions, 92s) | 2 fail do lệch chữ ở test storefront, xem bên dưới |
+| `php artisan test` (sau khi sửa + thêm test) | **66 passed / 0 failed** (274 assertions, 112.5s) | Toàn bộ suite xanh |
+| `php artisan route:list` | ✅ Hoạt động | 100 routes (không đổi sau khi xóa controller legacy) |
+| `php artisan demo:kiemtra-du-lieu` | ✅ Đã chạy trên DB thật, **"Dữ liệu hợp lệ."** (exit 0) | Lệnh chỉ đọc — xem minh chứng bên dưới |
+| `php artisan demo:reset` | Không chạy | Xóa dữ liệu thật |
 
-> **Lưu ý:** Kết quả trên chạy trên nhánh `docs/ra-soat-readme` với database test (SQLite in-memory qua `RefreshDatabase`).
+### 2 test từng fail và cách xử lý
+
+- `Tests\Feature\AuthFlowTest::test_guest_can_open_homepage_without_redirect_to_login`
+- `Tests\Feature\StorefrontHomeTest::test_guest_can_visit_homepage_and_see_branding_sections`
+
+Cùng nguyên nhân: test `assertSee('Điện thoại nổi bật')`
+(`tests/Feature/AuthFlowTest.php:29`, `tests/Feature/StorefrontHomeTest.php:21`)
+trong khi view render "Phụ kiện nổi bật"
+(`resources/views/storefront/home.blade.php:18`). Danh mục dự án là **phụ kiện điện
+thoại**, không phải điện thoại, nên view là nguồn đúng ⇒ đã đổi chữ trong 2 test
+thành `Phụ kiện nổi bật`. Không sửa view, không sửa logic.
+
+### 4 test mới bổ sung trong đợt rà soát này
+
+| Test | File | Kiểm chứng |
+|------|------|------------|
+| `test_return_rejected_after_return_deadline` | `tests/Feature/PosWorkflowTest.php` | Trả hàng quá `POS_HAN_TRA_NGAY` → 422 (`TraHangController.php:47`), không tạo phiếu, kho giữ nguyên |
+| `test_return_of_discounted_invoice_refunds_proportionally_and_caps_point_clawback` | `tests/Feature/PosWorkflowTest.php` | Hoàn tiền theo tỷ lệ `tong_thanh_toan / tong_tien` (`TraHangController.php:64-65`), >500.000 phải chờ duyệt, thu hồi điểm bị chặn ở số dư (`:70`, `:158`) |
+| `test_T_CK17_webhook_toi_don_da_huy_bi_bo_qua` | `tests/Feature/ThanhToanChuyenKhoanTest.php` | Webhook tới đơn `da_huy` → 200 + "Hóa đơn đã bị hủy trước đó." (`WebhookController.php:87-97`), không đổi trạng thái/kho/điểm, không ghi `payment_webhooks` |
+| `test_T_CK18_webhook_toi_don_qua_han_chua_huy_van_hoan_tat` | `tests/Feature/ThanhToanChuyenKhoanTest.php` | **Ghi nhận hành vi hiện tại**: webhook tới đơn quá hạn nhưng chưa bị hủy vẫn hoàn tất (`WebhookController.php:104-131` không kiểm tra thời hạn) |
+
+### `demo:kiemtra-du-lieu` là lệnh chỉ đọc
+
+Đã kiểm tra toàn bộ `app/Console/Commands/KiemTraDuLieu.php` (62 dòng): chỉ có
+`DB::table(...)->count()` (`:19`), `HoaDonNhap::firstOrFail()` (`:26`), `sum()`
+(`:27-29`) và `DB::select(...)` (`:34`, `:41`, `:47`, `:53`). **Không có** bất kỳ
+`insert`/`update`/`delete`/`create`/`save` nào, nên an toàn chạy trên DB thật.
+
+Kết quả chạy ngày **2026-11-10** trên DB `doan_cnw`:
+
+```
+categories: 12   products: 300   suppliers: 81   customers: 100
+purchase_invoices: 1   purchase_invoice_items: 300
+Dữ liệu hợp lệ.   (exit code 0)
+```
+
+### Controller legacy đã xóa
+
+`app/Http/Controllers/Api/PaymentWebhookController.php` đã bị xóa: không được đăng
+ký ở bất kỳ route nào và xác thực kiểu **fail-open** (`:34` — `if ($secret) { ... }`,
+secret rỗng thì bỏ qua kiểm tra chữ ký HMAC). Kèm theo đã gỡ `POS_WEBHOOK_SECRET`
+khỏi `config/pos.php`, `phpunit.xml`, `.env.example` và README.
+
+Bằng chứng chi tiết từng khẳng định nghiệp vụ: xem
+[docs/BAO_CAO_RA_SOAT.md](docs/BAO_CAO_RA_SOAT.md).
