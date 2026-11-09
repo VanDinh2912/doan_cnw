@@ -11,6 +11,7 @@ use App\Models\DonNhap;
 use App\Models\ChiTietDonHang;
 use App\Models\GioTam;
 use App\Models\PhieuKiemKe;
+use App\Models\PhieuTra;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -503,6 +504,134 @@ class PosWorkflowTest extends TestCase
             'items' => [['invoice_detail_id' => $detail->id, 'soluong' => 2, 'tinh_trang' => 'con_tot']],
         ])->assertStatus(422);
         $this->assertDatabaseCount('returns', 0);
+    }
+
+    /**
+     * Trả hàng SAU hạn POS_HAN_TRA_NGAY phải bị từ chối (TraHangController.php:47).
+     */
+    public function test_return_rejected_after_return_deadline(): void
+    {
+        $this->seed();
+        $cashier = User::where('role', 'thungan')->firstOrFail();
+        $product = SanPham::where('sku', 'CS-0001')->firstOrFail();
+
+        $invoice = DonHang::create([
+            'ma_hoadon' => 'HD-RETURN-QUAHAN',
+            'user_id' => $cashier->id,
+            'tong_tien' => 100000,
+            'tong_thanh_toan' => 100000,
+            'tien_khach_dua' => 100000,
+            'tien_thua' => 0,
+            'phuong_thuc' => 'tienmat',
+            'trang_thai' => 'da_thanh_toan',
+        ]);
+        // Lùi ngày tạo quá hạn trả; mọi điều kiện khác đều hợp lệ nên 422 chỉ có thể do hết hạn.
+        $invoice->created_at = now()->subDays((int) config('pos.han_tra_ngay', 7) + 1);
+        $invoice->save();
+
+        $detail = ChiTietDonHang::create([
+            'invoice_id' => $invoice->id, 'product_id' => $product->id,
+            'soluong' => 1, 'don_gia' => 100000, 'gia_von' => 30000, 'thanh_tien' => 100000,
+        ]);
+        $stockBefore = $product->soluong;
+
+        $this->actingAs($cashier)->post(route('trahang.luu'), [
+            'invoice_id' => $invoice->id, 'hinh_thuc_hoan' => 'tienmat',
+            'items' => [['invoice_detail_id' => $detail->id, 'soluong' => 1, 'tinh_trang' => 'con_tot']],
+        ])->assertStatus(422);
+
+        $this->assertDatabaseCount('returns', 0);
+        $this->assertDatabaseHas('products', ['id' => $product->id, 'soluong' => $stockBefore]);
+        $this->assertDatabaseMissing('stock_movements', ['loai' => 'trahang']);
+    }
+
+    /**
+     * Trả hàng từ hóa đơn CÓ giảm giá: hoàn tiền theo tỷ lệ tong_thanh_toan/tong_tien
+     * (TraHangController.php:64-65), vượt ngưỡng thì chờ duyệt, và thu hồi điểm bị
+     * chặn ở số dư hiện có (TraHangController.php:70, :158).
+     */
+    public function test_return_of_discounted_invoice_refunds_proportionally_and_caps_point_clawback(): void
+    {
+        $this->seed();
+        $cashier = User::where('role', 'thungan')->firstOrFail();
+        $admin = User::where('role', 'admin')->firstOrFail();
+        $product = SanPham::where('sku', 'CS-0001')->firstOrFail();
+
+        // Khách chỉ còn 2 điểm trong khi số điểm phải thu hồi là 8 -> kiểm tra chặn âm.
+        $customer = KhachHang::create([
+            'ho_ten' => 'Khach Giam Gia',
+            'so_dienthoai' => '0933100200',
+            'diem_tichluy' => 2,
+        ]);
+
+        // tong_tien 2.000.000 - giảm 10% (200.000) - 100 điểm (100.000) = thực trả 1.700.000
+        $invoice = DonHang::create([
+            'ma_hoadon' => 'HD-RETURN-GIAMGIA',
+            'user_id' => $cashier->id,
+            'customer_id' => $customer->id,
+            'tong_tien' => 2000000,
+            'giam_gia_phantram' => 10,
+            'tien_giam' => 200000,
+            'diem_su_dung' => 100,
+            'tien_giam_diem' => 100000,
+            'tong_thanh_toan' => 1700000,
+            'tien_khach_dua' => 1700000,
+            'tien_thua' => 0,
+            'phuong_thuc' => 'tienmat',
+            'trang_thai' => 'da_thanh_toan',
+        ]);
+        $detail = ChiTietDonHang::create([
+            'invoice_id' => $invoice->id, 'product_id' => $product->id,
+            'soluong' => 2, 'don_gia' => 1000000, 'gia_von' => 600000, 'thanh_tien' => 2000000,
+        ]);
+        $stockBefore = $product->soluong;
+
+        // Trả 1/2 sản phẩm: 1 * 1.000.000 * (1.700.000 / 2.000.000) = 850.000
+        $this->actingAs($cashier)->post(route('trahang.luu'), [
+            'invoice_id' => $invoice->id,
+            'hinh_thuc_hoan' => 'tienmat',
+            'ly_do' => 'Khach doi y',
+            'items' => [[
+                'invoice_detail_id' => $detail->id,
+                'soluong' => 1,
+                'tinh_trang' => 'con_tot',
+            ]],
+        ])->assertRedirect();
+
+        $phieuTra = PhieuTra::firstOrFail();
+
+        // 850.000 > ngưỡng tự duyệt 500.000 nên phải chờ admin duyệt.
+        $this->assertSame('cho_duyet', $phieuTra->trang_thai);
+        $this->assertSame(850000, (int) $phieuTra->tong_hoan);
+        $this->assertSame(8, (int) $phieuTra->diem_thu_hoi);
+        $this->assertSame($customer->id, (int) $phieuTra->customer_id);
+        $this->assertSame($invoice->id, (int) $phieuTra->invoice_id);
+
+        $itemTra = $phieuTra->chiTiets()->firstOrFail();
+        $this->assertSame($detail->id, (int) $itemTra->invoice_detail_id);
+        $this->assertSame(1, (int) $itemTra->soluong);
+        $this->assertSame(850000, (int) $itemTra->thanh_tien);
+
+        // Chưa duyệt thì kho và điểm phải giữ nguyên.
+        $this->assertDatabaseHas('products', ['id' => $product->id, 'soluong' => $stockBefore]);
+        $this->assertDatabaseMissing('stock_movements', ['return_id' => $phieuTra->id]);
+        $this->assertSame(2, (int) $customer->fresh()->diem_tichluy);
+
+        // Thu ngân không có quyền duyệt phiếu trả.
+        $this->actingAs($cashier)->post(route('trahang.duyet', $phieuTra))->assertForbidden();
+
+        $this->actingAs($admin)->post(route('trahang.duyet', $phieuTra))->assertRedirect();
+
+        $this->assertSame('hoan_thanh', $phieuTra->fresh()->trang_thai);
+        // Hàng còn tốt quay về tồn kho.
+        $this->assertDatabaseHas('products', ['id' => $product->id, 'soluong' => $stockBefore + 1]);
+        $this->assertDatabaseHas('stock_movements', [
+            'return_id' => $phieuTra->id, 'loai' => 'trahang', 'soluong' => 1,
+        ]);
+        // Thu hồi 8 điểm nhưng khách chỉ có 2 -> về 0, không âm.
+        // 100 điểm đã tiêu (diem_su_dung) KHÔNG được hoàn lại: nếu có hoàn thì số dư
+        // sẽ là 2 + 100 - 8 = 94 chứ không phải 0.
+        $this->assertSame(0, (int) $customer->fresh()->diem_tichluy);
     }
 
     public function test_cashier_can_hold_and_restore_cart_without_changing_stock(): void

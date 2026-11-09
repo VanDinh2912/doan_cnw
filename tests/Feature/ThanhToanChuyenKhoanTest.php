@@ -554,4 +554,99 @@ class ThanhToanChuyenKhoanTest extends TestCase
             ->get(route('donhang.inhoadon', $donHang))
             ->assertOk();
     }
+
+    // ----------------------------------------------------------------
+    // T-CK17: Webhook tới đơn đã hủy ➜ bỏ qua, không đổi trạng thái/kho/điểm
+    // ----------------------------------------------------------------
+    public function test_T_CK17_webhook_toi_don_da_huy_bi_bo_qua(): void
+    {
+        $sp = SanPham::firstOrFail();
+
+        $kh = KhachHang::create([
+            'ho_ten'       => 'Test Webhook Da Huy',
+            'so_dienthoai' => '0977112233',
+            'diem_tichluy' => 25,
+        ]);
+
+        $donHang = $this->taoHoaDonChoThanhToan(200000, $kh, 0, 20);
+        // Cho đơn quá hạn rồi chạy lệnh hủy để có trạng thái da_huy thật (kho đã hoàn).
+        $donHang->created_at = now()->subMinutes(20);
+        $donHang->save();
+        $this->artisan('donhang:huy-qua-han')->assertExitCode(0);
+
+        $donHang->refresh();
+        $this->assertSame('da_huy', $donHang->trang_thai);
+        $tonKhoSauHuy = $sp->fresh()->soluong;
+        $diemSauHuy   = $kh->fresh()->diem_tichluy;
+
+        $cleanMa = str_replace('-', '', $donHang->ma_hoadon);
+        $response = $this->guiSepayWebhook([
+            'id'             => 778899,
+            'transferType'   => 'in',
+            'transferAmount' => 200000,
+            'content'        => 'THANH TOAN DON ' . $cleanMa,
+        ]);
+
+        $response->assertOk();
+        $response->assertJson(['success' => true, 'message' => 'Hóa đơn đã bị hủy trước đó.']);
+
+        // Đơn vẫn da_huy: không ghi mã giao dịch, không cộng điểm, không hoàn kho lần 2.
+        $donHang->refresh();
+        $this->assertSame('da_huy', $donHang->trang_thai);
+        $this->assertNull($donHang->ma_giaodich);
+        $this->assertNull($donHang->ma_giao_dich);
+        $this->assertNull($donHang->thoi_gian_thanh_toan);
+        $this->assertSame($tonKhoSauHuy, $sp->fresh()->soluong);
+        $this->assertSame($diemSauHuy, $kh->fresh()->diem_tichluy);
+        $this->assertDatabaseCount('payment_webhooks', 0);
+    }
+
+    // ----------------------------------------------------------------
+    // T-CK18: Webhook tới đơn quá hạn nhưng CHƯA bị hủy ➜ vẫn hoàn tất.
+    // Test này GHI NHẬN HÀNH VI HIỆN TẠI, không thay đổi logic: WebhookController
+    // chỉ kiểm tra trang_thai chứ không kiểm tra thời hạn chờ thanh toán.
+    // ----------------------------------------------------------------
+    public function test_T_CK18_webhook_toi_don_qua_han_chua_huy_van_hoan_tat(): void
+    {
+        $sp = SanPham::firstOrFail();
+
+        $kh = KhachHang::create([
+            'ho_ten'       => 'Test Webhook Qua Han',
+            'so_dienthoai' => '0966445577',
+            'diem_tichluy' => 10,
+        ]);
+
+        $donHang = $this->taoHoaDonChoThanhToan(250000, $kh, 0, 25);
+        // Quá hạn chờ 15 phút nhưng không ai poll/chạy lệnh hủy nên vẫn cho_thanh_toan.
+        $donHang->created_at = now()->subMinutes(30);
+        $donHang->save();
+
+        $tonKhoSauKhiCho = $sp->fresh()->soluong;
+        $this->assertSame('cho_thanh_toan', $donHang->fresh()->trang_thai);
+
+        $cleanMa = str_replace('-', '', $donHang->ma_hoadon);
+        $response = $this->guiSepayWebhook([
+            'id'             => 334455,
+            'transferType'   => 'in',
+            'transferAmount' => 250000,
+            'content'        => 'THANH TOAN DON ' . $cleanMa,
+        ]);
+
+        $response->assertOk();
+        $response->assertJson(['success' => true, 'message' => 'Xác nhận thanh toán thành công.']);
+
+        $donHang->refresh();
+        $this->assertSame('da_thanh_toan', $donHang->trang_thai);
+        $this->assertSame('334455', $donHang->ma_giaodich);
+        $this->assertSame('334455', $donHang->ma_giao_dich);
+        $this->assertNotNull($donHang->thoi_gian_thanh_toan);
+
+        // Điểm thưởng vẫn được cộng dù đơn đã quá hạn chờ.
+        $this->assertSame(35, $kh->fresh()->diem_tichluy); // 10 + 25
+
+        // Tồn kho giữ nguyên mức đã trừ lúc tạo đơn chờ: không trừ lần 2, không hoàn kho.
+        $this->assertSame($tonKhoSauKhiCho, $sp->fresh()->soluong);
+
+        $this->assertDatabaseCount('payment_webhooks', 1);
+    }
 }
