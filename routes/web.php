@@ -2,10 +2,30 @@
 
 use Illuminate\Support\Facades\Route;
 
+// Public storefront — no forced login.
+Route::name('storefront.')->group(function (): void {
+    Route::get('/', [\App\Http\Controllers\StorefrontController::class, 'home'])->name('home');
+    Route::get('/danh-muc/{loaiSanPham}', [\App\Http\Controllers\StorefrontController::class, 'category'])->name('category');
+    Route::get('/san-pham/{sanPham}', [\App\Http\Controllers\StorefrontController::class, 'product'])->name('product');
+    Route::get('/tim-kiem', [\App\Http\Controllers\StorefrontController::class, 'search'])->name('search');
+
+    Route::prefix('gio-hang')->name('cart.')->group(function (): void {
+        Route::get('/', [\App\Http\Controllers\StorefrontCartController::class, 'index'])->name('index');
+        Route::get('/them/{sanPham}', [\App\Http\Controllers\StorefrontCartController::class, 'add'])->name('add');
+        Route::put('/cap-nhat', [\App\Http\Controllers\StorefrontCartController::class, 'update'])->name('update');
+        Route::get('/xoa/{sanPham}', [\App\Http\Controllers\StorefrontCartController::class, 'remove'])->name('remove');
+        Route::delete('/lam-moi', [\App\Http\Controllers\StorefrontCartController::class, 'clear'])->name('clear');
+    });
+});
+
 Route::get('/dangnhap', [\App\Http\Controllers\AuthController::class, 'getDangNhap'])
     ->name('auth.dangnhap');
 Route::post('/dangnhap', [\App\Http\Controllers\AuthController::class, 'postDangNhap'])
     ->name('auth.postdangnhap');
+Route::get('/dang-ky', [\App\Http\Controllers\AuthController::class, 'getDangKy'])
+    ->name('auth.dangky');
+Route::post('/dang-ky', [\App\Http\Controllers\AuthController::class, 'postDangKy'])
+    ->name('auth.postdangky');
 Route::get('/dangxuat', [\App\Http\Controllers\AuthController::class, 'getDangXuat'])
     ->middleware('auth')
     ->name('auth.dangxuat');
@@ -14,8 +34,7 @@ Route::post('/api/webhook/thanhtoan', [\App\Http\Controllers\WebhookController::
     ->middleware('throttle:60,1')
     ->name('webhook.thanhtoan');
 
-Route::middleware('auth')->group(function (): void {
-    Route::get('/', fn () => redirect()->route('tongquan'))->name('trangchu');
+Route::middleware(['auth', 'staff.only'])->group(function (): void {
     Route::get('/tongquan', [\App\Http\Controllers\ThongKeController::class, 'getTongQuan'])->name('tongquan');
 
     Route::get('/sanpham/timkiem', [\App\Http\Controllers\SanPhamController::class, 'getTimKiem'])

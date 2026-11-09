@@ -27,3 +27,11 @@ Usage rules:
 
 - Framework here is Laravel (PHP) with Vite; UI is served from `resources/` and assets from `public/`.
 - Package manifest: `package.json`; PHP deps: `composer.json`.
+
+## Dev environment tips
+
+- Windows + WAMP: `run_command` runs in cmd, so `grep` is unavailable (use `findstr`) and nested quotes in `php -r` / `artisan tinker --execute` break. To inspect data, write a temporary PHP script that boots Laravel (`bootstrap/app.php`), run it, then delete it.
+- The DB is MySQL (`doan_cnw`, 127.0.0.1:3306); it must be running (WAMP started) before artisan or the site can query data.
+- Catalog is phone accessories (chargers, cables, earphones, etc. in 12 categories), not phones. Keep storefront copy accordingly.
+- Product images: `php artisan app:scrape-product-images [--force]` now generates local per-category SVGs (brand/model from the product name) into `storage/app/public/products`; no network needed. `public/storage` must be linked.
+- Storefront views live in `resources/views/storefront/`; the layout provides `@stack('styles')`. Validate Blade edits with `php artisan view:cache`.

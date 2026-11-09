@@ -5,88 +5,119 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Web POS')</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.datatables.net/2.3.4/css/dataTables.bootstrap5.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet">
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
     @stack('styles')
 </head>
-<body class="bg-light">
-<nav class="navbar navbar-dark bg-primary">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="{{ route('tongquan') }}">Web POS</a>
-        <div class="d-flex align-items-center gap-3 text-white">
-            <span>{{ auth()->user()->name }} ({{ auth()->user()->role }})</span>
-            <a class="btn btn-sm btn-light" href="{{ route('auth.dangxuat') }}">Đăng xuất</a>
-        </div>
+<body>
+<header class="app-topbar">
+    <a class="app-brand" href="{{ route('tongquan') }}">
+        <i class="fa-solid fa-cash-register"></i>
+        <span>Web POS</span>
+    </a>
+    <div class="ms-auto d-flex align-items-center gap-3">
+        <span class="app-user">
+            {{ auth()->user()->name }}
+            <span class="app-user-role">{{ auth()->user()->role }}</span>
+        </span>
+        <a class="btn btn-sm btn-outline-secondary" href="{{ route('auth.dangxuat') }}">
+            <i class="fa-solid fa-right-from-bracket"></i>
+            <span class="d-none d-sm-inline">Đăng xuất</span>
+        </a>
     </div>
-</nav>
-<div class="container-fluid">
-    <div class="row">
-        <aside class="col-md-2 bg-white border-end min-vh-100 p-3">
-            <div class="nav flex-column gap-1">
-                <a class="nav-link" href="{{ route('tongquan') }}">Tổng quan</a>
-                @if (in_array(auth()->user()->role, ['admin', 'thungan'], true))
-                    <a class="nav-link" href="{{ route('pos.index') }}">Bán hàng POS</a>
-                    <a class="nav-link" href="{{ route('hold.danhsach') }}">Giỏ tạm</a>
-                @endif
-                @if (in_array(auth()->user()->role, ['admin', 'thukho'], true))
-                    <a class="nav-link" href="{{ route('sanpham.danhsach') }}">Sản phẩm</a>
-                    <a class="nav-link" href="{{ route('loaisanpham.danhsach') }}">Loại sản phẩm</a>
-                    <a class="nav-link" href="{{ route('kho.danhsach') }}">Kho</a>
-                    <a class="nav-link" href="{{ route('kiemke.index') }}">Kiểm kê</a>
-                    <a class="nav-link" href="{{ route('nhaphang.nhacungcap') }}">Nhà cung cấp</a>
-                    <a class="nav-link" href="{{ route('nhaphang.donnhap') }}">Đơn nhập hàng</a>
-                    <a class="nav-link" href="{{ route('hoadonnhap.danhsach') }}">Hóa đơn nhập</a>
-                @endif
-                @if (in_array(auth()->user()->role, ['admin', 'thungan'], true))
-                    <a class="nav-link" href="{{ route('donhang.danhsach') }}">Hóa đơn</a>
-                    <a class="nav-link" href="{{ route('khachhang.danhsach') }}">Khách hàng</a>
-                    <a class="nav-link" href="{{ route('trahang.danhsach') }}">Đổi trả hàng</a>
-                @endif
-                @if (auth()->user()->role === 'admin')
-                    <a class="nav-link" href="{{ route('thongke.index') }}">Thống kê</a>
-                    <a class="nav-link" href="{{ route('nhatky.index') }}">Nhật ký hoạt động</a>
-                @endif
+</header>
+
+<div class="app-shell">
+    <aside class="app-sidebar">
+        <nav class="app-nav">
+            <a class="app-nav-link {{ request()->routeIs('tongquan') ? 'active' : '' }}" href="{{ route('tongquan') }}">
+                <i class="fa-solid fa-gauge-high"></i><span>Tổng quan</span>
+            </a>
+
+            @if (in_array(auth()->user()->role, ['admin', 'thungan'], true))
+                <div class="app-nav-label">Bán hàng</div>
+                <a class="app-nav-link {{ request()->routeIs('pos.*') ? 'active' : '' }}" href="{{ route('pos.index') }}">
+                    <i class="fa-solid fa-cart-shopping"></i><span>Bán hàng POS</span>
+                </a>
+                <a class="app-nav-link {{ request()->routeIs('hold.*') ? 'active' : '' }}" href="{{ route('hold.danhsach') }}">
+                    <i class="fa-solid fa-pause"></i><span>Giỏ tạm</span>
+                </a>
+                <a class="app-nav-link {{ request()->routeIs('donhang.*') ? 'active' : '' }}" href="{{ route('donhang.danhsach') }}">
+                    <i class="fa-solid fa-receipt"></i><span>Hóa đơn</span>
+                </a>
+                <a class="app-nav-link {{ request()->routeIs('khachhang.*') ? 'active' : '' }}" href="{{ route('khachhang.danhsach') }}">
+                    <i class="fa-solid fa-user-group"></i><span>Khách hàng</span>
+                </a>
+                <a class="app-nav-link {{ request()->routeIs('trahang.*') ? 'active' : '' }}" href="{{ route('trahang.danhsach') }}">
+                    <i class="fa-solid fa-rotate-left"></i><span>Đổi trả hàng</span>
+                </a>
+            @endif
+
+            @if (in_array(auth()->user()->role, ['admin', 'thukho'], true))
+                <div class="app-nav-label">Kho & hàng hóa</div>
+                <a class="app-nav-link {{ request()->routeIs('sanpham.*') ? 'active' : '' }}" href="{{ route('sanpham.danhsach') }}">
+                    <i class="fa-solid fa-box"></i><span>Sản phẩm</span>
+                </a>
+                <a class="app-nav-link {{ request()->routeIs('loaisanpham.*') ? 'active' : '' }}" href="{{ route('loaisanpham.danhsach') }}">
+                    <i class="fa-solid fa-tags"></i><span>Loại sản phẩm</span>
+                </a>
+                <a class="app-nav-link {{ request()->routeIs('kho.*') ? 'active' : '' }}" href="{{ route('kho.danhsach') }}">
+                    <i class="fa-solid fa-warehouse"></i><span>Kho</span>
+                </a>
+                <a class="app-nav-link {{ request()->routeIs('kiemke.*') ? 'active' : '' }}" href="{{ route('kiemke.index') }}">
+                    <i class="fa-solid fa-clipboard-check"></i><span>Kiểm kê</span>
+                </a>
+                <a class="app-nav-link {{ request()->routeIs('nhaphang.nhacungcap*') ? 'active' : '' }}" href="{{ route('nhaphang.nhacungcap') }}">
+                    <i class="fa-solid fa-truck"></i><span>Nhà cung cấp</span>
+                </a>
+                <a class="app-nav-link {{ request()->routeIs('nhaphang.donnhap*') ? 'active' : '' }}" href="{{ route('nhaphang.donnhap') }}">
+                    <i class="fa-solid fa-file-import"></i><span>Đơn nhập hàng</span>
+                </a>
+                <a class="app-nav-link {{ request()->routeIs('hoadonnhap.*') ? 'active' : '' }}" href="{{ route('hoadonnhap.danhsach') }}">
+                    <i class="fa-solid fa-file-invoice"></i><span>Hóa đơn nhập</span>
+                </a>
+            @endif
+
+            @if (auth()->user()->role === 'admin')
+                <div class="app-nav-label">Quản trị</div>
+                <a class="app-nav-link {{ request()->routeIs('thongke.*') ? 'active' : '' }}" href="{{ route('thongke.index') }}">
+                    <i class="fa-solid fa-chart-line"></i><span>Thống kê</span>
+                </a>
+                <a class="app-nav-link {{ request()->routeIs('nhatky.*') ? 'active' : '' }}" href="{{ route('nhatky.index') }}">
+                    <i class="fa-solid fa-clock-rotate-left"></i><span>Nhật ký hoạt động</span>
+                </a>
+            @endif
+        </nav>
+    </aside>
+
+    <main class="app-main">
+        @if (session('success'))
+            <div class="alert alert-success d-flex align-items-center gap-2" role="alert">
+                <i class="fa-solid fa-circle-check"></i><div>{{ session('success') }}</div>
             </div>
-        </aside>
-        <main class="col-md-10 p-4">
-            @if (session('success'))
-                <div class="alert alert-success">{{ session('success') }}</div>
-            @endif
-            @if (session('error'))
-                <div class="alert alert-danger">{{ session('error') }}</div>
-            @endif
-            @if ($errors->any())
-                <div class="alert alert-danger">
-                    @foreach ($errors->all() as $error)
-                        <div>{{ $error }}</div>
-                    @endforeach
+        @endif
+        @if (session('error'))
+            <div class="alert alert-danger d-flex align-items-center gap-2" role="alert">
+                <i class="fa-solid fa-circle-exclamation"></i><div>{{ session('error') }}</div>
+            </div>
+        @endif
+        @if ($errors->any())
+            <div class="alert alert-danger" role="alert">
+                <div class="d-flex align-items-center gap-2 fw-semibold mb-1">
+                    <i class="fa-solid fa-circle-exclamation"></i>
+                    <span>Vui lòng kiểm tra lại thông tin:</span>
                 </div>
-            @endif
-            @yield('content')
-        </main>
-    </div>
+                <ul class="mb-0 ps-4">
+                    @foreach ($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+
+        @yield('content')
+    </main>
 </div>
+
 @stack('scripts')
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-<script src="https://cdn.datatables.net/2.3.4/js/dataTables.js"></script>
-<script src="https://cdn.datatables.net/2.3.4/js/dataTables.bootstrap5.js"></script>
-<script>
-    document.querySelectorAll('.js-data-table').forEach(function (table) {
-        new DataTable(table, {
-            language: {
-                search: 'Tìm kiếm:',
-                lengthMenu: 'Hiển thị _MENU_ dòng',
-                info: 'Hiển thị _START_ đến _END_ trong tổng số _TOTAL_ dòng',
-                infoEmpty: 'Không có dữ liệu',
-                zeroRecords: 'Không tìm thấy dữ liệu',
-                paginate: { first: 'Đầu', last: 'Cuối', next: 'Sau', previous: 'Trước' }
-            },
-            pageLength: 10,
-            order: []
-        });
-    });
-</script>
 </body>
 </html>

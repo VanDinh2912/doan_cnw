@@ -20,6 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'role' => \App\Http\Middleware\CheckRole::class,
+            'staff.only' => \App\Http\Middleware\RedirectKhachhangFromStaff::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

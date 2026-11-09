@@ -1,0 +1,82 @@
+/* ==========================================================================
+   Storefront — Design Token Layer
+   Architecture: storefront-specific overrides layered on top of the primitive
+   design system in pos-tokens.css. This file MUST only be imported by
+   storefront.css — never by app.css — so POS/admin pages are unaffected.
+
+   Rule: Primary blue (#2563EB) keeps brand chrome visually separate from the
+   stock-status success green (#16A34A), which is reserved exclusively for the
+   "Còn hàng" badge.
+   ========================================================================== */
+
+:root {
+  /* --- Brand (blue) --- */
+  --sf-primary:          #2563eb;
+  --sf-primary-hover:    #1d4ed8;
+  --sf-primary-soft:     #eff6ff;
+  --sf-primary-border:   #bfdbfe;
+
+  /* --- Accent / urgency CTA (Shopee / FPT Shop style) --- */
+  --sf-accent:           #ea580c;
+  --sf-accent-hover:     #c2410c;
+  --sf-accent-soft:      #fff7ed;
+  --sf-accent-border:    #fed7aa;
+
+  /* --- Surfaces --- */
+  --sf-bg:               #f8fafc;
+  --sf-surface:          #ffffff;
+  --sf-surface-alt:      #f1f5f9;
+
+  /* --- Text --- */
+  --sf-fg:               #0f172a;
+  --sf-fg-muted:         #475569;
+  --sf-fg-subtle:        #64748b;
+  --sf-fg-on-accent:     #ffffff;
+
+  /* --- Borders --- */
+  --sf-border:           #e2e8f0;
+  --sf-border-strong:    #cbd5e1;
+
+  /* --- Stock status (aliased to POS tokens so both pages stay in sync) --- */
+  --sf-stock-in:         var(--color-success, #16a34a);
+  --sf-stock-in-soft:    var(--color-success-soft, #dcfce7);
+  --sf-stock-low:        var(--color-warning, #f59e0b);
+  --sf-stock-low-soft:   var(--color-warning-soft, #fef3c7);
+  --sf-stock-out:        var(--color-danger, #dc2626);
+  --sf-stock-out-soft:   var(--color-danger-soft, #fee2e2);
+
+  /* --- Layout --- */
+  --sf-container-max:    1280px;
+  --sf-hero-height:      clamp(320px, 42vw, 480px);
+  --sf-radius-card:      10px;
+  --sf-shadow-card:      0 2px 8px rgba(15, 23, 42, 0.08);
+  --sf-shadow-hover:     0 12px 24px rgba(15, 23, 42, 0.12);
+  --sf-gap-section:      clamp(32px, 5vw, 48px);
+
+  /* --- Header / tab bar --- */
+  --sf-header-h:         64px;
+  --sf-tabbar-h:         56px;
+
+  /* --- Typography (inherit from pos-tokens) --- */
+  --sf-font-heading:     var(--prim-font-heading, 'Outfit', ui-sans-serif, system-ui, sans-serif);
+  --sf-font-body:        var(--prim-font-body, 'Work Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif);
+
+  /* --- Type scale (denser than POS but larger than table) --- */
+  --sf-text-xs:   0.75rem;   /* 12px */
+  --sf-text-sm:   0.8125rem; /* 13px */
+  --sf-text-base: 0.875rem;  /* 14px */
+  --sf-text-md:   1rem;      /* 16px */
+  --sf-text-lg:   1.125rem;  /* 18px */
+  --sf-text-xl:   1.375rem;  /* 22px */
+  --sf-text-2xl:  1.75rem;   /* 28px */
+  --sf-text-3xl:  2.25rem;   /* 36px */
+
+  /* --- Home redesign (bento hero, gradients, elevated shadows) --- */
+  --sf-navy:             #0b1b3f;
+  --sf-navy-2:           #172a5c;
+  --sf-radius-lg:        20px;
+  --sf-gradient-dark:    linear-gradient(135deg, #0b1b3f 0%, #172a5c 100%);
+  --sf-gradient-accent:  linear-gradient(135deg, #c2410c 0%, #7c2d12 100%);
+  --sf-gradient-brand:   linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%);
+  --sf-shadow-lift:      0 18px 40px rgba(37, 99, 235, 0.18);
+}

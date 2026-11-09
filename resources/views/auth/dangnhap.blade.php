@@ -4,48 +4,64 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Đăng nhập - Web POS</title>
-    <style>
-        body { align-items: center; background: #f1f5f9; display: flex; font-family: Arial, sans-serif; justify-content: center; min-height: 100vh; }
-        .card { background: white; border-radius: 12px; box-shadow: 0 8px 30px rgb(15 23 42 / 12%); padding: 2rem; width: min(100% - 2rem, 420px); }
-        h1 { margin-top: 0; }
-        label { display: block; font-weight: 600; margin: 1rem 0 .4rem; }
-        input { border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; padding: .7rem; width: 100%; }
-        button { background: #2563eb; border: 0; border-radius: 6px; color: white; cursor: pointer; margin-top: 1.25rem; padding: .75rem; width: 100%; }
-        .error, .success { border-radius: 6px; margin-bottom: 1rem; padding: .7rem; }
-        .error { background: #fee2e2; color: #991b1b; }
-        .success { background: #dcfce7; color: #166534; }
-        .invalid { color: #b91c1c; font-size: .9rem; margin-top: .3rem; }
-    </style>
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body>
-<main class="card">
-    <h1>Đăng nhập Web POS</h1>
-    @if (session('success'))
-        <div class="success">{{ session('success') }}</div>
-    @endif
-    @if ($errors->any())
-        <div class="error">
-            @foreach ($errors->all() as $error)
-                <div>{{ $error }}</div>
-            @endforeach
+<main class="auth-shell">
+    <div class="auth-card">
+        <div class="auth-brand">
+            <i class="fa-solid fa-cash-register"></i>
+            <span>Hệ thống bán hàng</span>
         </div>
-    @endif
-    <form method="POST" action="{{ route('auth.postdangnhap') }}">
-        @csrf
-        <label for="email">Email</label>
-        <input id="email" name="email" type="email" value="{{ old('email') }}" required autofocus>
-        @error('email') <div class="invalid">{{ $message }}</div> @enderror
+        <h1 class="auth-title">Đăng nhập Web POS</h1>
+        <p class="auth-subtitle">Hệ thống bán hàng & quản lý kho</p>
 
-        <label for="password">Mật khẩu</label>
-        <input id="password" name="password" type="password" required>
-        @error('password') <div class="invalid">{{ $message }}</div> @enderror
+        @if (session('success'))
+            <div class="alert alert-success" role="alert">{{ session('success') }}</div>
+        @endif
+        @if ($errors->any())
+            <div class="alert alert-danger" role="alert">
+                @foreach ($errors->all() as $error)
+                    <div>{{ $error }}</div>
+                @endforeach
+            </div>
+        @endif
 
-        <label>
-            <input name="remember" type="checkbox" value="1" style="width:auto" @checked(old('remember'))>
-            Ghi nhớ đăng nhập
-        </label>
-        <button type="submit">Đăng nhập</button>
-    </form>
+        <form method="POST" action="{{ route('auth.postdangnhap') }}">
+            @csrf
+
+            <div class="mb-3">
+                <label class="form-label" for="email">Email</label>
+                <input id="email" name="email" type="email"
+                       class="form-control @error('email') is-invalid @enderror"
+                       value="{{ old('email') }}" required autofocus autocomplete="username">
+                @error('email') <div class="invalid-feedback">{{ $message }}</div> @enderror
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label" for="password">Mật khẩu</label>
+                <input id="password" name="password" type="password"
+                       class="form-control @error('password') is-invalid @enderror"
+                       required autocomplete="current-password">
+                @error('password') <div class="invalid-feedback">{{ $message }}</div> @enderror
+            </div>
+
+            <div class="form-check mb-4">
+                <input class="form-check-input" id="remember" name="remember" type="checkbox" value="1" @checked(old('remember'))>
+                <label class="form-check-label" for="remember">Ghi nhớ đăng nhập</label>
+            </div>
+
+            <button class="btn btn-primary w-100" type="submit">
+                <i class="fa-solid fa-right-to-bracket"></i>
+                <span>Đăng nhập</span>
+            </button>
+        </form>
+
+        <p class="text-center text-muted mt-3 mb-0" style="font-size:var(--text-sm);">
+            Chưa có tài khoản?
+            <a href="{{ route('auth.dangky') }}">Đăng ký khách hàng</a>
+        </p>
+    </div>
 </main>
 </body>
 </html>

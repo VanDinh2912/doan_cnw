@@ -1,0 +1,748 @@
+/* ==========================================================================
+   Web POS — Design Token Layer
+   Source of truth: design-system/webpos/DESIGN-SYSTEM.md
+   Architecture: primitive -> semantic -> Bootstrap bridge -> component
+   Rule: never hardcode a hex value below the "PRIMITIVE" section.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. PRIMITIVE — raw values. Never referenced directly by components.
+   -------------------------------------------------------------------------- */
+:root {
+  /* Blue (primary ramp) */
+  --prim-blue-50:  #eff6ff;
+  --prim-blue-100: #dbeafe;
+  --prim-blue-500: #3b82f6;
+  --prim-blue-600: #2563eb;
+  --prim-blue-700: #1d4ed8;
+
+  /* Slate (neutral ramp) */
+  --prim-slate-50:  #f8fafc;
+  --prim-slate-100: #f1f5f9;
+  --prim-slate-200: #e2e8f0;
+  --prim-slate-300: #cbd5e1;
+  --prim-slate-400: #94a3b8;
+  --prim-slate-500: #64748b;
+  --prim-slate-600: #475569;
+  --prim-slate-700: #334155;
+  --prim-slate-800: #1e293b;
+  --prim-slate-900: #0f172a;
+
+  /* Semantic status ramps (stock / payment / errors) */
+  --prim-green-50:  #dcfce7;
+  --prim-green-600: #16a34a;
+  --prim-green-700: #15803d;
+  --prim-amber-50:  #fef3c7;
+  --prim-amber-500: #f59e0b;
+  --prim-amber-700: #b45309;
+  --prim-red-50:    #fee2e2;
+  --prim-red-600:   #dc2626;
+  --prim-red-700:   #b91c1c;
+  --prim-orange-600: #ea580c;
+
+  /* Typography */
+  --prim-font-heading: 'Outfit', ui-sans-serif, system-ui, sans-serif;
+  --prim-font-body: 'Work Sans', ui-sans-serif, system-ui, -apple-system,
+    'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --prim-font-mono: ui-monospace, 'Cascadia Mono', 'Consolas', monospace;
+
+  /* Spacing — density 8/10 (dense dashboard scale) */
+  --prim-space-1: 2px;
+  --prim-space-2: 4px;
+  --prim-space-3: 8px;
+  --prim-space-4: 12px;
+  --prim-space-5: 16px;
+  --prim-space-6: 24px;
+  --prim-space-7: 32px;
+
+  /* Radius — compact, data-dense. Not pill-shaped. */
+  --prim-radius-sm: 4px;
+  --prim-radius-md: 6px;
+  --prim-radius-lg: 10px;
+
+  /* Elevation — sharp, low-spread. No glow. */
+  --prim-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --prim-shadow-md: 0 2px 4px rgba(15, 23, 42, 0.08);
+  --prim-shadow-lg: 0 8px 24px rgba(15, 23, 42, 0.12);
+}
+
+/* --------------------------------------------------------------------------
+   2. SEMANTIC — purpose aliases. This is what components consume.
+   -------------------------------------------------------------------------- */
+:root {
+  /* Surfaces */
+  --color-bg:          var(--prim-slate-50);
+  --color-surface:     #ffffff;
+  --color-surface-alt: var(--prim-slate-100);
+  --color-sidebar-bg:  #ffffff;
+
+  /* Text */
+  --color-fg:          var(--prim-slate-800);
+  --color-fg-muted:    var(--prim-slate-600);
+  --color-fg-subtle:   var(--prim-slate-500);
+  --color-fg-on-accent: #ffffff;
+
+  /* Brand */
+  --color-primary:       var(--prim-blue-600);
+  --color-primary-hover: var(--prim-blue-700);
+  --color-primary-soft:  var(--prim-blue-50);
+  --color-primary-border: var(--prim-blue-100);
+
+  /* Lines */
+  --color-border:        var(--prim-slate-200);
+  --color-border-strong: var(--prim-slate-300);
+
+  /* Status — stock badges & payment outcomes.
+     These three carry business meaning and must never be repurposed. */
+  --color-success:      var(--prim-green-600);
+  --color-success-hover: var(--prim-green-700);
+  --color-success-soft: var(--prim-green-50);
+  --color-warning:      var(--prim-amber-500);
+  --color-warning-hover: var(--prim-amber-700);
+  --color-warning-soft: var(--prim-amber-50);
+  --color-danger:       var(--prim-red-600);
+  --color-danger-hover: var(--prim-red-700);
+  --color-danger-soft:  var(--prim-red-50);
+
+  /* Focus ring — single source, used by every interactive element */
+  --color-ring: var(--prim-blue-600);
+  --ring-width: 3px;
+  --ring-alpha: rgba(37, 99, 235, 0.25);
+
+  /* Motion — motion dial 2/10. Two durations only. */
+  --motion-fast: 120ms;
+  --motion-base: 180ms;
+  --motion-ease: cubic-bezier(0.2, 0, 0.2, 1);
+
+  /* Type scale — dense. 14px body is deliberate for table legibility. */
+  --text-xs:   0.75rem;   /* 12px — meta, badge */
+  --text-sm:   0.8125rem; /* 13px — table cells, labels */
+  --text-base: 0.875rem;  /* 14px — body */
+  --text-md:   1rem;      /* 16px — emphasised body */
+  --text-lg:   1.125rem;  /* 18px — card title */
+  --text-xl:   1.375rem;  /* 22px — page title */
+  --text-2xl:  1.75rem;   /* 28px — stat value */
+  --leading-tight: 1.25;
+  --leading-base:  1.5;
+  --weight-regular: 400;
+  --weight-medium:  500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+}
+
+/* --------------------------------------------------------------------------
+   3. COMPONENT TOKENS
+   -------------------------------------------------------------------------- */
+:root {
+  /* Sidebar */
+  --sidebar-width: 232px;
+  --sidebar-link-height: 36px;
+  --sidebar-link-radius: var(--prim-radius-md);
+  --sidebar-link-fg: var(--color-fg-muted);
+  --sidebar-link-hover-bg: var(--prim-slate-100);
+  --sidebar-link-active-bg: var(--color-primary-soft);
+  --sidebar-link-active-fg: var(--color-primary);
+
+  /* Topbar */
+  --topbar-height: 56px;
+
+  /* Table */
+  --table-cell-py: 8px;
+  --table-cell-px: 12px;
+  --table-head-bg: var(--prim-slate-100);
+  --table-head-fg: var(--color-fg-muted);
+  --table-head-weight: var(--weight-semibold);
+  --table-row-hover-bg: var(--prim-slate-50);
+  --table-thumb-size: 36px;
+
+  /* Card */
+  --card-radius: var(--prim-radius-lg);
+  --card-border: 1px solid var(--color-border);
+  --card-padding: var(--prim-space-5);
+
+  /* Input */
+  --input-height: 36px;
+  --input-radius: var(--prim-radius-md);
+
+  /* Button */
+  --btn-height: 36px;
+  --btn-height-sm: 30px;
+  --btn-padding-x: var(--prim-space-5);
+  --btn-radius: var(--prim-radius-md);
+}
+
+/* --------------------------------------------------------------------------
+   4. BOOTSTRAP 5 BRIDGE
+   Bootstrap reads its own --bs-* variables. Remapping them here means every
+   existing .btn / .card / .table / .badge / .form-control in the 37 Blade
+   views inherits the new system with zero markup changes.
+   -------------------------------------------------------------------------- */
+:root {
+  /* Theme colors */
+  --bs-primary: var(--color-primary);
+  --bs-primary-rgb: 37, 99, 235;
+  --bs-success: var(--color-success);
+  --bs-success-rgb: 22, 163, 74;
+  --bs-warning: var(--color-warning);
+  --bs-warning-rgb: 245, 158, 11;
+  --bs-danger: var(--color-danger);
+  --bs-danger-rgb: 220, 38, 38;
+
+  /* Body */
+  --bs-body-bg: var(--color-bg);
+  --bs-body-color: var(--color-fg);
+  --bs-body-font-family: var(--prim-font-body);
+  --bs-body-font-size: var(--text-base);
+  --bs-body-line-height: var(--leading-base);
+
+  /* Headings */
+  --bs-heading-font-family: var(--prim-font-heading);
+  --bs-heading-color: var(--color-fg);
+
+  /* Borders & radius */
+  --bs-border-color: var(--color-border);
+  --bs-border-radius: var(--prim-radius-md);
+  --bs-border-radius-sm: var(--prim-radius-sm);
+  --bs-border-radius-lg: var(--prim-radius-lg);
+
+  /* Links */
+  --bs-link-color: var(--color-primary);
+  --bs-link-hover-color: var(--color-primary-hover);
+
+  /* Focus */
+  --bs-focus-ring-color: var(--ring-alpha);
+  --bs-focus-ring-width: var(--ring-width);
+
+  /* Component surfaces */
+  --bs-secondary-bg: var(--color-surface-alt);
+  --bs-tertiary-bg: var(--prim-slate-100);
+  --bs-emphasis-color: var(--color-fg);
+  --bs-secondary-color: var(--color-fg-muted);
+}
+
+/* --------------------------------------------------------------------------
+   5. BASE
+   -------------------------------------------------------------------------- */
+body {
+  font-family: var(--prim-font-body);
+  font-size: var(--text-base);
+  color: var(--color-fg);
+  background-color: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 {
+  font-family: var(--prim-font-heading);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  color: var(--color-fg);
+}
+
+h1, .h1 { font-size: var(--text-xl); }
+h2, .h2 { font-size: var(--text-lg); }
+h3, .h3 { font-size: var(--text-xl); }
+
+/* Numeric data must align in columns — prices, quantities, totals. */
+.table td, .table th, .stat-value, .money {
+  font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------------------------------------------------------
+   6. FOCUS — one consistent ring everywhere
+   -------------------------------------------------------------------------- */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: var(--ring-width) solid var(--ring-alpha);
+  outline-offset: 1px;
+  border-radius: var(--prim-radius-sm);
+}
+
+.btn:focus-visible,
+.form-control:focus-visible,
+.form-select:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 var(--ring-width) var(--ring-alpha);
+  border-color: var(--color-ring);
+}
+
+/* --------------------------------------------------------------------------
+   7. BUTTONS — Bootstrap classes, retuned. No layout-shifting hover.
+   -------------------------------------------------------------------------- */
+.btn {
+  --bs-btn-font-family: var(--prim-font-body);
+  --bs-btn-font-size: var(--text-sm);
+  --bs-btn-font-weight: var(--weight-medium);
+  --bs-btn-padding-y: 6px;
+  --bs-btn-padding-x: var(--btn-padding-x);
+  --bs-btn-border-radius: var(--btn-radius);
+  --bs-btn-focus-box-shadow: 0 0 0 var(--ring-width) var(--ring-alpha);
+  min-height: var(--btn-height);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--prim-space-3);
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--motion-ease),
+              border-color var(--motion-fast) var(--motion-ease),
+              color var(--motion-fast) var(--motion-ease),
+              box-shadow var(--motion-fast) var(--motion-ease);
+}
+
+.btn-sm {
+  min-height: var(--btn-height-sm);
+  padding: 3px 10px;
+  font-size: var(--text-xs);
+}
+
+.btn-primary {
+  --bs-btn-bg: var(--color-primary);
+  --bs-btn-border-color: var(--color-primary);
+  --bs-btn-hover-bg: var(--color-primary-hover);
+  --bs-btn-hover-border-color: var(--color-primary-hover);
+  --bs-btn-active-bg: var(--color-primary-hover);
+  --bs-btn-color: #ffffff;
+  --bs-btn-hover-color: #ffffff;
+}
+
+.btn-success {
+  --bs-btn-bg: var(--color-success);
+  --bs-btn-border-color: var(--color-success);
+  --bs-btn-hover-bg: var(--color-success-hover);
+  --bs-btn-hover-border-color: var(--color-success-hover);
+  --bs-btn-active-bg: var(--color-success-hover);
+  --bs-btn-color: #ffffff;
+  --bs-btn-hover-color: #ffffff;
+}
+
+.btn-danger {
+  --bs-btn-bg: var(--color-danger);
+  --bs-btn-border-color: var(--color-danger);
+  --bs-btn-hover-bg: var(--color-danger-hover);
+  --bs-btn-hover-border-color: var(--color-danger-hover);
+  --bs-btn-color: #ffffff;
+  --bs-btn-hover-color: #ffffff;
+}
+
+.btn-outline-primary {
+  --bs-btn-color: var(--color-primary);
+  --bs-btn-border-color: var(--color-primary);
+  --bs-btn-hover-bg: var(--color-primary);
+  --bs-btn-hover-border-color: var(--color-primary);
+  --bs-btn-hover-color: #ffffff;
+}
+
+.btn-outline-secondary {
+  --bs-btn-color: var(--color-fg-muted);
+  --bs-btn-border-color: var(--color-border-strong);
+  --bs-btn-hover-bg: var(--color-surface-alt);
+  --bs-btn-hover-border-color: var(--color-border-strong);
+  --bs-btn-hover-color: var(--color-fg);
+}
+
+.btn-outline-danger {
+  --bs-btn-color: var(--color-danger);
+  --bs-btn-border-color: var(--color-danger);
+  --bs-btn-hover-bg: var(--color-danger);
+  --bs-btn-hover-border-color: var(--color-danger);
+  --bs-btn-hover-color: #ffffff;
+}
+
+.btn-outline-warning {
+  --bs-btn-color: var(--prim-amber-700);
+  --bs-btn-border-color: var(--color-warning);
+  --bs-btn-hover-bg: var(--color-warning);
+  --bs-btn-hover-border-color: var(--color-warning);
+  --bs-btn-hover-color: var(--prim-slate-900);
+}
+
+.btn:disabled, .btn.disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* --------------------------------------------------------------------------
+   8. FORMS
+   -------------------------------------------------------------------------- */
+.form-control, .form-select {
+  min-height: var(--input-height);
+  font-size: var(--text-sm);
+  border-radius: var(--input-radius);
+  border-color: var(--color-border-strong);
+  color: var(--color-fg);
+  transition: border-color var(--motion-fast) var(--motion-ease),
+              box-shadow var(--motion-fast) var(--motion-ease);
+}
+
+.form-control::placeholder { color: var(--color-fg-subtle); }
+
+.form-control:focus, .form-select:focus {
+  border-color: var(--color-ring);
+  box-shadow: 0 0 0 var(--ring-width) var(--ring-alpha);
+}
+
+.form-control.is-invalid, .form-select.is-invalid {
+  border-color: var(--color-danger);
+}
+
+.form-control.is-invalid:focus, .form-select.is-invalid:focus {
+  box-shadow: 0 0 0 var(--ring-width) rgba(220, 38, 38, 0.2);
+}
+
+.form-label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-fg-muted);
+  margin-bottom: var(--prim-space-2);
+}
+
+.form-text, .invalid-feedback { font-size: var(--text-xs); }
+.invalid-feedback { color: var(--color-danger); }
+
+/* --------------------------------------------------------------------------
+   9. CARDS — containers, not click targets. No translateY on hover.
+   -------------------------------------------------------------------------- */
+.card {
+  --bs-card-border-color: var(--color-border);
+  --bs-card-border-radius: var(--card-radius);
+  --bs-card-bg: var(--color-surface);
+  --bs-card-cap-bg: var(--color-surface);
+  border: var(--card-border);
+  box-shadow: var(--prim-shadow-sm);
+}
+
+.card-header {
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-sm);
+  padding: var(--prim-space-4) var(--card-padding);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.card-body { padding: var(--card-padding); }
+
+/* Interactive cards must opt in explicitly with .card-interactive. */
+.card-interactive {
+  cursor: pointer;
+  transition: border-color var(--motion-base) var(--motion-ease),
+              box-shadow var(--motion-base) var(--motion-ease);
+}
+.card-interactive:hover {
+  border-color: var(--color-border-strong);
+  box-shadow: var(--prim-shadow-md);
+}
+
+/* --------------------------------------------------------------------------
+   10. TABLES — the primary surface of this app. Dense by design.
+   -------------------------------------------------------------------------- */
+.table {
+  --bs-table-bg: transparent;
+  --bs-table-color: var(--color-fg);
+  --bs-table-border-color: var(--color-border);
+  --bs-table-hover-bg: var(--table-row-hover-bg);
+  font-size: var(--text-sm);
+  margin-bottom: 0;
+}
+
+.table > :not(caption) > * > * {
+  padding: var(--table-cell-py) var(--table-cell-px);
+  vertical-align: middle;
+}
+
+.table > thead > tr > th {
+  background: var(--table-head-bg);
+  color: var(--table-head-fg);
+  font-size: var(--text-xs);
+  font-weight: var(--table-head-weight);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.table > tbody > tr > td { border-color: var(--color-border); }
+
+/* Product thumbnail — replaces the hardcoded 40px inline styles. */
+.table-thumb {
+  width: var(--table-thumb-size);
+  height: var(--table-thumb-size);
+  object-fit: cover;
+  border-radius: var(--prim-radius-sm);
+  border: 1px solid var(--color-border);
+  display: block;
+}
+
+/* --------------------------------------------------------------------------
+   11. BADGES — stock status uses Bootstrap text-bg-*; kept semantic.
+   -------------------------------------------------------------------------- */
+.badge {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  padding: 3px 8px;
+  border-radius: var(--prim-radius-sm);
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.text-bg-success { background-color: var(--color-success-soft) !important; color: var(--prim-green-700) !important; }
+.text-bg-warning { background-color: var(--color-warning-soft) !important; color: var(--prim-amber-700) !important; }
+.text-bg-danger  { background-color: var(--color-danger-soft) !important;  color: var(--prim-red-700) !important; }
+
+/* --------------------------------------------------------------------------
+   12. ALERTS
+   -------------------------------------------------------------------------- */
+.alert {
+  font-size: var(--text-sm);
+  border-radius: var(--prim-radius-md);
+  border-width: 1px;
+  padding: var(--prim-space-4) var(--prim-space-5);
+}
+.alert-success { background: var(--color-success-soft); color: var(--prim-green-700); border-color: var(--prim-green-600); }
+.alert-warning { background: var(--color-warning-soft); color: var(--prim-amber-700); border-color: var(--color-warning); }
+.alert-danger  { background: var(--color-danger-soft);  color: var(--prim-red-700);  border-color: var(--color-danger); }
+.alert-info    { background: var(--color-primary-soft); color: var(--color-primary-hover); border-color: var(--color-primary-border); }
+
+/* --------------------------------------------------------------------------
+   13. APP SHELL — topbar + sidebar + content
+   -------------------------------------------------------------------------- */
+.app-topbar {
+  height: var(--topbar-height);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  position: sticky;
+  top: 0;
+  z-index: 1030;
+  padding: 0 var(--prim-space-5);
+  display: flex;
+  align-items: center;
+  gap: var(--prim-space-5);
+}
+
+.app-brand {
+  font-family: var(--prim-font-heading);
+  font-weight: var(--weight-bold);
+  font-size: var(--text-md);
+  color: var(--color-fg);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--prim-space-3);
+}
+.app-brand:hover { color: var(--color-primary); }
+
+.app-user { color: var(--color-fg-muted); font-size: var(--text-sm); }
+.app-user-role {
+  font-size: var(--text-xs);
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+  border-radius: var(--prim-radius-sm);
+  padding: 1px 6px;
+  margin-left: var(--prim-space-2);
+  text-transform: capitalize;
+}
+
+.app-shell { display: flex; align-items: flex-start; min-height: calc(100vh - var(--topbar-height)); }
+
+.app-sidebar {
+  width: var(--sidebar-width);
+  flex: 0 0 var(--sidebar-width);
+  background: var(--color-sidebar-bg);
+  border-right: 1px solid var(--color-border);
+  padding: var(--prim-space-4) var(--prim-space-3);
+  position: sticky;
+  top: var(--topbar-height);
+  height: calc(100vh - var(--topbar-height));
+  overflow-y: auto;
+}
+
+.app-nav { display: flex; flex-direction: column; gap: 2px; }
+
+.app-nav-label {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-fg-subtle);
+  padding: var(--prim-space-4) var(--prim-space-3) var(--prim-space-2);
+}
+
+.app-nav-link {
+  display: flex;
+  align-items: center;
+  gap: var(--prim-space-3);
+  min-height: var(--sidebar-link-height);
+  padding: 0 var(--prim-space-3);
+  border-radius: var(--sidebar-link-radius);
+  color: var(--sidebar-link-fg);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--motion-ease),
+              color var(--motion-fast) var(--motion-ease);
+}
+
+.app-nav-link i { width: 16px; text-align: center; font-size: var(--text-sm); flex: 0 0 16px; }
+
+.app-nav-link:hover { background: var(--sidebar-link-hover-bg); color: var(--color-fg); }
+
+.app-nav-link.active {
+  background: var(--sidebar-link-active-bg);
+  color: var(--sidebar-link-active-fg);
+  font-weight: var(--weight-semibold);
+}
+
+.app-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: var(--prim-space-6);
+}
+
+/* Page header — used by every list/form page */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--prim-space-5);
+  margin-bottom: var(--prim-space-5);
+}
+
+.page-title { font-size: var(--text-xl); font-weight: var(--weight-semibold); margin: 0; }
+.page-subtitle { font-size: var(--text-sm); color: var(--color-fg-muted); margin: 2px 0 0; }
+
+/* Stat card — dashboard + POS summary */
+.stat-card { background: var(--color-surface); border: var(--card-border); border-radius: var(--card-radius); padding: var(--prim-space-5); }
+.stat-label { font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-fg-subtle); font-weight: var(--weight-medium); }
+.stat-value { font-family: var(--prim-font-heading); font-size: var(--text-2xl); font-weight: var(--weight-bold); color: var(--color-fg); line-height: var(--leading-tight); margin-top: var(--prim-space-2); }
+
+/* --------------------------------------------------------------------------
+   13b. AUTH SHELL — login page
+   -------------------------------------------------------------------------- */
+.auth-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--prim-space-5);
+  background: var(--color-bg);
+}
+
+.auth-card {
+  width: min(100%, 400px);
+  background: var(--color-surface);
+  border: var(--card-border);
+  border-radius: var(--card-radius);
+  box-shadow: var(--prim-shadow-lg);
+  padding: var(--prim-space-7) var(--prim-space-6);
+}
+
+.auth-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--prim-space-3);
+  font-family: var(--prim-font-heading);
+  font-weight: var(--weight-bold);
+  font-size: var(--text-md);
+  color: var(--color-primary);
+  margin-bottom: var(--prim-space-6);
+}
+
+.auth-brand i { font-size: var(--text-lg); }
+
+.auth-title {
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  margin: 0 0 var(--prim-space-1);
+}
+
+.auth-subtitle {
+  font-size: var(--text-sm);
+  color: var(--color-fg-muted);
+  margin: 0 0 var(--prim-space-6);
+}
+
+/* --------------------------------------------------------------------------
+   14. DATATABLES — align the plugin skin with our table tokens
+   -------------------------------------------------------------------------- */
+.dataTables_wrapper .dataTables_filter input,
+.dataTables_wrapper .dataTables_length select {
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--input-radius);
+  padding: 4px 8px;
+  font-size: var(--text-sm);
+  min-height: 32px;
+}
+
+.dataTables_wrapper .dataTables_filter input:focus,
+.dataTables_wrapper .dataTables_length select:focus {
+  border-color: var(--color-ring);
+  box-shadow: 0 0 0 var(--ring-width) var(--ring-alpha);
+  outline: none;
+}
+
+.dataTables_wrapper .dataTables_info,
+.dataTables_wrapper .dataTables_length,
+.dataTables_wrapper .dataTables_filter { font-size: var(--text-sm); color: var(--color-fg-muted); }
+
+.page-link {
+  color: var(--color-fg-muted);
+  font-size: var(--text-sm);
+  padding: 5px 10px;
+  border-color: var(--color-border);
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--motion-ease);
+}
+.page-link:hover { background: var(--color-surface-alt); color: var(--color-fg); }
+.page-item.active .page-link { background: var(--color-primary); border-color: var(--color-primary); color: #ffffff; }
+.page-item.disabled .page-link { color: var(--color-fg-subtle); cursor: not-allowed; }
+
+/* --------------------------------------------------------------------------
+   15. MODALS
+   -------------------------------------------------------------------------- */
+.modal-content { border-radius: var(--prim-radius-lg); border-color: var(--color-border); box-shadow: var(--prim-shadow-lg); }
+.modal-header { border-bottom-color: var(--color-border); padding: var(--prim-space-4) var(--card-padding); }
+.modal-title { font-size: var(--text-md); font-weight: var(--weight-semibold); }
+.modal-body { padding: var(--card-padding); font-size: var(--text-sm); }
+.modal-footer { border-top-color: var(--color-border); padding: var(--prim-space-4) var(--card-padding); gap: var(--prim-space-3); }
+
+/* --------------------------------------------------------------------------
+   16. REDUCED MOTION
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   17. RESPONSIVE — sidebar collapses below 992px
+   -------------------------------------------------------------------------- */
+@media (max-width: 991.98px) {
+  .app-shell { flex-direction: column; }
+  .app-sidebar {
+    width: 100%;
+    flex: 1 1 auto;
+    position: static;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .app-nav { flex-direction: row; flex-wrap: wrap; }
+  .app-nav-label { display: none; }
+  .app-main { padding: var(--prim-space-4); }
+}
+
+/* --------------------------------------------------------------------------
+   18. PRINT SAFETY
+   Print views (donhang/hoadon K58/K80, sanpham/tem) are standalone documents
+   with their own <style>. This guard ensures nothing here leaks into them if
+   a token sheet is ever included on a print page.
+   -------------------------------------------------------------------------- */
+@media print {
+  .app-topbar, .app-sidebar, .no-print { display: none !important; }
+  body { background: #ffffff !important; }
+  .card { box-shadow: none !important; border-color: #000 !important; }
+}

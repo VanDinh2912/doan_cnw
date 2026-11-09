@@ -12,7 +12,7 @@ class KhachHang extends Model
 
     protected $table = 'customers';
 
-    protected $fillable = ['ho_ten', 'so_dienthoai', 'dia_chi', 'diem_tichluy'];
+    protected $fillable = ['user_id', 'ho_ten', 'so_dienthoai', 'dia_chi', 'diem_tichluy'];
 
     protected function casts(): array
     {

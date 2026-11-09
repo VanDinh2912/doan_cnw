@@ -3,10 +3,16 @@
 @section('title', 'Thống kê')
 
 @section('content')
-<h1 class="h3 mb-4">Thống kê bán hàng</h1>
-<div class="row g-4">
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Thống kê bán hàng</h1>
+        <p class="page-subtitle">Doanh thu và hiệu suất sản phẩm</p>
+    </div>
+</div>
+
+<div class="row g-3">
     <div class="col-lg-7">
-        <div class="card">
+        <div class="card h-100">
             <div class="card-header">Doanh thu theo ngày</div>
             <div class="card-body">
                 <canvas id="doanhThuChart" height="120"></canvas>
@@ -14,7 +20,7 @@
         </div>
     </div>
     <div class="col-lg-5">
-        <div class="card">
+        <div class="card h-100">
             <div class="card-header">Top 5 sản phẩm bán chạy</div>
             <div class="card-body">
                 <canvas id="topSanPhamChart" height="180"></canvas>
@@ -22,10 +28,21 @@
         </div>
     </div>
 </div>
+@endsection
+
 @push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script>
+const token = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 const formatTien = value => new Intl.NumberFormat('vi-VN').format(value) + ' đ';
+
+const COLOR_PRIMARY = token('--color-primary');
+const COLOR_SUCCESS = token('--color-success');
+const COLOR_GRID    = token('--color-border');
+const COLOR_TEXT    = token('--color-fg-muted');
+const FONT_BODY     = token('--prim-font-body');
+
+Chart.defaults.font.family = FONT_BODY;
+Chart.defaults.color = COLOR_TEXT;
 
 Promise.all([
     fetch(@json(route('thongke.doanhthu'))).then(response => response.json()),
@@ -38,16 +55,32 @@ Promise.all([
             datasets: [{
                 label: 'Doanh thu',
                 data: doanhThu.map(item => Number(item.doanh_thu)),
-                borderColor: '#0d6efd',
-                backgroundColor: 'rgba(13, 110, 253, .15)',
+                borderColor: COLOR_PRIMARY,
+                backgroundColor: 'rgba(37, 99, 235, .12)',
+                borderWidth: 2,
+                pointRadius: 3,
+                pointHoverRadius: 5,
                 fill: true,
                 tension: .25
             }]
         },
         options: {
             responsive: true,
-            scales: { y: { ticks: { callback: value => formatTien(value) } } },
-            plugins: { tooltip: { callbacks: { label: context => formatTien(context.raw) } } }
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            scales: {
+                x: { grid: { display: false }, border: { color: COLOR_GRID } },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: COLOR_GRID },
+                    border: { display: false },
+                    ticks: { callback: value => formatTien(value) }
+                }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: context => formatTien(context.raw) } }
+            }
         }
     });
 
@@ -58,13 +91,24 @@ Promise.all([
             datasets: [{
                 label: 'Số lượng bán',
                 data: topSanPhams.map(item => Number(item.tong_so_luong)),
-                backgroundColor: '#198754'
+                backgroundColor: COLOR_SUCCESS,
+                borderRadius: 4,
+                maxBarThickness: 22
             }]
         },
         options: {
             indexAxis: 'y',
             responsive: true,
-            scales: { x: { beginAtZero: true, ticks: { precision: 0 } } },
+            maintainAspectRatio: false,
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    grid: { color: COLOR_GRID },
+                    border: { display: false },
+                    ticks: { precision: 0 }
+                },
+                y: { grid: { display: false }, border: { color: COLOR_GRID } }
+            },
             plugins: { legend: { display: false } }
         }
     });
@@ -78,4 +122,3 @@ Promise.all([
 });
 </script>
 @endpush
-@endsection
