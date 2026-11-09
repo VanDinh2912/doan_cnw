@@ -18,7 +18,7 @@ class StorefrontHomeTest extends TestCase
 
         $response->assertStatus(200);
         $response->assertSee('PhoneShop');
-        $response->assertSee('Điện thoại nổi bật');
+        $response->assertSee('Phụ kiện nổi bật');
         $response->assertSee('sfQuickViewModal', false);
     }
 
