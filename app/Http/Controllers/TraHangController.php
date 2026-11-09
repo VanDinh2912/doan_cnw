@@ -68,6 +68,8 @@ class TraHangController extends Controller
             }
 
             $diemThuHoi = (int) floor($tongHoan / max(1, config('pos.diem_moi_dong', 100000)));
+            $soLuongTraLanNay = (int) collect($validated['items'])->sum(fn (array $item): int => (int) $item['soluong']);
+            $diemHoan = self::tinhDiemHoan($donHang, $tongHoan, $soLuongTraLanNay);
             $duyetNgay = $tongHoan <= config('pos.nguong_tra_khong_duyet', 500000);
             $phieuTra = PhieuTra::create([
                 'ma_phieu' => 'TH'.now()->format('YmdHis').random_int(10, 99),
@@ -76,6 +78,7 @@ class TraHangController extends Controller
                 'customer_id' => $donHang->customer_id,
                 'tong_hoan' => $tongHoan,
                 'diem_thu_hoi' => $diemThuHoi,
+                'diem_hoan' => $diemHoan,
                 'hinh_thuc_hoan' => $validated['hinh_thuc_hoan'],
                 'trang_thai' => $duyetNgay ? 'hoan_thanh' : 'cho_duyet',
                 'ly_do' => $validated['ly_do'] ?? null,
@@ -130,6 +133,45 @@ class TraHangController extends Controller
         return back()->with('success', 'Đã duyệt phiếu trả hàng.');
     }
 
+    /**
+     * Điểm đã dùng của hóa đơn được hoàn theo cùng tỷ lệ tiền hoàn, làm tròn xuống.
+     * Cộng dồn các phiếu chưa bị từ chối để tổng không vượt diem_su_dung gốc.
+     * Trả hết hàng thì hoàn đủ phần còn lại: round() từng dòng tiền có thể làm tổng
+     * tiền hoàn lệch vài đồng, khiến floor() hụt mất điểm cuối cùng.
+     */
+    private static function tinhDiemHoan(DonHang $donHang, int $tongHoan, int $soLuongTraLanNay): int
+    {
+        $diemGoc = (int) $donHang->diem_su_dung;
+        if ($diemGoc <= 0 || $tongHoan <= 0) {
+            return 0;
+        }
+
+        $daCamKet = (int) PhieuTra::query()
+            ->where('invoice_id', $donHang->id)
+            ->whereIn('trang_thai', ['hoan_thanh', 'cho_duyet'])
+            ->sum('diem_hoan');
+
+        $conLai = max(0, $diemGoc - $daCamKet);
+        if ($conLai === 0) {
+            return 0;
+        }
+
+        $tongSoLuongBan = (int) $donHang->chiTietDonHangs()->sum('soluong');
+        $daTraSoLuong = (int) ChiTietPhieuTra::query()
+            ->whereHas('phieuTra', fn ($query) => $query
+                ->where('invoice_id', $donHang->id)
+                ->whereIn('trang_thai', ['hoan_thanh', 'cho_duyet']))
+            ->sum('soluong');
+
+        if ($tongSoLuongBan > 0 && $daTraSoLuong + $soLuongTraLanNay >= $tongSoLuongBan) {
+            return $conLai;
+        }
+
+        $tyLe = $tongHoan / max(1, (int) $donHang->tong_thanh_toan);
+
+        return min($conLai, max(0, (int) floor($diemGoc * $tyLe)));
+    }
+
     private static function apDung(PhieuTra $phieuTra, Request $request): void
     {
         $phieuTra->load(['chiTiets', 'donHang']);
@@ -152,10 +194,26 @@ class TraHangController extends Controller
                 'ghi_chu' => 'Trả hàng từ '.$phieuTra->ma_phieu,
             ]);
         }
-        if ($phieuTra->donHang->customer_id && $phieuTra->diem_thu_hoi > 0) {
+        $diemThuHoi = (int) $phieuTra->diem_thu_hoi;
+        $diemHoan = (int) $phieuTra->diem_hoan;
+        if ($phieuTra->donHang->customer_id && ($diemThuHoi > 0 || $diemHoan > 0)) {
             $customer = $phieuTra->donHang->khachHang()->lockForUpdate()->first();
             if ($customer) {
-                $customer->decrement('diem_tichluy', min($customer->diem_tichluy, $phieuTra->diem_thu_hoi));
+                $soDu = (int) $customer->diem_tichluy;
+                $thuHoiThucTe = min($soDu, $diemThuHoi);
+                $customer->diem_tichluy = $soDu - $thuHoiThucTe + $diemHoan;
+                $customer->save();
+
+                if ($diemHoan > 0) {
+                    NhatKyService::ghi(
+                        $request,
+                        'hoan_diem_su_dung',
+                        'phieu_tra',
+                        $phieuTra->id,
+                        'Hoàn '.$diemHoan.' điểm đã dùng cho phiếu '.$phieuTra->ma_phieu
+                            .' (thu hồi '.$thuHoiThucTe.'/'.$diemThuHoi.' điểm, số dư '.$soDu.' → '.$customer->diem_tichluy.')'
+                    );
+                }
             }
         }
         $phieuTra->update(['trang_thai' => 'hoan_thanh']);

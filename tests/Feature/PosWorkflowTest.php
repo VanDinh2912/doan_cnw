@@ -546,9 +546,10 @@ class PosWorkflowTest extends TestCase
     }
 
     /**
-     * Trả hàng từ hóa đơn CÓ giảm giá: hoàn tiền theo tỷ lệ tong_thanh_toan/tong_tien
-     * (TraHangController.php:64-65), vượt ngưỡng thì chờ duyệt, và thu hồi điểm bị
-     * chặn ở số dư hiện có (TraHangController.php:70, :158).
+     * Trả hàng từ hóa đơn CÓ giảm giá + đã dùng điểm: hoàn tiền theo tỷ lệ
+     * tong_thanh_toan/tong_tien (TraHangController.php:64-65), vượt ngưỡng thì chờ
+     * duyệt, thu hồi điểm bị chặn ở số dư (TraHangController.php:70), và HOÀN lại
+     * điểm đã dùng theo cùng tỷ lệ (TraHangController::tinhDiemHoan).
      */
     public function test_return_of_discounted_invoice_refunds_proportionally_and_caps_point_clawback(): void
     {
@@ -604,6 +605,8 @@ class PosWorkflowTest extends TestCase
         $this->assertSame('cho_duyet', $phieuTra->trang_thai);
         $this->assertSame(850000, (int) $phieuTra->tong_hoan);
         $this->assertSame(8, (int) $phieuTra->diem_thu_hoi);
+        // Hoàn điểm đã dùng theo cùng tỷ lệ tiền: floor(100 * 850.000/1.700.000) = 50.
+        $this->assertSame(50, (int) $phieuTra->diem_hoan);
         $this->assertSame($customer->id, (int) $phieuTra->customer_id);
         $this->assertSame($invoice->id, (int) $phieuTra->invoice_id);
 
@@ -628,10 +631,202 @@ class PosWorkflowTest extends TestCase
         $this->assertDatabaseHas('stock_movements', [
             'return_id' => $phieuTra->id, 'loai' => 'trahang', 'soluong' => 1,
         ]);
-        // Thu hồi 8 điểm nhưng khách chỉ có 2 -> về 0, không âm.
-        // 100 điểm đã tiêu (diem_su_dung) KHÔNG được hoàn lại: nếu có hoàn thì số dư
-        // sẽ là 2 + 100 - 8 = 94 chứ không phải 0.
-        $this->assertSame(0, (int) $customer->fresh()->diem_tichluy);
+        // Thu hồi 8 điểm nhưng khách chỉ có 2 -> trừ 2 (không âm), rồi hoàn 50 điểm
+        // đã dùng theo tỷ lệ phần hàng trả: số dư cuối = 2 - 2 + 50 = 50.
+        $this->assertSame(50, (int) $customer->fresh()->diem_tichluy);
+
+        // Việc hoàn điểm phải được ghi vào nhật ký hoạt động.
+        $this->assertDatabaseHas('activity_logs', [
+            'hanh_dong' => 'hoan_diem_su_dung',
+            'doi_tuong' => 'phieu_tra',
+            'doi_tuong_id' => $phieuTra->id,
+        ]);
+    }
+
+    /**
+     * Nhiều lần trả một hóa đơn: điểm hoàn cộng dồn không vượt diem_su_dung gốc,
+     * và lần trả cuối cùng (hết hàng) hoàn đủ phần còn lại.
+     */
+    public function test_multiple_returns_accumulate_point_refund_without_exceeding_original(): void
+    {
+        $this->seed();
+        $cashier = User::where('role', 'thungan')->firstOrFail();
+        $product = SanPham::where('sku', 'CS-0001')->firstOrFail();
+
+        $customer = KhachHang::create([
+            'ho_ten' => 'Khach Tra Nhieu Lan',
+            'so_dienthoai' => '0933100201',
+            'diem_tichluy' => 500,
+        ]);
+
+        // 10 SP x 100.000 = 1.000.000; dùng 100 điểm (-100.000) => thực trả 900.000.
+        $invoice = DonHang::create([
+            'ma_hoadon' => 'HD-RETURN-NHIEULAN',
+            'user_id' => $cashier->id,
+            'customer_id' => $customer->id,
+            'tong_tien' => 1000000,
+            'diem_su_dung' => 100,
+            'tien_giam_diem' => 100000,
+            'tong_thanh_toan' => 900000,
+            'tien_khach_dua' => 900000,
+            'tien_thua' => 0,
+            'phuong_thuc' => 'tienmat',
+            'trang_thai' => 'da_thanh_toan',
+        ]);
+        $detail = ChiTietDonHang::create([
+            'invoice_id' => $invoice->id, 'product_id' => $product->id,
+            'soluong' => 10, 'don_gia' => 100000, 'gia_von' => 60000, 'thanh_tien' => 1000000,
+        ]);
+
+        $tra = function (int $soLuong) use ($cashier, $invoice, $detail) {
+            $this->actingAs($cashier)->post(route('trahang.luu'), [
+                'invoice_id' => $invoice->id,
+                'hinh_thuc_hoan' => 'tienmat',
+                'items' => [['invoice_detail_id' => $detail->id, 'soluong' => $soLuong, 'tinh_trang' => 'con_tot']],
+            ])->assertRedirect();
+        };
+
+        // 3 SP: hoàn 270.000, thu hồi 2, hoàn điểm floor(100 * 0.3) = 30.
+        $tra(3);
+        $this->assertSame(30, (int) PhieuTra::latest('id')->firstOrFail()->diem_hoan);
+        $this->assertSame(528, (int) $customer->fresh()->diem_tichluy); // 500 - 2 + 30
+
+        // 3 SP nữa: hoàn thêm 30 (cộng dồn 60/100).
+        $tra(3);
+        $this->assertSame(30, (int) PhieuTra::latest('id')->firstOrFail()->diem_hoan);
+        $this->assertSame(556, (int) $customer->fresh()->diem_tichluy); // 528 - 2 + 30
+
+        // 4 SP cuối: hết hàng => hoàn đủ 40 còn lại, không bị floor hụt.
+        $tra(4);
+        $this->assertSame(40, (int) PhieuTra::latest('id')->firstOrFail()->diem_hoan);
+        $this->assertSame(593, (int) $customer->fresh()->diem_tichluy); // 556 - 3 + 40
+
+        // Tổng điểm hoàn đúng bằng điểm đã dùng, không vượt.
+        $this->assertSame(100, (int) PhieuTra::where('invoice_id', $invoice->id)->sum('diem_hoan'));
+        $this->assertSame(900000, (int) PhieuTra::where('invoice_id', $invoice->id)->sum('tong_hoan'));
+
+        // Hết hàng rồi thì không trả thêm được nữa.
+        $this->actingAs($cashier)->post(route('trahang.luu'), [
+            'invoice_id' => $invoice->id,
+            'hinh_thuc_hoan' => 'tienmat',
+            'items' => [['invoice_detail_id' => $detail->id, 'soluong' => 1, 'tinh_trang' => 'con_tot']],
+        ])->assertStatus(422);
+        $this->assertSame(100, (int) PhieuTra::where('invoice_id', $invoice->id)->sum('diem_hoan'));
+    }
+
+    /**
+     * Hàng trả về bị lỗi vẫn hoàn điểm đã dùng theo cùng quy tắc (không phân biệt
+     * tình trạng), nhưng nhập vào soluong_hong chứ không phải tồn bán được.
+     */
+    public function test_return_of_damaged_goods_also_refunds_used_points(): void
+    {
+        $this->seed();
+        $cashier = User::where('role', 'thungan')->firstOrFail();
+        $product = SanPham::where('sku', 'CS-0001')->firstOrFail();
+
+        $customer = KhachHang::create([
+            'ho_ten' => 'Khach Tra Hang Loi',
+            'so_dienthoai' => '0933100202',
+            'diem_tichluy' => 100,
+        ]);
+
+        // 2 SP x 500.000 = 1.000.000; dùng 50 điểm (-50.000) => thực trả 950.000.
+        $invoice = DonHang::create([
+            'ma_hoadon' => 'HD-RETURN-LOIHONG',
+            'user_id' => $cashier->id,
+            'customer_id' => $customer->id,
+            'tong_tien' => 1000000,
+            'diem_su_dung' => 50,
+            'tien_giam_diem' => 50000,
+            'tong_thanh_toan' => 950000,
+            'tien_khach_dua' => 950000,
+            'tien_thua' => 0,
+            'phuong_thuc' => 'tienmat',
+            'trang_thai' => 'da_thanh_toan',
+        ]);
+        $detail = ChiTietDonHang::create([
+            'invoice_id' => $invoice->id, 'product_id' => $product->id,
+            'soluong' => 2, 'don_gia' => 500000, 'gia_von' => 300000, 'thanh_tien' => 1000000,
+        ]);
+        $tonBan = $product->soluong;
+        $tonHong = $product->soluong_hong;
+
+        // Trả 1 SP lỗi: 475.000 <= 500.000 nên tự duyệt; thu hồi 4, hoàn floor(50*0.5)=25.
+        $this->actingAs($cashier)->post(route('trahang.luu'), [
+            'invoice_id' => $invoice->id,
+            'hinh_thuc_hoan' => 'tienmat',
+            'items' => [['invoice_detail_id' => $detail->id, 'soluong' => 1, 'tinh_trang' => 'loi_hong']],
+        ])->assertRedirect();
+
+        $phieuTra = PhieuTra::firstOrFail();
+        $this->assertSame('hoan_thanh', $phieuTra->trang_thai);
+        $this->assertSame(475000, (int) $phieuTra->tong_hoan);
+        $this->assertSame(4, (int) $phieuTra->diem_thu_hoi);
+        $this->assertSame(25, (int) $phieuTra->diem_hoan);
+        $this->assertSame(121, (int) $customer->fresh()->diem_tichluy); // 100 - 4 + 25
+
+        // Hàng lỗi vào kho hỏng, không cộng tồn bán được.
+        $product->refresh();
+        $this->assertSame($tonBan, (int) $product->soluong);
+        $this->assertSame($tonHong + 1, (int) $product->soluong_hong);
+        $this->assertDatabaseHas('stock_movements', [
+            'return_id' => $phieuTra->id, 'loai' => 'trahang_hong', 'soluong' => 1,
+        ]);
+    }
+
+    /**
+     * Biên làm tròn: round() từng dòng tiền làm tổng hoàn hụt vài đồng so với
+     * tong_thanh_toan, nhưng trả HẾT hàng thì vẫn phải hoàn đủ điểm đã dùng.
+     */
+    public function test_full_return_refunds_all_used_points_despite_money_rounding(): void
+    {
+        $this->seed();
+        $cashier = User::where('role', 'thungan')->firstOrFail();
+
+        $customer = KhachHang::create([
+            'ho_ten' => 'Khach Lam Tron',
+            'so_dienthoai' => '0933100203',
+            'diem_tichluy' => 100,
+        ]);
+
+        // 3 dòng x 100.000 = 300.000; dùng 20 điểm (-20.000) => thực trả 280.000.
+        $invoice = DonHang::create([
+            'ma_hoadon' => 'HD-RETURN-LAMTRON',
+            'user_id' => $cashier->id,
+            'customer_id' => $customer->id,
+            'tong_tien' => 300000,
+            'diem_su_dung' => 20,
+            'tien_giam_diem' => 20000,
+            'tong_thanh_toan' => 280000,
+            'tien_khach_dua' => 280000,
+            'tien_thua' => 0,
+            'phuong_thuc' => 'tienmat',
+            'trang_thai' => 'da_thanh_toan',
+        ]);
+
+        $items = [];
+        // invoice_details unique theo (invoice_id, product_id) nên cần 3 SP khác nhau.
+        $products = SanPham::orderBy('id')->limit(3)->get();
+        for ($i = 0; $i < 3; $i++) {
+            $detail = ChiTietDonHang::create([
+                'invoice_id' => $invoice->id, 'product_id' => $products[$i]->id,
+                'soluong' => 1, 'don_gia' => 100000, 'gia_von' => 60000, 'thanh_tien' => 100000,
+            ]);
+            $items[] = ['invoice_detail_id' => $detail->id, 'soluong' => 1, 'tinh_trang' => 'con_tot'];
+        }
+
+        $this->actingAs($cashier)->post(route('trahang.luu'), [
+            'invoice_id' => $invoice->id,
+            'hinh_thuc_hoan' => 'tienmat',
+            'items' => $items,
+        ])->assertRedirect();
+
+        $phieuTra = PhieuTra::firstOrFail();
+        // Mỗi dòng round(93.333,33) = 93.333 -> tổng 279.999, hụt 1đ so với 280.000.
+        $this->assertSame(279999, (int) $phieuTra->tong_hoan);
+        // Nếu chỉ floor theo tiền thì ra 19; trả hết hàng phải hoàn đủ 20.
+        $this->assertSame(20, (int) $phieuTra->diem_hoan);
+        $this->assertSame(118, (int) $customer->fresh()->diem_tichluy); // 100 - 2 + 20
     }
 
     public function test_cashier_can_hold_and_restore_cart_without_changing_stock(): void
