@@ -14,6 +14,7 @@ use App\Models\PhieuKiemKe;
 use App\Models\PhieuTra;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -545,12 +546,6 @@ class PosWorkflowTest extends TestCase
         $this->assertDatabaseMissing('stock_movements', ['loai' => 'trahang']);
     }
 
-    /**
-     * Trả hàng từ hóa đơn CÓ giảm giá + đã dùng điểm: hoàn tiền theo tỷ lệ
-     * tong_thanh_toan/tong_tien (TraHangController.php:64-65), vượt ngưỡng thì chờ
-     * duyệt, thu hồi điểm bị chặn ở số dư (TraHangController.php:70), và HOÀN lại
-     * điểm đã dùng theo cùng tỷ lệ (TraHangController::tinhDiemHoan).
-     */
     public function test_return_of_discounted_invoice_refunds_proportionally_and_caps_point_clawback(): void
     {
         $this->seed();
@@ -605,7 +600,6 @@ class PosWorkflowTest extends TestCase
         $this->assertSame('cho_duyet', $phieuTra->trang_thai);
         $this->assertSame(850000, (int) $phieuTra->tong_hoan);
         $this->assertSame(8, (int) $phieuTra->diem_thu_hoi);
-        // Hoàn điểm đã dùng theo cùng tỷ lệ tiền: floor(100 * 850.000/1.700.000) = 50.
         $this->assertSame(50, (int) $phieuTra->diem_hoan);
         $this->assertSame($customer->id, (int) $phieuTra->customer_id);
         $this->assertSame($invoice->id, (int) $phieuTra->invoice_id);
@@ -640,13 +634,14 @@ class PosWorkflowTest extends TestCase
             'hanh_dong' => 'hoan_diem_su_dung',
             'doi_tuong' => 'phieu_tra',
             'doi_tuong_id' => $phieuTra->id,
+            'mo_ta' => 'Hoàn 50 điểm đã dùng cho phiếu '.$phieuTra->ma_phieu
+                .' (thu hồi 2/8 điểm, số dư 2 → 50)',
         ]);
+        $this->actingAs($admin)->post(route('trahang.duyet', $phieuTra))->assertStatus(422);
+        $this->assertSame(50, (int) $customer->fresh()->diem_tichluy);
+        $this->assertSame(1, DB::table('activity_logs')->where('hanh_dong', 'hoan_diem_su_dung')->count());
     }
 
-    /**
-     * Nhiều lần trả một hóa đơn: điểm hoàn cộng dồn không vượt diem_su_dung gốc,
-     * và lần trả cuối cùng (hết hàng) hoàn đủ phần còn lại.
-     */
     public function test_multiple_returns_accumulate_point_refund_without_exceeding_original(): void
     {
         $this->seed();
@@ -714,10 +709,138 @@ class PosWorkflowTest extends TestCase
         $this->assertSame(100, (int) PhieuTra::where('invoice_id', $invoice->id)->sum('diem_hoan'));
     }
 
-    /**
-     * Hàng trả về bị lỗi vẫn hoàn điểm đã dùng theo cùng quy tắc (không phân biệt
-     * tình trạng), nhưng nhập vào soluong_hong chứ không phải tồn bán được.
-     */
+    public function test_partial_returns_round_points_down_on_cumulative_original_value(): void
+    {
+        $this->seed();
+        $cashier = User::where('role', 'thungan')->firstOrFail();
+        $product = SanPham::firstOrFail();
+        $customer = KhachHang::create([
+            'ho_ten' => 'Khach Tra Le', 'so_dienthoai' => '0933100210', 'diem_tichluy' => 0,
+        ]);
+        $invoice = DonHang::create([
+            'ma_hoadon' => 'HD-RETURN-LE', 'user_id' => $cashier->id, 'customer_id' => $customer->id,
+            'tong_tien' => 300000, 'diem_su_dung' => 20, 'tien_giam_diem' => 20000,
+            'tong_thanh_toan' => 280000, 'tien_khach_dua' => 280000, 'trang_thai' => 'da_thanh_toan',
+        ]);
+        $detail = ChiTietDonHang::create([
+            'invoice_id' => $invoice->id, 'product_id' => $product->id, 'soluong' => 3,
+            'don_gia' => 100000, 'gia_von' => 60000, 'thanh_tien' => 300000,
+        ]);
+        $tongDiem = 0;
+        foreach ([6, 7, 7] as $diemLanNay) {
+            $this->actingAs($cashier)->post(route('trahang.luu'), [
+                'invoice_id' => $invoice->id, 'hinh_thuc_hoan' => 'tienmat',
+                'items' => [['invoice_detail_id' => $detail->id, 'soluong' => 1, 'tinh_trang' => 'con_tot']],
+            ])->assertRedirect();
+            $phieu = PhieuTra::latest('id')->firstOrFail();
+            $this->assertSame($diemLanNay, $phieu->diem_hoan);
+            $tongDiem += $diemLanNay;
+            $this->assertSame($tongDiem, (int) $customer->fresh()->diem_tichluy);
+            $this->assertLessThanOrEqual(20, $tongDiem);
+        }
+        $this->assertSame(20, (int) PhieuTra::where('invoice_id', $invoice->id)->sum('diem_hoan'));
+        $this->assertSame(279999, (int) PhieuTra::where('invoice_id', $invoice->id)->sum('tong_hoan'));
+        $this->assertSame(3, DB::table('activity_logs')->where('hanh_dong', 'hoan_diem_su_dung')->count());
+    }
+
+    public function test_zero_cash_invoice_refunds_points_by_item_value_not_quantity(): void
+    {
+        $this->seed();
+        $cashier = User::where('role', 'thungan')->firstOrFail();
+        $products = SanPham::orderBy('id')->limit(2)->get();
+        $customer = KhachHang::create([
+            'ho_ten' => 'Khach Tra Don Bang Diem', 'so_dienthoai' => '0933100211', 'diem_tichluy' => 0,
+        ]);
+        $invoice = DonHang::create([
+            'ma_hoadon' => 'HD-RETURN-ZERO', 'user_id' => $cashier->id, 'customer_id' => $customer->id,
+            'tong_tien' => 1000000, 'diem_su_dung' => 1000, 'tien_giam_diem' => 1000000,
+            'tong_thanh_toan' => 0, 'tien_khach_dua' => 0, 'trang_thai' => 'da_thanh_toan',
+        ]);
+        foreach ([100000, 900000] as $i => $gia) {
+            $detail = ChiTietDonHang::create([
+                'invoice_id' => $invoice->id, 'product_id' => $products[$i]->id, 'soluong' => 1,
+                'don_gia' => $gia, 'gia_von' => 60000, 'thanh_tien' => $gia,
+            ]);
+            $this->actingAs($cashier)->post(route('trahang.luu'), [
+                'invoice_id' => $invoice->id, 'hinh_thuc_hoan' => 'tienmat',
+                'items' => [['invoice_detail_id' => $detail->id, 'soluong' => 1, 'tinh_trang' => 'con_tot']],
+            ])->assertRedirect();
+            $phieu = PhieuTra::latest('id')->firstOrFail();
+            $this->assertSame(0, (int) $phieu->tong_hoan);
+            $this->assertSame(0, $phieu->diem_thu_hoi);
+            $this->assertSame(intdiv($gia, 1000), $phieu->diem_hoan);
+            $this->assertDatabaseHas('stock_movements', ['return_id' => $phieu->id, 'soluong' => 1]);
+        }
+        $this->assertSame(1000, (int) $customer->fresh()->diem_tichluy);
+        $this->assertSame(1000, (int) PhieuTra::where('invoice_id', $invoice->id)->sum('diem_hoan'));
+    }
+
+    public function test_pending_returns_reserve_quantity_and_points_until_approved(): void
+    {
+        $this->seed();
+        $cashier = User::where('role', 'thungan')->firstOrFail();
+        $admin = User::where('role', 'admin')->firstOrFail();
+        $product = SanPham::firstOrFail();
+        $customer = KhachHang::create([
+            'ho_ten' => 'Khach Tra Cho Duyet', 'so_dienthoai' => '0933100212', 'diem_tichluy' => 0,
+        ]);
+        $invoice = DonHang::create([
+            'ma_hoadon' => 'HD-RETURN-PENDING', 'user_id' => $cashier->id, 'customer_id' => $customer->id,
+            'tong_tien' => 2000000, 'diem_su_dung' => 101, 'tien_giam_diem' => 101000,
+            'tong_thanh_toan' => 1899000, 'tien_khach_dua' => 1899000, 'trang_thai' => 'da_thanh_toan',
+        ]);
+        $detail = ChiTietDonHang::create([
+            'invoice_id' => $invoice->id, 'product_id' => $product->id, 'soluong' => 2,
+            'don_gia' => 1000000, 'gia_von' => 600000, 'thanh_tien' => 2000000,
+        ]);
+        $payload = [
+            'invoice_id' => $invoice->id, 'hinh_thuc_hoan' => 'tienmat',
+            'items' => [['invoice_detail_id' => $detail->id, 'soluong' => 1, 'tinh_trang' => 'con_tot']],
+        ];
+        foreach ([50, 51] as $diem) {
+            $this->actingAs($cashier)->post(route('trahang.luu'), $payload)->assertRedirect();
+            $phieu = PhieuTra::latest('id')->firstOrFail();
+            $this->assertSame('cho_duyet', $phieu->trang_thai);
+            $this->assertSame($diem, $phieu->diem_hoan);
+        }
+        $this->assertSame(0, (int) $customer->fresh()->diem_tichluy);
+        $this->assertSame(101, (int) PhieuTra::where('invoice_id', $invoice->id)->sum('diem_hoan'));
+        $this->assertDatabaseMissing('stock_movements', ['invoice_id' => $invoice->id]);
+        $this->actingAs($cashier)->post(route('trahang.luu'), $payload)->assertStatus(422);
+        $this->assertDatabaseCount('returns', 2);
+        foreach (PhieuTra::orderByDesc('id')->get() as $phieu) {
+            $this->actingAs($admin)->post(route('trahang.duyet', $phieu))->assertRedirect();
+            $this->actingAs($admin)->post(route('trahang.duyet', $phieu))->assertStatus(422);
+        }
+        $this->assertSame(92, (int) $customer->fresh()->diem_tichluy);
+        $this->assertSame(2, DB::table('activity_logs')->where('hanh_dong', 'hoan_diem_su_dung')->count());
+    }
+
+    public function test_duplicate_return_detail_is_rejected_before_refunding_points(): void
+    {
+        $this->seed();
+        $cashier = User::where('role', 'thungan')->firstOrFail();
+        $product = SanPham::firstOrFail();
+        $customer = KhachHang::create([
+            'ho_ten' => 'Khach Tra Trung Dong', 'so_dienthoai' => '0933100213', 'diem_tichluy' => 0,
+        ]);
+        $invoice = DonHang::create([
+            'ma_hoadon' => 'HD-RETURN-DUPLICATE', 'user_id' => $cashier->id, 'customer_id' => $customer->id,
+            'tong_tien' => 100000, 'diem_su_dung' => 10, 'tien_giam_diem' => 10000,
+            'tong_thanh_toan' => 90000, 'tien_khach_dua' => 90000, 'trang_thai' => 'da_thanh_toan',
+        ]);
+        $detail = ChiTietDonHang::create([
+            'invoice_id' => $invoice->id, 'product_id' => $product->id, 'soluong' => 1,
+            'don_gia' => 100000, 'gia_von' => 60000, 'thanh_tien' => 100000,
+        ]);
+        $item = ['invoice_detail_id' => $detail->id, 'soluong' => 1, 'tinh_trang' => 'con_tot'];
+        $this->actingAs($cashier)->postJson(route('trahang.luu'), [
+            'invoice_id' => $invoice->id, 'hinh_thuc_hoan' => 'tienmat', 'items' => [$item, $item],
+        ])->assertStatus(422)->assertJsonValidationErrors('items.0.invoice_detail_id');
+        $this->assertDatabaseCount('returns', 0);
+        $this->assertSame(0, (int) $customer->fresh()->diem_tichluy);
+    }
+
     public function test_return_of_damaged_goods_also_refunds_used_points(): void
     {
         $this->seed();

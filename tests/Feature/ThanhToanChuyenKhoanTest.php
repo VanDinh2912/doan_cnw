@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\WebhookController;
 use App\Models\BienDongKho;
 use App\Models\ChiTietDonHang;
 use App\Models\DonHang;
@@ -9,8 +10,11 @@ use App\Models\KhachHang;
 use App\Models\SanPham;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Routing\Route as RoutingRoute;
+use Illuminate\Routing\RouteCollection;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
 class ThanhToanChuyenKhoanTest extends TestCase
@@ -33,6 +37,46 @@ class ThanhToanChuyenKhoanTest extends TestCase
         Config::set('pos.cho_thanh_toan_phut', 15);
         Config::set('pos.telegram_bot_token', '');
         Config::set('pos.telegram_chat_id', '');
+    }
+
+    public function test_webhook_chi_dang_ky_mot_post_dung_action_name_va_throttle(): void
+    {
+        $routesGoc = Route::getRoutes();
+        // RouteCollection ghi đè URI trùng nhau nên phải đếm ngay lúc đăng ký.
+        $routes = new class extends RouteCollection
+        {
+            public int $soPostWebhook = 0;
+
+            public function add(RoutingRoute $route)
+            {
+                if ($route->uri() === 'api/webhook/thanhtoan' && in_array('POST', $route->methods(), true)) {
+                    $this->soPostWebhook++;
+                }
+
+                return parent::add($route);
+            }
+        };
+
+        try {
+            Route::setRoutes($routes);
+            Route::prefix('api')->middleware('api')->group(base_path('routes/api.php'));
+            Route::middleware('web')->group(base_path('routes/web.php'));
+            $routes->refreshNameLookups();
+
+            $webhooks = collect($routes->getRoutes())->filter(fn (RoutingRoute $route) =>
+                $route->uri() === 'api/webhook/thanhtoan' && in_array('POST', $route->methods(), true)
+            )->values();
+
+            $this->assertSame(1, $routes->soPostWebhook);
+            $this->assertCount(1, $webhooks);
+            $this->assertSame(['POST'], $webhooks[0]->methods());
+            $this->assertSame('webhook.thanhtoan', $webhooks[0]->getName());
+            $this->assertSame(WebhookController::class.'@postThanhToan', $webhooks[0]->getActionName());
+            $this->assertContains('throttle:60,1', $webhooks[0]->gatherMiddleware());
+            $this->assertFalse(Route::has('api.webhook.thanhtoan'));
+        } finally {
+            Route::setRoutes($routesGoc);
+        }
     }
 
     /**
