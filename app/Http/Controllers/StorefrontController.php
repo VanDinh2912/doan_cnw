@@ -31,6 +31,7 @@ class StorefrontController extends Controller
         $flashSale = SanPham::query()
             ->where('trang_thai', true)
             ->where('soluong', '>', 0)
+            ->with('loaiSanPham')
             ->orderBy('gia_ban')
             ->limit(4)
             ->get();
