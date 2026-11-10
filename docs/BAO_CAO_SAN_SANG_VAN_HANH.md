@@ -27,14 +27,16 @@
 7. **POS mất giỏ hàng khi AJAX lỗi, trang lỗi mặc định tiếng Anh** — đã sửa.
 8. **N+1 và thiếu index vận hành** — đã thêm index và bật cảnh báo lazy-load.
 
-Suite test tăng từ **66** lên **145 test** (144 pass, 1 skip, 627 assertions).
+Suite test tăng từ **66** lên **145 test** ở đợt nâng cấp ban đầu (144 pass,
+1 skip, 627 assertions), rồi **165 test** sau đợt bổ sung: **164 pass, 1 skip,
+792 assertions**, 230.67s với `XDEBUG_MODE=off`.
 
 ## 2. Bảng trước / sau
 
 | Hạng mục | Trước | Sau |
 |---|---|---|
 | Transaction & khóa dòng | MyISAM: transaction/khóa là no-op | InnoDB cho 27/27 bảng (bản sao), engine mặc định InnoDB, health check `FAIL` nếu còn MyISAM |
-| Trả hàng + điểm | Không hoàn `diem_su_dung` | Hoàn theo tỷ lệ, chặn vượt quá điểm gốc |
+| Trả hàng + điểm | Không hoàn `diem_su_dung` | Hoàn theo tỷ lệ giá trị hàng trả cộng dồn, làm tròn xuống, không vượt điểm gốc; có nhật ký, kể cả hóa đơn thực trả 0 |
 | Webhook không khớp | Chỉ cảnh báo Telegram | Lưu hàng chờ `/doisoat`, admin đánh dấu xử lý + nhật ký |
 | Lịch chạy nền | Chỉ `schedule:work` thủ công | `scripts/windows/chay-schedule.bat` + Task Scheduler mỗi phút + heartbeat |
 | Kiểm tra sức khỏe | Không có | `php artisan he-thong:kiem-tra` (13 mục, chỉ đọc) |
@@ -47,8 +49,20 @@ Suite test tăng từ **66** lên **145 test** (144 pass, 1 skip, 627 assertions
 | Trang lỗi | Mặc định Laravel/tiếng Anh | 403/404/419/500 tiếng Việt, 500 không lộ chi tiết |
 | N+1 | Không kiểm soát | `Model::preventLazyLoading()` ngoài production + sửa N+1 trang chủ |
 | Index vận hành | Thiếu index ngày tạo | 4 index cho invoices, stock_movements, activity_logs |
-| Test | 66 test | 145 test (144 pass, 1 skip) |
+| Test | 66 test | 165 test (164 pass, 1 skip, 792 assertions); đợt ban đầu 145 test |
 | Tài liệu | Chưa có hướng dẫn triển khai | README mục 5/5A/7/8/9/10/12/14/16/17/18 + báo cáo này |
+
+### Bổ sung cùng ngày — đối chiếu với HEAD `8835b52`
+
+| Hạng mục | Trước đợt bổ sung này | Sau |
+|---|---|---|
+| Đường dẫn tài liệu | Có đường dẫn máy cá nhân trong README/báo cáo | Placeholder theo thư mục dự án và từng binary; kiểm tra cả README, `docs/`, `scripts/` |
+| Webhook | Hai khai báo cùng URI; route API bị che | Chỉ giữ POST `/api/webhook/thanhtoan` trong `web.php`, có `throttle:60,1`; thêm test route duy nhất |
+| `db:wipe` | Chưa có chốt chặn riêng | Dùng cùng chốt chặn production với `migrate:fresh`: `--force-dangerous` + đúng tên DB đích; `--force` đơn lẻ không đủ |
+| Điểm trả hàng | Đã có `diem_hoan` nhưng tính theo tiền hoàn đã làm tròn; hóa đơn thực trả 0 không hoàn điểm; chưa giữ số lượng phiếu chờ duyệt | Tính theo giá trị hàng trả gốc cộng dồn, floor rồi trừ điểm đã cam kết, capped điểm gốc; giữ số lượng/điểm phiếu chờ duyệt, ghi nhật ký khi hoàn thành |
+| Múi giờ | UTC | **Vẫn UTC**; chỉ có phương án, kiểm tra và hoàn tác ở mục 6.2, chưa đổi cấu hình/dữ liệu |
+
+Đợt bổ sung không đọc/ghi `.env`, không chạy migration hoặc lệnh phá hủy trên CSDL thật, không merge/push. Các kết quả MySQL/bản sao ở những mục lịch sử phía dưới được giữ nguyên, **không phải các phép đo mới của đợt bổ sung**.
 
 ## 3. Giai đoạn 1 — Toàn vẹn tiền và kho
 
@@ -56,19 +70,29 @@ Suite test tăng từ **66** lên **145 test** (144 pass, 1 skip, 627 assertions
 
 - **Lỗi**: phiếu trả chỉ hoàn tiền và thu hồi điểm tích lũy; điểm khách đã tiêu để
   giảm giá (`invoices.diem_su_dung`) bị mất.
-- **Sửa**: thêm cột `returns.diem_hoan`
-  (`database/migrations/2026_11_10_000001_add_diem_hoan_to_returns_table.php`),
-  tính và cộng lại điểm trong
-  `app/Http/Controllers/TraHangController.php:81` và `:198-215`; tổng điểm hoàn của
-  các phiếu không bị từ chối bị chặn ở `diem_su_dung` gốc
-  (`TraHangController.php:138-152`).
-- **Test**: `tests/Feature/PosWorkflowTest.php` —
-  `test_return_of_discounted_invoice_refunds_proportionally_and_caps_point_clawback`,
-  `test_multiple_returns_accumulate_point_refund_without_exceeding_original`,
-  `test_return_of_damaged_goods_also_refunds_used_points`,
-  `test_full_return_refunds_all_used_points_despite_money_rounding`.
-- **Ảnh hưởng dữ liệu**: thêm 1 cột nullable, không đổi dữ liệu cũ. Hoàn tác:
-  `git revert e21537a` (migration down xóa cột).
+- **Sửa ban đầu**: thêm cột `returns.diem_hoan`
+  (`database/migrations/2026_11_10_000001_add_diem_hoan_to_returns_table.php`).
+- **Code sau đợt bổ sung**: [`TraHangController.php:69-83`](../app/Http/Controllers/TraHangController.php#L69-L83)
+  lấy giá trị hàng gốc và lưu điểm hoàn; [`:139-164`](../app/Http/Controllers/TraHangController.php#L139-L164)
+  tính `floor(diem_su_dung × giá_trị_hàng_trả_lũy_kế / tong_tien)` bằng phép chia
+  số nguyên chính xác, trừ điểm đã cam kết, không vượt điểm gốc. Phiếu
+  `hoan_thanh` và `cho_duyet` đều giữ hạn mức điểm/số lượng
+  ([`:59-64`](../app/Http/Controllers/TraHangController.php#L59-L64)). Hóa đơn thực
+  trả 0 vẫn hoàn điểm theo giá trị hàng, không theo số lượng hay tiền hoàn.
+- **Cộng điểm và nhật ký**: [`:188-207`](../app/Http/Controllers/TraHangController.php#L188-L207)
+  khóa khách, thu hồi không quá số dư rồi cộng điểm hoàn, ghi
+  `hoan_diem_su_dung`. Chỉ thực hiện khi phiếu hoàn thành; duyệt lại bị chặn cả
+  sau khi khóa phiếu ([`:125-131`](../app/Http/Controllers/TraHangController.php#L125-L131)).
+- **Test**: `tests/Feature/PosWorkflowTest.php` — giảm giá + dùng điểm
+  ([`:549`](../tests/Feature/PosWorkflowTest.php#L549)), nhiều lần 30/30/40 điểm
+  ([`:645`](../tests/Feature/PosWorkflowTest.php#L645)), floor cộng dồn 6/7/7 điểm
+  ([`:712`](../tests/Feature/PosWorkflowTest.php#L712)), tiền hoàn 0 với giá trị hàng
+  khác nhau ([`:746`](../tests/Feature/PosWorkflowTest.php#L746)), hai phiếu chờ duyệt
+  và duyệt ngược thứ tự ([`:778`](../tests/Feature/PosWorkflowTest.php#L778)), dòng
+  hàng trùng ([`:819`](../tests/Feature/PosWorkflowTest.php#L819)), hàng lỗi
+  ([`:844`](../tests/Feature/PosWorkflowTest.php#L844)) và hoàn hết điểm dù tiền làm
+  tròn ([`:904`](../tests/Feature/PosWorkflowTest.php#L904)).
+- **Ảnh hưởng dữ liệu**: migration thêm `diem_hoan` là số nguyên không âm, **NOT NULL, mặc định 0**, không phải nullable. Migration này đã có trước đợt bổ sung; đợt bổ sung không tạo migration mới hay áp dụng migration trên CSDL thật. Không ghi bù vào phiếu lịch sử trong đợt này. Hoàn tác code nhóm cũ: `git revert e21537a` (migration down xóa cột, chỉ thực hiện theo quy trình được duyệt).
 
 ### 3.2. Hàng chờ đối soát chuyển khoản (`8777efa`)
 
@@ -128,12 +152,26 @@ Suite test tăng từ **66** lên **145 test** (144 pass, 1 skip, 627 assertions
 
 ### 4.3. Chốt chặn production (`0bec00e`)
 
-- `app/Console/Commands/Concerns/ChanLenhPhaHuy.php:14-46`: ở `production` bắt buộc
-  `--force-dangerous` **và** nhập lại đúng tên database; không tương tác phải kèm
-  `--ten-db-xac-nhan`.
-- Áp dụng cho `migrate:fresh` (`app/Console/Commands/MigrateFresh.php:21-37`),
-  `demo:reset`, `documents:import`.
-- **Test**: `tests/Feature/LenhNguyHiemTest.php` (4) + `tests/Unit/ChanLenhPhaHuyTest.php` (5).
+- [`ChanLenhPhaHuy.php:14-44`](../app/Console/Commands/Concerns/ChanLenhPhaHuy.php#L14-L44):
+  ở `production` bắt buộc `--force-dangerous` **và** nhập lại đúng tên database;
+  không tương tác phải kèm `--ten-db-xac-nhan`. `--force` đơn lẻ không đủ.
+- Áp dụng cho `migrate:fresh`, `demo:reset`, `documents:import`; đợt bổ sung thêm
+  [`DbWipe.php:17-32`](../app/Console/Commands/DbWipe.php#L17-L32). Với
+  `--database=<tên-kết-nối>`, chốt chặn lấy tên database thực của kết nối đã chọn,
+  không dùng tên kết nối hoặc database mặc định
+  ([`ChanLenhPhaHuy.php:47-54`](../app/Console/Commands/Concerns/ChanLenhPhaHuy.php#L47-L54)).
+- [`MigrateFresh.php:23-47`](../app/Console/Commands/MigrateFresh.php#L23-L47) chuyển
+  tiếp xác nhận sang `db:wipe`; lệnh con vẫn tự kiểm tra, không bỏ qua chốt chặn.
+  Xác nhận được xóa sau mỗi lần chạy, không chuyển sang các lệnh con khác.
+- **Test sau bổ sung**: `LenhNguyHiemTest` có 19 ca, dùng mock DB/schema/migrator,
+  không xóa bảng hoặc chạy migration thật; kiểm tra đăng ký command/option
+  ([`:63`](../tests/Feature/LenhNguyHiemTest.php#L63)), thiếu cờ/tên và sai DB
+  ([`:77-109`](../tests/Feature/LenhNguyHiemTest.php#L77-L109)), kết nối đích
+  ([`:123`](../tests/Feature/LenhNguyHiemTest.php#L123)), tương tác
+  ([`:139`](../tests/Feature/LenhNguyHiemTest.php#L139)), ngoài production
+  ([`:153`](../tests/Feature/LenhNguyHiemTest.php#L153)) và chuyển tiếp xác nhận
+  ([`:165-188`](../tests/Feature/LenhNguyHiemTest.php#L165-L188)). Giữ 5 unit test
+  `tests/Unit/ChanLenhPhaHuyTest.php`.
 
 ### 4.4. Bảo mật đăng nhập + quản lý tài khoản (`7b603ce`)
 
@@ -233,7 +271,7 @@ Bổ sung/siết test cho các mục trước đây chưa có test (không đổ
 | `app/Console/Commands/KiemTraDuLieu.php:41-43` | Đọc kiểm trùng | `ma_giaodich` |
 | `database/migrations/2026_01_01_000007_...:17` | Schema | `ma_giaodich` varchar(100) unique |
 | `database/migrations/2026_11_02_033147_...:15` | Schema | `ma_giao_dich` varchar(40) unique |
-| `tests/Feature/ThanhToanChuyenKhoanTest.php:209,317,606,671` | Assert | `ma_giaodich` / `ma_giao_dich` |
+| `tests/Feature/ThanhToanChuyenKhoanTest.php:253,361,649-650,714-715` | Assert | `ma_giaodich` / `ma_giao_dich` |
 | `tests/Feature/ToanVenGiaoDichTest.php:182,212` | Assert | `ma_giaodich` |
 | `tests/Feature/KhoaDongMysqlTest.php:65,72` | Assert | `ma_giaodich` |
 
@@ -279,7 +317,27 @@ Ngoài ra: không có trigger/view/procedure nào trong cả hai CSDL (0/0/0).
 chưa rõ có báo cáo/Excel/Power BI bên ngoài nào đọc trực tiếp `ma_giao_dich` hay
 không). Rủi ro dữ liệu hiện tại bằng 0 vì cả hai cột đều rỗng.
 
-### 6.2. Đồng bộ tài liệu kế hoạch (`ce09f08`)
+### 6.2. Phương án chuyển sang `Asia/Ho_Chi_Minh` — chỉ đề xuất, chưa thực hiện
+
+`config/app.php:68` vẫn là `UTC`; đợt này **không sửa cấu hình, không chuyển dữ liệu**. Chưa xác minh múi giờ thực tế của MySQL/session hay nguồn gốc mọi timestamp cũ; không mặc định rằng chỉ đổi cấu hình hoặc cộng 7 giờ là an toàn.
+
+**Tác động cần đánh giá:**
+
+- Đổi timezone ứng dụng thay đổi cách Carbon/PHP diễn giải timestamp không có múi giờ và cách ghi thời gian mới; một giá trị cũ có thể bị hiểu thành giờ Việt Nam thay vì UTC. MySQL `TIMESTAMP` chịu chuyển đổi timezone session, còn `DATETIME` không tự chuyển đổi; phải kiểm tra kiểu cột thực tế.
+- Mốc ngày trong lọc doanh thu, mã hóa đơn theo ngày, hạn trả 7 ngày, thời hạn thanh toán, heartbeat, lịch 02:00 sao lưu và lịch dọn giỏ có thể đổi. Không để dữ liệu cũ UTC và dữ liệu mới giờ Việt Nam lẫn trong cùng cột mà không có quy ước.
+- Log cũ, log mới và thời gian từ webhook/API bên ngoài có thể khác múi giờ. Payload có offset phải được chuẩn hóa theo quy ước đã chọn, không cộng 7 giờ thêm lần nữa.
+
+**Các bước kiểm tra trước khi người dùng quyết định:**
+
+1. Sao lưu CSDL, code và trạng thái scheduler; thử trên bản sao cô lập, không chạy SQL chuyển đổi trên CSDL thật trong đợt này. Ghi timezone OS/PHP/MySQL và `@@global.time_zone`, `@@session.time_zone`, kiểu cột, min/max timestamp và các đơn/phiếu đang mở.
+2. Chọn quy ước: **ưu tiên lưu UTC, chỉ đổi cách hiển thị/lọc/lịch sang giờ Việt Nam** để tránh viết lại dữ liệu cũ. Nếu bắt buộc đổi timezone ứng dụng sang `Asia/Ho_Chi_Minh`, chốt rõ cách đọc UTC cũ và lưu dữ liệu mới trước khi sửa; không chỉ đổi một dòng cấu hình rồi đưa lên thật.
+3. Với phương án chuyển dữ liệu, lập danh sách cột và mốc cutover; script riêng phải idempotent, có bảng đối chiếu trước/sau và xử lý `DATETIME`/`TIMESTAMP` đúng timezone session. Không áp dụng quy tắc cộng 7 giờ hàng loạt; giữ nguyên offset của dữ liệu nguồn đã chuẩn hóa.
+4. Trên bản sao, kiểm tra mẫu hóa đơn cũ và mới ở 16:59/17:00 UTC (23:59/00:00 Việt Nam), lọc doanh thu theo ngày, hạn trả trước/đúng/sau 7 ngày, đơn chờ thanh toán, webhook tới trễ và mã hóa đơn không trùng.
+5. Kiểm tra scheduler chạy hủy đơn mỗi phút, sao lưu đúng 02:00 Việt Nam, heartbeat không âm; chạy suite test và kiểm tra đối chiếu số lượng bản ghi, tồn kho, tiền, điểm, timestamp/log. Chỉ triển khai ngoài giờ bán hàng sau khi người dùng duyệt tiêu chí và kết quả.
+
+**Hoàn tác:** nếu chưa chuyển dữ liệu, đưa cấu hình/code về UTC, làm mới config cache theo quy trình vận hành và khởi động lại worker/scheduler; đối chiếu thời gian mẫu. Nếu đã chuyển dữ liệu, dừng ghi trước, phục hồi bản sao lưu hoặc chạy script đảo đã kiểm chứng dựa trên mốc cutover/bảng đối chiếu; phải có phương án giữ giao dịch phát sinh sau cutover. Không trừ 7 giờ hàng loạt và không phục hồi dump đè lên giao dịch mới chưa được bảo toàn. Kiểm tra lại báo cáo ngày, hạn trả, đơn chờ và lịch sao lưu trước khi mở bán.
+
+### 6.3. Đồng bộ tài liệu kế hoạch (`ce09f08`)
 
 `TaiLieu/KeHoach/Ke hoach.md` còn nhắc các thành phần đã xóa/đổi tên:
 
@@ -293,6 +351,8 @@ không). Rủi ro dữ liệu hiện tại bằng 0 vì cả hai cột đều r�
 | 459 | "Sửa fillable `ma_giao_dich`" | Thêm `ma_giao_dich`, giữ `ma_giaodich` là cột chuẩn |
 
 ## 7. Kiểm chứng đã chạy
+
+### Đợt nâng cấp ban đầu — số liệu lịch sử
 
 | Lệnh | Kết quả |
 |---|---|
@@ -315,6 +375,25 @@ php artisan test --filter=KhoaDongMysqlTest
 
 > `RefreshDatabase` sẽ xóa và migrate lại CSDL đích. **Không bao giờ** trỏ vào
 > `doan_cnw`.
+
+### Đợt bổ sung cùng ngày — đối chiếu với HEAD `8835b52`
+
+| Lệnh/kiểm tra | Kết quả thực chạy |
+|---|---|
+| `XDEBUG_MODE=off php artisan test` — lượt đầu | 157 passed, 7 failed, 1 skipped; 764 assertions, 244.99s |
+| Filter chốt chặn + trả giảm giá + phiếu chờ, sau sửa kỳ vọng test | 16 passed, 5 failed; 138 assertions, 5.60s; 5 lỗi constructor partial mock, sau đó đã sửa |
+| `XDEBUG_MODE=off php artisan test --filter=LenhNguyHiemTest` — sau sửa mock | 19 passed, 115 assertions, 0.75s |
+| `XDEBUG_MODE=off php artisan test --compact` — cuối | **164 passed, 1 skipped, 792 assertions, 230.67s, exit 0** |
+| `php artisan route:list --json` trước/sau | **103 routes** cả hai lần; 1 POST webhook, đúng tên/action, giữ `throttle:60,1` |
+| Tìm đường dẫn cá nhân trong README/`docs/`/`scripts/` | **0 kết quả** |
+| Mục lục README / `config/app.php` | 19 anchor hợp lệ; không còn 15.5; cấu hình timezone không đổi (UTC) |
+
+165 ca hiện tại gồm **11 Unit + 154 Feature**; Feature gồm `LenhNguyHiemTest`
+19 ca, `PosWorkflowTest` 32 và `ThanhToanChuyenKhoanTest` 19. Một skip vẫn là
+`KhoaDongMysqlTest` vì suite dùng SQLite `:memory:`. Lượt bật Xdebug đã dừng trước
+kết quả cuối, không tính là pass/fail. Không kiểm lại MySQL, không chạy migration
+hoặc lệnh phá hủy trên CSDL thật, không đọc/ghi `.env`, không thử luồng trình duyệt
+POS trong đợt bổ sung. Các số liệu MySQL/health check phía trên thuộc đợt trước.
 
 ## 8. Hướng dẫn migration an toàn (khi triển khai)
 
@@ -343,12 +422,11 @@ php artisan test --filter=KhoaDongMysqlTest
 - **Trả hàng lỗi**: hàng hỏng tăng `soluong_hong`, không cộng tồn tốt (đúng thiết kế).
 - **Đối soát là thủ công**: chỉ đánh dấu + ghi chú, chưa tự khớp tiền vào hóa đơn.
 - **Hai cột mã giao dịch song song** vẫn tồn tại (mục 6.1).
-- **Route webhook khai báo trùng** ở `routes/api.php:5` và `routes/web.php:34`;
-  bản `web.php` (có `throttle:60,1`) thắng, bản `api.php` bị che khuất. Chưa gộp để
-  tránh đổi hành vi ngoài phạm vi.
+- **Route webhook trùng đã được gỡ** trong đợt bổ sung: giữ duy nhất bản
+  `routes/web.php:34-36`, có `throttle:60,1`; không còn là rủi ro chờ quyết định.
 - **Múi giờ UTC**: `config/app.php` giữ mặc định; giờ hóa đơn/log lệch 7 giờ so với
   Việt Nam. Chưa đổi vì sẽ làm lệch dữ liệu cũ.
-- **`db:wipe` chưa bị chặn** ở production.
+- **`db:wipe` đã được bảo vệ** trong đợt bổ sung; không chạy lệnh trên CSDL thật để kiểm chứng.
 - **SQLite test không chứng minh được khóa dòng/rollback thật** — đã có test MySQL
   riêng nhưng bị skip mặc định.
 
@@ -360,12 +438,12 @@ php artisan test --filter=KhoaDongMysqlTest
    `ma_giao_dich`) — có hệ thống báo cáo bên ngoài nào đọc cột này không?
 3. **Chuyển múi giờ** `config/app.php` sang `Asia/Ho_Chi_Minh` — dữ liệu cũ sẽ hiển
    thị lệch nếu đổi; cần quyết định có chuyển đổi dữ liệu hay không.
-4. **Có chặn `db:wipe` ở production** hay không.
-5. **Cài Task Scheduler** trên máy cửa hàng (script đã có) và đặt
-   `LOG_STACK=daily` trong `.env` thật (hiện đang `single`).
-6. **Cấu hình `SEPAY_WEBHOOK_API_KEY`** và Telegram trên máy thật (hiện thiếu).
-7. **Đổi mật khẩu toàn bộ tài khoản demo** trước khi cho nhân viên dùng.
-8. **Quyết định giữ hay bỏ route webhook trùng** trong `routes/api.php`.
+4. **Cài Task Scheduler** trên máy cửa hàng (script đã có) và thêm/cấu hình
+   `LOG_STACK=daily` trên máy thật; đợt bổ sung không đọc/ghi `.env`.
+5. **Cấu hình `SEPAY_WEBHOOK_API_KEY`** và Telegram trên máy thật (thiếu theo đợt kiểm trước).
+6. **Đổi mật khẩu toàn bộ tài khoản demo** trước khi cho nhân viên dùng.
+
+Người dùng đã yêu cầu bảo vệ `db:wipe` và bỏ route webhook trùng trong đợt bổ sung; hai mục này không còn chờ quyết định.
 
 ## 11. Cách hoàn tác theo nhóm
 
@@ -396,5 +474,25 @@ Mỗi nhóm là một commit độc lập trên `feat/san-sang-van-hanh`:
 - `tests/Feature/ThanhToanChuyenKhoanTest.php` (T-CK16): siết assertion doanh thu
   theo ngày trước/sau webhook; hành vi nghiệp vụ không đổi.
 - `tests/Feature/KiemTraHeThongTest.php`: thêm test engine không áp dụng cho SQLite.
-- Không xóa/sửa test nào để "cho xanh": 66 test cũ vẫn giữ nguyên nội dung, chỉ 3
-  thay đổi nêu trên.
+- Ba thay đổi trên thuộc đợt nâng cấp ban đầu (145 ca). Các thay đổi trong đợt
+  bổ sung đối chiếu với HEAD `8835b52` được liệt kê riêng bên dưới, không hồi tố
+  nội dung hoặc số liệu của đợt trước.
+
+### Đợt bổ sung — route, chốt chặn và điểm trả hàng
+
+- `ThanhToanChuyenKhoanTest.php:42`: thêm test đếm ngay lúc đăng ký POST webhook,
+  trước khi Laravel ghi đè route trùng; kiểm tra một route, action/name đúng và
+  `throttle:60,1`. 18 test T-CK cũ vẫn giữ.
+- `LenhNguyHiemTest.php`: mở rộng từ 4 lên 19 ca; thay `RefreshDatabase` bằng mock
+  DB/schema/migrator để kiểm tra cả nhánh cho phép mà không phá hủy dữ liệu.
+  Partial mock chỉ chọn `call,runCommand` qua lớp con không có attribute
+  `AsCommand`, tránh lỗi Mockery sao chép attribute Symfony thiếu tham số.
+- `PosWorkflowTest.php`: siết test giảm giá + dùng điểm với nhật ký, không cộng
+  trước duyệt và không hoàn lần hai; giữ test cộng dồn nhiều lần, hàng lỗi và
+  làm tròn. Thêm 4 test: floor lũy kế, tiền hoàn 0 theo giá trị hàng, phiếu chờ
+  duyệt giữ hạn mức, dòng hàng trùng bị từ chối.
+- Lượt toàn bộ đầu tiên có 7 lỗi kiểm thử: 5 do partial mock/attribute Symfony;
+  2 do kỳ vọng mới sai về dấu câu nhật ký và đếm movement toàn bảng có dữ liệu
+  seeder. Sửa đúng chuỗi thực tế và giới hạn assertion movement theo hóa đơn,
+  không đổi nghiệp vụ hoặc bỏ assertion để che lỗi. Kết quả các lượt chạy được
+  ghi ở mục 7.

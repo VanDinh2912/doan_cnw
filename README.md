@@ -334,12 +334,12 @@ Khi vận hành tại cửa hàng, cài Windows Task Scheduler gọi
 gọi `php artisan schedule:run --no-interaction`, ghi log vào
 `storage/logs/schedule-YYYY-MM-DD.log` và tự xóa log cũ hơn 14 ngày. Nếu PHP không
 nằm trong PATH, đặt biến `PHP_BINARY` (ví dụ
-`D:\Study\xampp\bin\php\php8.4.15\php.exe`) trước khi gọi file batch.
+`<đường-dẫn-php.exe>`) trước khi gọi file batch.
 
 Tạo task bằng PowerShell (chạy một lần, mở quyền Administrator):
 
 ```powershell
-schtasks /Create /SC MINUTE /MO 1 /TN "WebPOS-Scheduler" /TR '"D:\Study\xampp\www\DA\scripts\windows\chay-schedule.bat"' /F
+schtasks /Create /SC MINUTE /MO 1 /TN "WebPOS-Scheduler" /TR '"<thư-mục-dự-án>\scripts\windows\chay-schedule.bat"' /F
 ```
 
 Hoặc dùng Task Scheduler GUI: **Create Task** → Triggers: Daily, *Repeat task every
@@ -395,7 +395,7 @@ php artisan sao-luu:csdl --giu=10
 - MySQL: gọi `mysqldump --single-transaction --routines --triggers --events
   --default-character-set=utf8mb4`, mật khẩu truyền qua biến môi trường `MYSQL_PWD`
   nên không lộ trong danh sách tiến trình. Trên WAMP nên đặt
-  `DB_DUMP_BINARY=D:\Study\xampp\bin\mysql\mysql8.4.7\bin\mysqldump.exe`.
+  `DB_DUMP_BINARY=<đường-dẫn-mysqldump.exe>`.
 - SQLite: dùng `VACUUM INTO` để có bản sao nhất quán ngay cả khi đang bán hàng.
 - Giữ `BACKUP_GIU_BAN` bản mới nhất (mặc định 7) và chỉ xóa tệp do chính lệnh này
   sinh ra (đúng tiền tố + dấu thời gian).
@@ -405,8 +405,8 @@ php artisan sao-luu:csdl --giu=10
 Khôi phục MySQL (dừng ứng dụng trước):
 
 ```powershell
-D:\Study\xampp\bin\mysql\mysql8.4.7\bin\mysql.exe -u root doan_cnw `
-  -e "SOURCE D:/Study/xampp/www/DA/storage/app/backups/doan_cnw-20261110-020000.sql"
+& "<đường-dẫn-mysql.exe>" -u root doan_cnw `
+  -e "SOURCE <thư-mục-dự-án>/storage/app/backups/doan_cnw-20261110-020000.sql"
 php artisan migrate --force
 ```
 
@@ -631,14 +631,16 @@ Admin có thể truy cập:
 
 ## 9. Kiểm thử
 
-Chạy toàn bộ test:
+Chạy toàn bộ test (tắt Xdebug để giảm thời gian chạy):
 
 ```powershell
-php artisan test
+$env:XDEBUG_MODE='off'
+php artisan test --compact
+Remove-Item Env:XDEBUG_MODE
 ```
 
-Các test nghiệp vụ hiện có (**145 test**: 144 pass, 1 skip — xem kết quả chạy thực
-tế ở mục 18):
+Các test nghiệp vụ hiện có (**165 test**: 164 pass, 1 skip; 792 assertions — xem
+kết quả chạy thực tế ở mục 18):
 
 **Unit (11 test)**
 
@@ -647,7 +649,7 @@ tế ở mục 18):
   sạch nội dung, template dự phòng.
 - `ExampleTest` Unit (1).
 
-**Feature (134 test, 1 skip)**
+**Feature (154 test, trong đó 1 skip)**
 
 - `AuthFlowTest` (7): đăng ký khách hàng, liên kết khách walk-in, chặn trùng số
   điện thoại, chuyển hướng theo vai trò, chặn khách hàng vào trang nhân viên.
@@ -655,13 +657,15 @@ tế ở mục 18):
   trang đăng nhập/dashboard, chỉ admin thấy danh sách tài khoản chưa đổi mật khẩu.
 - `DoiSoatTest` (8): hàng chờ đối soát, phân quyền admin, đánh dấu đã xử lý, chặn
   xử lý lặp, webhook thành công không vào hàng chờ.
-- `ExampleTest` Feature (2).
+- `ExampleTest` Feature (1).
 - `KhoaDongMysqlTest` (1, **skip trên SQLite**): khóa dòng `SELECT ... FOR UPDATE`
   thật trên MySQL/InnoDB — chỉ chạy khi trỏ vào bản sao MySQL (xem bên dưới).
 - `KiemTraHeThongTest` (13): từng mục của `he-thong:kiem-tra`, gồm scheduler,
   cấu hình thiếu/đủ, log, engine, migration, mã thoát.
-- `LenhNguyHiemTest` (4): `migrate:fresh`, `demo:reset`, `documents:import` bị chặn
-  ở production nếu thiếu `--force-dangerous` hoặc sai tên database.
+- `LenhNguyHiemTest` (19 ca): chốt chặn `migrate:fresh`, `db:wipe`, `demo:reset`,
+  `documents:import`; thiếu cờ/tên, sai DB, kết nối đích, xác nhận tương tác,
+  chuyển tiếp lệnh con và không tái sử dụng xác nhận. Dùng mock DB/schema/migrator,
+  không xóa bảng hay chạy migration thật.
 - `LogBiMatTest` (5): log daily giữ 14 ngày, che bot token Telegram khi lỗi.
 - `NguoiDungCommandTest` (9): `nguoidung:tao`/`nguoidung:doi-matkhau`, mật khẩu nhập
   ẩn, từ chối vai trò/email/mật khẩu không hợp lệ.
@@ -670,19 +674,19 @@ tế ở mục 18):
 - `PdfInvoiceParserTest` (3): bóc tách PDF mẫu, phân quyền, PDF lỗi.
 - `PosBaoVeTest` (5): webhook fail-closed khi thiếu API key, chặn giảm giá ngoài
   0–100, giới hạn 10 kết quả tìm sản phẩm.
-- `PosWorkflowTest` (28): thanh toán tiền mặt/chuyển khoản, vượt tồn kho, sản phẩm
+- `PosWorkflowTest` (32): thanh toán tiền mặt/chuyển khoản, vượt tồn kho, sản phẩm
   tạm dừng, lọc hóa đơn theo ngày, upload ảnh, tìm kiếm, tem barcode, tích điểm,
   xuất báo cáo, đơn nhập/hóa đơn nhập, phân quyền, nhật ký, trả hàng (quá hạn, giảm
-  giá + điểm), hold giỏ, kiểm kê.
+  giá + điểm, floor cộng dồn, tiền hoàn 0, chờ duyệt, dòng trùng), hold giỏ, kiểm kê.
 - `SaoLuuCsdlTest` (4): sao lưu SQLite, giữ N bản mới nhất, từ chối `:memory:`,
   báo lỗi rõ khi thiếu `mysqldump`.
 - `StorefrontHomeTest` (6): trang chủ storefront, sản phẩm thật, sắp xếp loại theo
   số sản phẩm, trạng thái rỗng, header theo vai trò.
 - `TacVuNenTest` (2): `hold:clean` chỉ xóa giỏ quá 24h, Telegram thành công.
-- `ThanhToanChuyenKhoanTest` (18, T-CK01..T-CK18): tạo QR, webhook hợp lệ/sai
-  key/trùng lặp/dư/thiếu/out, xác nhận/hủy thủ công, polling, hủy lười, lệnh hủy
-  quá hạn, in/doanh thu, webhook tới đơn đã hủy (T-CK17), webhook tới đơn quá hạn
-  chưa hủy (T-CK18).
+- `ThanhToanChuyenKhoanTest` (19: T-CK01..T-CK18 + 1 test route duy nhất): tạo QR,
+  webhook hợp lệ/sai key/trùng lặp/dư/thiếu/out, xác nhận/hủy thủ công, polling,
+  hủy lười, lệnh hủy quá hạn, in/doanh thu, webhook tới đơn đã hủy (T-CK17),
+  webhook tới đơn quá hạn chưa hủy (T-CK18), route POST đúng action/name/throttle.
 - `ThongBaoLoiTest` (5): trang lỗi 404/403/419/500 tiếng Việt, 500 không lộ chi
   tiết, POS hiển thị hướng dẫn khi phiên hết hạn và giữ giỏ hàng.
 - `ToanVenGiaoDichTest` (6): tính nguyên tử của hủy đơn, nhập kho và thanh toán.
@@ -745,12 +749,15 @@ Không sử dụng lệnh reset trên môi trường production.
 
 ### Chốt chặn production cho lệnh phá hủy dữ liệu
 
-`demo:reset`, `documents:import` và `migrate:fresh` bị chặn khi
-`APP_ENV=production`. Muốn chạy thật sự phải có **đủ hai** điều kiện:
+`demo:reset`, `documents:import`, `migrate:fresh` và `db:wipe` bị chặn khi
+`APP_ENV=production`. Cờ `--force` đơn lẻ không vượt được chốt chặn.
+Muốn chạy thật sự phải có **đủ hai** điều kiện:
 
 1. Thêm cờ `--force-dangerous`.
-2. Nhập lại đúng tên database đang kết nối (`DB_DATABASE`) — tương tác qua câu hỏi,
-   hoặc thêm `--ten-db-xac-nhan=<tên database>` khi chạy không tương tác.
+2. Nhập lại đúng tên database đích — tương tác qua câu hỏi, hoặc thêm
+   `--ten-db-xac-nhan=<tên database>` khi chạy không tương tác. Nếu có
+   `--database=<tên-kết-nối>`, xác nhận tên database của kết nối đó, không phải
+   tên database mặc định. `migrate:fresh` chuyển tiếp xác nhận sang `db:wipe`.
 
 Thiếu một điều kiện, lệnh dừng trước khi xóa bất cứ thứ gì và trả mã lỗi `1`. Ví dụ
 đầy đủ:
@@ -1039,10 +1046,11 @@ IP và mô tả. Permission động vẫn chờ chốt ma trận quyền (Pha 23
   giảm giá điểm), cập nhật tồn/kho lỗi, thu hồi điểm và ghi nhật ký.
 - Điểm thu hồi = `floor(tong_hoan / POS_DIEM_MOI_DONG)`, không vượt số dư hiện
   tại; phiếu vượt `POS_NGUONG_TRA_KHONG_DUYET` phải chờ admin duyệt.
-- Chưa hoàn lại điểm đã dùng (`diem_su_dung`) khi trả hàng — khách mất điểm đã
-  dùng nếu trả toàn bộ hóa đơn.
-- Chưa có test cho hạn trả 7 ngày, ngưỡng duyệt, và hoàn tiền/thu hồi điểm khi
-  hóa đơn gốc có giảm giá hoặc dùng điểm.
+- Đã hoàn `diem_su_dung` theo tỷ lệ giá trị hàng trả cộng dồn, làm tròn xuống;
+  tổng không vượt điểm gốc. Phiếu chờ duyệt giữ phần số lượng/điểm đã cam kết,
+  nhưng chỉ cộng điểm và ghi nhật ký khi hoàn thành.
+- Đã có test hạn trả 7 ngày, ngưỡng duyệt, hóa đơn giảm giá + dùng điểm, nhiều lần
+  trả, hàng lỗi, làm tròn và hóa đơn thực trả 0.
 - Đã cập nhật thống kê doanh thu/lợi nhuận và top sản phẩm theo doanh thu ròng.
 - Chưa có luồng đổi sản phẩm tạo hóa đơn bù trừ riêng; hình thức `doi_hang`
   hiện lưu lựa chọn hoàn và cần bổ sung nếu đồ án yêu cầu.
@@ -1070,102 +1078,15 @@ Các tích hợp thanh toán/webhook, hóa đơn điện tử, in ESC/POS và s�
 Mỗi pha phải được triển khai trên một branch riêng, chạy test trước khi
 merge vào `main`. Không import dữ liệu mẫu hoặc reset database production.
 
-## 15.5. Tính năng có thể tích hợp từ dự án Thực hành (TH)
+### Email thông báo cho khách
 
-Dự án thực hành tại `D:\Study\xampp\www\TH\larashop` đã hoàn thành các buổi thực hành Laravel với các tính năng có thể xem xét tích hợp vào đồ án hiện tại:
+**Tùy chọn, chưa triển khai; cần cấu hình `MAIL_*` để gửi email thật.**
 
-### Buổi 8 - Front-end/Back-end tách biệt với Cartzilla
+- Email khôi phục mật khẩu tiếng Việt; hiện chưa có luồng quên/đặt lại mật khẩu.
+- Email xác nhận đơn hàng POS chỉ gửi khi khách có email (`customers.user_id` →
+  `users.email`), bỏ qua khách không có email. Storefront hiện chưa tạo đơn online.
 
-**Nguồn:** `TH\DuLieuBuoi08\larashop`
-
-**Tính năng:**
-- Cấu trúc views tách biệt: `admin/`, `frontend/`, `user/`
-- Template Cartzilla đã tích hợp cho frontend (giao diện thương mại điện tử chuyên nghiệp)
-- Route groups phân rõ: frontend (khách), user (khách hàng đã đăng nhập), admin (quản trị)
-- Models: `ChuDeBaiViet`, `BaiViet` cho hệ thống bài viết/tin tức
-- CRUD hoàn chỉnh cho: Loại sản phẩm, Hãng sản xuất, Sản phẩm, Tình trạng, Đơn hàng, Người dùng
-- Views frontend: Trang chủ, Sản phẩm, Bài viết, Giỏ hàng, Tuyển dụng, Liên hệ
-- Authentication qua Laravel Breeze
-
-**Khả năng tích hợp:**
-- **Migrate template Cartzilla:** Template frontend hiện tại của DA có thể được nâng cấp với Cartzilla để giao diện chuyên nghiệp hơn
-- **Cấu trúc views:** Áp dụng cấu trúc tách biệt admin/frontend/user để dễ bảo trì
-- **Hệ thống bài viết/tin tức:** Tích hợp module bài viết nếu đồ án cần có tin tức, blog, hoặc thông báo sản phẩm
-- **Route organization:** Tái cấu trúc routes theo nhóm rõ ràng hơn
-
-**File tham khảo:**
-- `resources/views/layouts/frontend.blade.php` - Layout frontend Cartzilla
-- `resources/views/frontend/` - Các views frontend hoàn chỉnh
-- `routes/web.php` - Cấu trúc route groups
-
-### Buổi 9 - Gửi Email
-
-**Nguồn:** `TH\DuLieuBuoi09\larashop`
-
-**Tính năng:**
-- Cấu hình SMTP Gmail (có thể dùng cho các email provider khác)
-- Việt hóa email khôi phục mật khẩu (CustomResetPasswordNotification)
-- Gửi email khi đặt hàng thành công (DatHangThanhCongEmail Mailable)
-- Tùy chỉnh giao diện email templates (header, footer, layout)
-- Bảo vệ file `.env` với `.htaccess`
-
-**Khả năng tích hợp:**
-- **Email khôi phục mật khẩu:** DA hiện tại có thể chưa Việt hóa email reset password → có thể tích hợp
-- **Email xác nhận đơn hàng:** DA hiện tại có webhook SePay nhưng chưa có email xác nhận cho khách hàng khi đặt hàng → có thể bổ sung
-- **Email template:** Dùng template email đã Việt hóa thay vì template mặc định của Laravel
-
-**File tham khảo:**
-- `app/Models/User.php` - CustomResetPasswordNotification class
-- `app/Mail/DatHangThanhCongEmail.php` - Mailable class
-- `resources/views/emails/dathangthanhcong.blade.php` - Email template
-- Cấu hình `.env`: `MAIL_MAILER`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`
-
-### Buổi 10 - Quản lý Tin Tức Và Bình Luận
-
-**Nguồn:** `D:\Study\xampp\www\larashop` (root) - đã hoàn thành
-
-**Tính năng:**
-- Models: `ChuDe`, `BaiVietNew`, `BinhLuanBaiViet`
-- Migrations: `chude`, `baiviet`, `binhluanbaiviet`
-- Controllers CRUD hoàn chỉnh với kiểm duyệt và kích hoạt
-- Quan hệ Eloquent: Chủ đề hasMany Bài viết, Bài viết belongsTo Chủ đề/User, Bình luận belongsTo Bài viết/User
-- Admin views: danh sách, thêm, sửa cho cả 3 module
-- Badge trạng thái: Đã duyệt/Chưa duyệt, Kích hoạt/Tắt
-- Slug tự động cho tên chủ đề và tiêu đề bài viết
-
-**Khả năng tích hợp:**
-- **Hệ thống tin tức:** Nếu đồ án cần có blog, tin tức sản phẩm, hoặc thông báo khuyến mãi
-- **Bình luận sản phẩm:** Có thể mở rộng để cho phép khách hàng bình luận về sản phẩm (hiện tại DA chưa có)
-- **Hệ thống review/rating:** Có thể phát triển từ module bình luận
-
-**File tham khảo:**
-- `app/Models/ChuDe.php`, `app/Models/BaiVietNew.php`, `app/Models/BinhLuanBaiViet.php`
-- `app/Http/Controllers/ChuDeController.php`, `BaiVietNewController.php`, `BinhLuanBaiVietController.php`
-- `resources/views/admin/chude/`, `baiviet/`, `binhluan/`
-- Database seeders: `ChuDeSeeder`, `BaiVietNewSeeder`
-
-### Lưu ý khi tích hợp
-
-1. **Kiểm tra tên bảng/cột:** Đảm bảo không xung đột với các bảng hiện có của DA (ví dụ: DA đã có `customers`, TH dùng `khachhang` khác nhau)
-2. **Phân quyền:** DA dùng role-based middleware (`admin`, `thungan`, `thukho`, `khachhang`) → cần điều chỉnh nếu tích hợp module mới
-3. **Route naming:** TH dùng route naming khác (ví dụ: `admin.chude.danhsach`) → cần thống nhất với DA (ví dụ: `/chude` cho admin)
-4. **Assets:** TH dùng Cartzilla template với đường dẫn `asset('assets/...')` → DA dùng frontend riêng → cần điều chỉnh nếu tích hợp
-5. **Database:** TH dùng database `larashop`, DA dùng `doan_cnw` → cần tạo migrations mới cho DA nếu tích hợp
-6. **Testing:** Sau khi tích hợp, cần viết test mới cho các tính năng được thêm vào
-
-### Đề xuất ưu tiên tích hợp
-
-**Ưu tiên cao:**
-1. **Việt hóa email khôi phục mật khẩu** - Cải thiện UX cho người dùng Việt Nam
-2. **Email xác nhận đơn hàng** - Tăng trải nghiệm khách hàng khi đặt hàng
-
-**Ưu tiên trung bình:**
-3. **Hệ thống tin tức/blog** - Nếu đồ án cần có nội dung marketing, hướng dẫn sử dụng sản phẩm
-4. **Migrate template Cartzilla** - Nếu muốn nâng cấp giao diện frontend hiện tại
-
-**Ưu tiên thấp:**
-5. **Hệ thống bình luận** - Cần xem xét nghiệp vụ có thực sự cần không
-6. **Cấu trúc views tách biệt** - Có thể làm sau khi hệ thống ổn định
+Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_SOAT.md#bổ-sung--rà-soát-email-trên-nhánh-hiện-tại-2026-11-10).
 
 ## 16. Lưu ý bảo mật
 
@@ -1207,9 +1128,11 @@ Dự án thực hành tại `D:\Study\xampp\www\TH\larashop` đã hoàn thành c
 - **Webhook không kiểm tra thời hạn chờ**: đơn `cho_thanh_toan` đã quá hạn nhưng
   chưa bị hủy, nếu tiền về vẫn được hoàn tất (hành vi hiện tại, được ghi nhận bởi
   test T-CK18 — chưa phải quyết định nghiệp vụ đã chốt).
-- **Trả hàng không hoàn `diem_su_dung`**: điểm khách đã tiêu để giảm giá không được
-  trả lại khi trả hàng; chỉ thu hồi điểm tích lũy và bị chặn ở số dư hiện có
-  (test `test_return_of_discounted_invoice_refunds_proportionally_and_caps_point_clawback`).
+- **Trả hàng đã hoàn `diem_su_dung`**: điểm lũy kế được tính bằng
+  `floor(diem_su_dung × giá_trị_hàng_trả_lũy_kế / tong_tien)`, trừ điểm đã cam kết;
+  tổng không vượt điểm gốc. Không dựa vào tiền hoàn đã làm tròn; hóa đơn thực trả
+  0 vẫn hoàn điểm. Phiếu chờ duyệt chưa cộng điểm; hoàn thành có nhật ký.
+  Đã có test giảm giá + dùng điểm, nhiều lần trả, làm tròn, chờ duyệt và hàng lỗi.
 - **Còn 2 cột mã giao dịch song song** trên `invoices` (`ma_giaodich` 100 ký tự và
   `ma_giao_dich` 40 ký tự, đều unique); service ghi cả hai, webhook kiểm cả hai.
   Phân tích hợp nhất (cột chuẩn, độ lệch dữ liệu, kế hoạch migration) ở
@@ -1218,16 +1141,19 @@ Dự án thực hành tại `D:\Study\xampp\www\TH\larashop` đã hoàn thành c
 - **CSDL thật `doan_cnw` chưa được migrate trong đợt này**: ngày 2026-11-10 vẫn là
   26 migration (MyISAM). 6 migration mới chỉ được thử trên bản sao `doan_cnw_copy`;
   xem checklist triển khai ở mục 5A.
-- **Múi giờ đang là UTC** (`config/app.php` giữ mặc định): hóa đơn và log hiển thị
-  theo UTC, lệch 7 giờ so với giờ Việt Nam. Chưa đổi vì sẽ làm lệch dữ liệu cũ —
-  cần người dùng xác nhận.
-- **`db:wipe` chưa có chốt chặn production** (chỉ `migrate:fresh`, `demo:reset`,
-  `documents:import` được bảo vệ). Không chạy `db:wipe` trên CSDL thật.
-- **`KhoaDongMysqlTest` bị skip khi chạy suite mặc định** vì SQLite không có khóa
-  dòng/InnoDB; cần trỏ vào bản sao MySQL để chạy (mục 9).
-- **Route webhook bị khai báo trùng**: `routes/api.php` và `routes/web.php` cùng đăng
-  ký `POST /api/webhook/thanhtoan`; bản trong `web.php` (có `throttle:60,1`) thắng,
-  bản trong `api.php` bị che khuất và không xuất hiện trong `route:list`.
+- **Múi giờ vẫn là UTC**: không đổi `config/app.php`. Phương án chuyển sang
+  `Asia/Ho_Chi_Minh`, tác động dữ liệu cũ, kiểm tra và hoàn tác được ghi ở mục 6.2
+  của [báo cáo vận hành](docs/BAO_CAO_SAN_SANG_VAN_HANH.md); chờ người dùng quyết định.
+- **`db:wipe` đã có chốt chặn production** như `migrate:fresh`: cần
+  `--force-dangerous` và đúng tên database đích; `--force` đơn lẻ không đủ.
+  Test chốt chặn dùng mock DB/schema/migrator, không xóa hay migrate CSDL thật.
+- **Kiểm thử hiện tại: 164 pass, 1 skip, 792 assertions** (230.67s,
+  `XDEBUG_MODE=off`). `KhoaDongMysqlTest` bị skip vì SQLite không có khóa
+  dòng/InnoDB; cần trỏ vào bản sao MySQL để chạy (mục 9). Lượt bổ sung này không
+  kiểm lại MySQL hoặc luồng trình duyệt POS; số pass không thay thế kiểm tra đó.
+- **Webhook chỉ còn một route POST `/api/webhook/thanhtoan`** trong
+  `routes/web.php`, giữ `throttle:60,1`; đã gỡ khai báo bị che trong `routes/api.php`.
+  Có test đếm route và kiểm tra middleware; không đổi URI/hành vi webhook.
 
 ## 18. Kết quả kiểm tra
 
@@ -1257,7 +1183,23 @@ Cập nhật lần cuối: **2026-11-10**, trên nhánh `feat/san-sang-van-hanh`
 | EXPLAIN trước/sau index vận hành | ✅ Composite `(trang_thai, created_at)` được dùng (`type: range`) | Index thêm bằng migration `000004` |
 | `migrate:fresh` / `demo:reset` / `documents:import` trên CSDL thật | Không chạy | Chốt chặn production chỉ được kiểm bằng test trên SQLite |
 
-Kết quả `he-thong:kiem-tra` trên CSDL thật ngày 2026-11-10 (trước triển khai):
+### Đợt bổ sung cùng ngày — đường dẫn, webhook, chốt chặn và điểm trả hàng
+
+| Kiểm tra | Kết quả | Ghi chú |
+|----------|---------|---------|
+| `XDEBUG_MODE=off php artisan test` (lượt đầu) | 157 passed, 7 failed, 1 skipped (764 assertions), 244.99s | 5 lỗi partial mock/attribute Symfony; 2 kỳ vọng test sai về nhật ký và dữ liệu seeder; đã sửa test, không bỏ assertion nghiệp vụ |
+| `XDEBUG_MODE=off php artisan test --filter=LenhNguyHiemTest` (sau sửa) | 19 passed (115 assertions), 0.75s | DB/schema/migrator đều mock; không xóa hoặc migrate database |
+| `XDEBUG_MODE=off php artisan test --compact` (cuối) | **164 passed, 1 skipped (792 assertions), 230.67s**, exit 0 | 165 ca: 11 Unit + 154 Feature; skip duy nhất `KhoaDongMysqlTest` |
+| `php artisan route:list --json` trước/sau gỡ route trùng | **103 routes** ở cả hai lần | Duy nhất POST `/api/webhook/thanhtoan`, tên `webhook.thanhtoan`, `throttle:60,1` |
+| Tìm đường dẫn máy cá nhân trong README, `docs/`, `scripts/` | **0 kết quả** | Thay bằng placeholder; mục tích hợp dự án thực hành đã gỡ |
+| Mục lục, số thứ tự và timezone | 19 liên kết mục lục hợp lệ; không còn 15.5; `config/app.php` không đổi | Email chỉ là lộ trình tùy chọn; timezone vẫn UTC |
+| `.env` / migration và lệnh phá hủy trên CSDL thật | **Không đọc/ghi; không chạy** | Không đo lại các chỉ số MySQL hoặc health check lịch sử; không merge/push |
+
+Các số liệu MySQL/health check ở đợt nâng cấp ban đầu phía trên và bên dưới là
+kết quả lịch sử, không phải phép đo mới của đợt bổ sung này. Chi tiết thay đổi và
+phương án múi giờ: [báo cáo vận hành](docs/BAO_CAO_SAN_SANG_VAN_HANH.md).
+
+Kết quả `he-thong:kiem-tra` trên CSDL thật ngày 2026-11-10 (trước triển khai, đợt ban đầu):
 
 ```text
 [FAIL] Scheduler: lần cuối 04:06:12 10/11/2026 (78 phút trước) — lệnh hủy đơn quá hạn không còn chạy

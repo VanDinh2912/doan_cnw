@@ -2,7 +2,7 @@
 
 **Ngày:** 2026-11-10 (cập nhật lần 2 cùng ngày: sửa 2 test fail, thêm 4 test, xóa controller legacy)
 **Nhánh:** `docs/ra-soat-readme` — dựng lại từ commit `ecc0d6d` ("feat: add e-commerce storefront and design system"); **không** merge vào `main`
-**Phạm vi:** `D:\Study\xampp\www\DA` (Laravel 12 POS + storefront)
+**Phạm vi:** `<thư-mục-dự-án>` (Laravel 12 POS + storefront)
 **Thay thế:** bản 2026-11-09 (bị đánh giá thiếu bằng chứng). Bản này trích `file:dòng` cho MỌI khẳng định và nêu rõ test chứng minh; khẳng định không có test ghi **"chưa có test"**.
 **Kết quả test cuối cùng:** **66 passed / 0 failed** (274 assertions, 112.5s) trên SQLite `:memory:`.
 
@@ -199,7 +199,7 @@
 
 ## BƯỚC 4 — KẾT QUẢ TEST THẬT
 
-**Lệnh:** `XDEBUG_MODE=off php artisan test` (trong `D:\Study\xampp\www\DA`)
+**Lệnh:** `XDEBUG_MODE=off php artisan test` (trong `<thư-mục-dự-án>`)
 **DB:** SQLite `:memory:` (`phpunit.xml:26-27`) — không đụng `doan_cnw`.
 
 ### Lượt 1 (trước khi build asset)
@@ -377,8 +377,68 @@ Không sửa bất kỳ dòng logic nghiệp vụ nào trong `app/`.
 5. **Bổ sung test cho 10 mục ở Bước 5B** (ưu tiên: lệch giá nhập > 10%, nhánh API key rỗng fail-closed, `hold:clean`, xác nhận nhập kho chống bấm 2 lần).
 6. **Dọn nợ kỹ thuật:** bỏ route webhook trùng trong `routes/api.php:5-6`; gộp hai cột `ma_giaodich`/`ma_giao_dich` về một.
 7. **Cấu hình Windows Task Scheduler** gọi `php artisan schedule:run` mỗi phút (hoặc chạy `php artisan schedule:work` khi demo) để `donhang:huy-qua-han` và `hold:clean` thực chạy.
-8. **README gốc workspace** `D:\Study\xampp\www\README.md:240,259` còn mô tả cũ về phạm vi webhook — chỉ flagged, **không sửa** (ngoài phạm vi nhánh `DA`).
+8. **README gốc workspace** `<thư-mục-workspace>/README.md:240,259` còn mô tả cũ về phạm vi webhook — chỉ flagged, **không sửa** (ngoài phạm vi nhánh `DA`).
 
 ---
 
 *Báo cáo này thay thế bản 2026-11-09. Mọi khẳng định đều kèm `file:dòng`; mục không có test được đánh dấu rõ ràng. Không chạy `migrate:fresh`/`seed`/`demo:reset` trên DB thật, không đọc/ghi `.env`. Commit theo nhóm trên nhánh `docs/ra-soat-readme`, không merge vào `main`.*
+
+---
+
+## Bổ sung — Rà soát email trên nhánh hiện tại (2026-11-10)
+
+**Nhánh:** `feat/san-sang-van-hanh`. Phần này ghi nhận code hiện tại, không thay đổi số liệu lịch sử của đợt `docs/ra-soat-readme` phía trên. Riêng phần email chỉ chỉnh tài liệu, không triển khai email hay checkout; thay đổi nghiệp vụ của đợt bổ sung được ghi riêng phía dưới.
+
+### Bằng chứng kiểm tra trước khi viết lộ trình email
+
+| Nội dung | Kết quả đã xác minh | File:dòng |
+|----------|--------------------|-----------|
+| Notification reset mật khẩu | `App\Models\User` kế thừa `Authenticatable`, dùng `Notifiable`, không override `sendPasswordResetNotification`. Lớp cha dùng trait `CanResetPassword`; trait gọi notification mặc định `Illuminate\Auth\Notifications\ResetPassword`. Nội dung mặc định dùng chuỗi tiếng Anh qua `Lang::get`; chưa tìm thấy notification, callback hay bản dịch reset tiếng Việt tùy biến trong ứng dụng. Đây là khả năng kế thừa, **không phải luồng gửi email đang hoạt động**. | [`app/Models/User.php:7-60`](../app/Models/User.php#L7-L60); `vendor/laravel/framework/src/Illuminate/Foundation/Auth/User.php:7-19`; `vendor/laravel/framework/src/Illuminate/Auth/Passwords/CanResetPassword.php:5,25-27`; `vendor/laravel/framework/src/Illuminate/Auth/Notifications/ResetPassword.php:59-81,90-99` |
+| Luồng quên/đặt lại mật khẩu | Có cấu hình broker `users` và bảng `password_reset_tokens`, nhưng auth chỉ có đăng nhập, đăng ký, đăng xuất; chưa có route/controller gọi broker gửi link hoặc đặt lại mật khẩu, cũng không có route `password.reset` mà notification mặc định yêu cầu. | [`config/auth.php:93-100`](../config/auth.php#L93-L100); [`database/migrations/0001_01_01_000000_create_users_table.php:24-28`](../database/migrations/0001_01_01_000000_create_users_table.php#L24-L28); [`routes/web.php:21-32`](../routes/web.php#L21-L32); [`app/Http/Controllers/AuthController.php:34-153`](../app/Http/Controllers/AuthController.php#L34-L153) |
+| Email của khách | `users.email` là bắt buộc, unique, tối đa 150 ký tự theo schema; `customers` không có cột email. `customers.user_id` nullable, unique, liên kết tới `users`; đăng ký khách lưu email vào `User` rồi tạo hoặc liên kết `KhachHang` theo số điện thoại. Khách tạo tại POS không bắt buộc có tài khoản/email. | [`database/migrations/0001_01_01_000000_create_users_table.php:14-22`](../database/migrations/0001_01_01_000000_create_users_table.php#L14-L22); [`database/migrations/2026_01_01_000006_create_customers_table.php:11-18`](../database/migrations/2026_01_01_000006_create_customers_table.php#L11-L18); [`database/migrations/2026_11_09_000002_add_user_id_to_customers_table.php:11-17`](../database/migrations/2026_11_09_000002_add_user_id_to_customers_table.php#L11-L17); [`app/Http/Controllers/AuthController.php:79-132`](../app/Http/Controllers/AuthController.php#L79-L132); [`app/Http/Controllers/KhachHangController.php:66-85`](../app/Http/Controllers/KhachHangController.php#L66-L85) |
+| Email gắn với hóa đơn | `invoices` không lưu email khách trực tiếp, chỉ có `customer_id` nullable. Khi tạo hóa đơn POS, `user_id` là **nhân viên đang đăng nhập**, không phải tài khoản khách. Email khách nếu có phải lấy theo `invoices.customer_id` → `customers.user_id` → `users.email`; không được dùng email của `DonHang::user()` làm người nhận. | [`database/migrations/2026_01_01_000003_create_invoices_table.php:11-23`](../database/migrations/2026_01_01_000003_create_invoices_table.php#L11-L23); [`database/migrations/2026_01_01_000007_add_customer_loyalty_to_invoices_table.php:12`](../database/migrations/2026_01_01_000007_add_customer_loyalty_to_invoices_table.php#L12); [`app/Http/Controllers/DonHangController.php:261-277`](../app/Http/Controllers/DonHangController.php#L261-L277); [`app/Models/DonHang.php:31-38`](../app/Models/DonHang.php#L31-L38) |
+| Storefront tạo đơn online | **Chưa có** checkout tạo đơn online. Giỏ storefront chỉ lưu session `storefront_cart`; nút Thanh toán bị `disabled`. Các route tạo/thanh toán đơn thuộc POS, được bảo vệ bởi `auth`, `staff.only` và role `admin,thungan`. | [`routes/web.php:6-19`](../routes/web.php#L6-L19), [`:38-52`](../routes/web.php#L38-L52), [`:68-69`](../routes/web.php#L68-L69); [`app/Http/Controllers/StorefrontCartController.php:17-24,41-51`](../app/Http/Controllers/StorefrontCartController.php#L17-L51); [`resources/views/storefront/cart.blade.php:73-76`](../resources/views/storefront/cart.blade.php#L73-L76) |
+| Email xác nhận đơn hàng | **Chưa triển khai** gửi email xác nhận. Luồng POS tạo hóa đơn rồi chuyển tới trang in; luồng xác nhận chuyển khoản cập nhật trạng thái, điểm và trả kết quả, không gửi email. Chưa tìm thấy mailable/notification hoặc lời gọi gửi email trong `app/`. | [`app/Http/Controllers/DonHangController.php:261-310`](../app/Http/Controllers/DonHangController.php#L261-L310); [`app/Services/ThanhToanChuyenKhoanService.php:185-217`](../app/Services/ThanhToanChuyenKhoanService.php#L185-L217) |
+| Cấu hình gửi email | `config/mail.php` có mặc định `MAIL_MAILER=log` khi không cấu hình, **không chứng minh mailer thực tế của máy**. Để gửi thật qua SMTP cần cấu hình `MAIL_*`: `MAIL_MAILER`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDRESS`, `MAIL_FROM_NAME` (và scheme theo nhà cung cấp). Không đọc cấu hình bí mật hay gửi email thật trong đợt này. | [`config/mail.php:17`](../config/mail.php#L17), [`:40-49`](../config/mail.php#L40-L49), [`:111-114`](../config/mail.php#L111-L114) |
+
+Các kết luận “chưa tìm thấy” dựa trên rà soát `app/`, `bootstrap/`, `config/`, `routes/`, `resources/`, `lang/` (nếu có), không phải suy đoán từ README: không có `sendPasswordResetNotification`, `ResetPassword`, `toMailUsing`, `createUrlUsing`, `sendResetLink`, `Password::`, `password.reset/email/request/update` hay nội dung reset được dịch; trong `app/` không có `Mailable`, lớp kế thừa `Notification`, `Mail::`, `Notification::`, `notify/notifyNow` hoặc lời gọi `send/queue/later`. Kiểm tra `email` trong toàn bộ migrations chỉ thấy email ở bảng `users` và `password_reset_tokens`, không có cột email trong `customers`/`invoices`.
+
+### Phạm vi tài liệu sau rà soát
+
+- Gỡ toàn bộ mục tích hợp dự án thực hành khỏi README, không giữ ý tưởng đó trong tài liệu mới.
+- Mục 15 chỉ thêm một tiểu mục ngắn “Email thông báo cho khách”: tùy chọn, chưa triển khai, cần cấu hình `MAIL_*`; gồm khôi phục mật khẩu tiếng Việt và xác nhận đơn hàng POS chỉ khi khách có email.
+- Không mô tả storefront là đã có đặt hàng online; không lấy email nhân viên làm email khách.
+- Giữ nguyên mục lục cấp chính và thứ tự mục 15 → 16 → 17 → 18; tiểu mục email dùng heading cấp 3, không tạo mục số xen giữa.
+- Bằng chứng trên là rà soát code; chưa có test riêng cho email vì tính năng chưa triển khai.
+
+## Bổ sung — Hoàn thiện vận hành và kiểm chứng (2026-11-10)
+
+Phần lịch sử trên nhánh `docs/ra-soat-readme` vẫn giữ nguyên số **66 pass** và
+274 assertions. Các khoảng trống hoàn điểm, route trùng và chốt chặn được cập
+nhật theo code trên `feat/san-sang-van-hanh`, đối chiếu HEAD `8835b52`:
+
+| Hạng mục | Kết quả hiện tại | File:dòng |
+|---|---|---|
+| Đường dẫn và mục lộ trình | Đổi đường dẫn cá nhân thành placeholder trong README/báo cáo; gỡ toàn bộ mục tích hợp dự án thực hành, chỉ thêm lộ trình email tùy chọn như bằng chứng phía trên | `README.md` mục 5, 5A, 15; không chỉnh script vì không có đường dẫn cá nhân |
+| Webhook | Gỡ khai báo API bị che; giữ đúng POST URI, tên/action và throttle; test đếm lúc đăng ký để không bị cơ chế ghi đè route che lỗi | [`routes/web.php:34-36`](../routes/web.php#L34-L36); [`routes/api.php:1`](../routes/api.php#L1); [`ThanhToanChuyenKhoanTest.php:42`](../tests/Feature/ThanhToanChuyenKhoanTest.php#L42) |
+| `db:wipe` production | Cùng chốt chặn `--force-dangerous` + tên DB thực; kết nối đích được xác nhận đúng; `migrate:fresh` chuyển tiếp, lệnh con vẫn kiểm tra, không giữ xác nhận cho lần sau | [`DbWipe.php:17-32`](../app/Console/Commands/DbWipe.php#L17-L32); [`ChanLenhPhaHuy.php:14-54`](../app/Console/Commands/Concerns/ChanLenhPhaHuy.php#L14-L54); [`MigrateFresh.php:23-47`](../app/Console/Commands/MigrateFresh.php#L23-L47); [`LenhNguyHiemTest.php:63-205`](../tests/Feature/LenhNguyHiemTest.php#L63-L205) |
+| Hoàn điểm trả hàng | Floor theo giá trị hàng gốc lũy kế, trừ điểm đã cam kết pending/completed, capped điểm gốc; tiền hoàn 0 vẫn hoàn điểm. Chỉ cộng/ghi nhật ký khi thực hiện phiếu; chặn duyệt lặp | [`TraHangController.php:59-83`](../app/Http/Controllers/TraHangController.php#L59-L83), [`:125-164`](../app/Http/Controllers/TraHangController.php#L125-L164), [`:188-207`](../app/Http/Controllers/TraHangController.php#L188-L207); [`PosWorkflowTest.php:549-843`](../tests/Feature/PosWorkflowTest.php#L549-L843) |
+| Múi giờ | Vẫn UTC, không sửa config; chỉ viết phương án `Asia/Ho_Chi_Minh`, tác động dữ liệu cũ, kiểm tra bản sao và hoàn tác | [`config/app.php:68`](../config/app.php#L68); [Báo cáo vận hành mục 6.2](BAO_CAO_SAN_SANG_VAN_HANH.md#62-phương-án-chuyển-sang-asiaho_chi_minh--chỉ-đề-xuất-chưa-thực-hiện) |
+
+### Kết quả kiểm tra đợt bổ sung
+
+| Kiểm tra | Số thực chạy |
+|---|---|
+| `XDEBUG_MODE=off php artisan test` — lượt đầu | 157 passed, 7 failed, 1 skipped; 764 assertions, 244.99s. 5 lỗi partial mock/attribute Symfony và 2 kỳ vọng test sai (dấu câu nhật ký, movement seeder); đã sửa, không bỏ assertion nghiệp vụ |
+| `XDEBUG_MODE=off php artisan test --filter=LenhNguyHiemTest` — sau sửa | 19 passed, 115 assertions, 0.75s; mock DB/schema/migrator |
+| `XDEBUG_MODE=off php artisan test --compact` — cuối | **164 passed, 1 skipped; 792 assertions, 230.67s, exit 0** |
+| `php artisan route:list --json` trước/sau | **103 routes** cả hai lần; một POST `/api/webhook/thanhtoan` với `throttle:60,1` |
+| Tìm đường dẫn cá nhân trong README, `docs/`, `scripts/` | **0 kết quả** |
+| Mục lục README | 19 liên kết hợp lệ, thứ tự mục chính đúng, không còn mục 15.5 |
+
+Hiện có **165 ca** (11 Unit + 154 Feature); một skip là `KhoaDongMysqlTest` trên
+SQLite. Không kiểm lại MySQL hoặc UI trình duyệt trong đợt này. Không đọc/ghi
+`.env`, không chạy migration/lệnh phá hủy trên CSDL thật, không đổi timezone,
+không merge/push. Số liệu lịch sử và các phép đo MySQL cũ không được coi là kết
+quả mới. Chi tiết trước/sau và lý do thay đổi test ở
+[BAO_CAO_SAN_SANG_VAN_HANH.md](BAO_CAO_SAN_SANG_VAN_HANH.md).
