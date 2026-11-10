@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ChanLenhPhaHuy;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -9,15 +10,19 @@ use Illuminate\Support\Facades\Storage;
 
 class ResetDemoData extends Command
 {
-    protected $signature = 'demo:reset {--force : Bỏ qua xác nhận}';
+    use ChanLenhPhaHuy;
+
+    protected $signature = 'demo:reset
+                            {--force : Bỏ qua xác nhận}
+                            {--force-dangerous : Cho phép chạy ở production (vẫn phải nhập lại tên database)}
+                            {--ten-db-xac-nhan= : Tên database xác nhận khi chạy production không tương tác}';
 
     protected $description = 'Đặt lại dữ liệu demo của Web POS';
 
     public function handle(): int
     {
-        if (app()->environment('production')) {
-            $this->error('Không được chạy lệnh reset demo ở môi trường production.');
-
+        $tenDb = $this->xacNhanLenhPhaHuy();
+        if ($tenDb === false) {
             return self::FAILURE;
         }
 
@@ -28,11 +33,11 @@ class ResetDemoData extends Command
         }
 
         try {
-            $this->call('migrate:fresh', [
+            $this->call('migrate:fresh', array_merge([
                 '--seed' => true,
                 '--seeder' => 'DatabaseSeeder',
                 '--force' => true,
-            ]);
+            ], $this->tuyChonXacNhanPhaHuy($tenDb)));
             $this->call('cache:clear');
             $this->call('view:clear');
             $this->xoaSession();
