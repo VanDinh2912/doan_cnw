@@ -27,6 +27,14 @@
             </div>
         @endif
 
+        @if ($canhBaoMatKhauMacDinh ?? false)
+            <div class="alert alert-warning" role="alert">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                Hệ thống còn tài khoản nội bộ dùng mật khẩu mặc định của dữ liệu mẫu.
+                Quản trị viên cần đổi mật khẩu trước khi vận hành thật.
+            </div>
+        @endif
+
         <form method="POST" action="{{ route('auth.postdangnhap') }}">
             @csrf
 

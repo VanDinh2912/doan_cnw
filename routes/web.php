@@ -21,6 +21,7 @@ Route::name('storefront.')->group(function (): void {
 Route::get('/dangnhap', [\App\Http\Controllers\AuthController::class, 'getDangNhap'])
     ->name('auth.dangnhap');
 Route::post('/dangnhap', [\App\Http\Controllers\AuthController::class, 'postDangNhap'])
+    ->middleware('throttle:10,1')
     ->name('auth.postdangnhap');
 Route::get('/dang-ky', [\App\Http\Controllers\AuthController::class, 'getDangKy'])
     ->name('auth.dangky');

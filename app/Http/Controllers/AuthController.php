@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\KhachHang;
 use App\Models\User;
+use App\Services\CanhBaoMatKhauMacDinh;
 use App\Services\NhatKyService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -36,7 +37,9 @@ class AuthController extends Controller
             return redirect()->to($this->homeFor(Auth::user()));
         }
 
-        return view('auth.dangnhap');
+        return view('auth.dangnhap', [
+            'canhBaoMatKhauMacDinh' => app(CanhBaoMatKhauMacDinh::class)->conHieuLuc(),
+        ]);
     }
 
     public function postDangNhap(Request $request): RedirectResponse
