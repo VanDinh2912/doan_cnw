@@ -46,7 +46,11 @@ trait ChanLenhPhaHuy
 
     protected function tenDatabaseHienTai(): string
     {
-        return (string) config('database.connections.'.config('database.default').'.database');
+        if (! $this->hasOption('database')) {
+            return (string) config('database.connections.'.config('database.default').'.database');
+        }
+
+        return (string) $this->laravel['db']->connection($this->option('database'))->getDatabaseName();
     }
 
     /**

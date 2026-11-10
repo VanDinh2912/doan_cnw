@@ -18,13 +18,32 @@ class MigrateFresh extends BaseFreshCommand
 
     protected $description = 'Xóa toàn bộ bảng và chạy lại migration (có chốt chặn production)';
 
+    protected ?string $tenDbDaXacNhan = null;
+
     public function handle()
     {
-        if ($this->xacNhanLenhPhaHuy() === false) {
+        $tenDb = $this->xacNhanLenhPhaHuy();
+        if ($tenDb === false) {
             return self::FAILURE;
         }
 
-        return parent::handle();
+        $this->tenDbDaXacNhan = $tenDb;
+
+        try {
+            return parent::handle();
+        } finally {
+            $this->tenDbDaXacNhan = null;
+        }
+    }
+
+    public function callSilent($command, array $arguments = [])
+    {
+        if ($command === 'db:wipe' && $this->tenDbDaXacNhan !== null) {
+            // Laravel chỉ truyền --force; lệnh con vẫn phải tự kiểm tra xác nhận database.
+            $arguments = array_merge($arguments, $this->tuyChonXacNhanPhaHuy($this->tenDbDaXacNhan));
+        }
+
+        return parent::callSilent($command, $arguments);
     }
 
     protected function getOptions()
