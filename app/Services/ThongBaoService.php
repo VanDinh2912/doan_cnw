@@ -32,7 +32,7 @@ class ThongBaoService
             if (! $response->successful()) {
                 Log::warning('Telegram notification failed', [
                     'status' => $response->status(),
-                    'body' => $response->body(),
+                    'body' => mb_substr($response->body(), 0, 300),
                 ]);
 
                 return false;
@@ -40,10 +40,22 @@ class ThongBaoService
 
             return true;
         } catch (Throwable $e) {
-            Log::warning('Telegram notification exception: '.$e->getMessage());
+            // Guzzle nhét nguyên URL (kèm bot token) vào message của exception,
+            // nên phải che trước khi ghi log.
+            Log::warning('Telegram notification exception', [
+                'loai' => $e::class,
+                'message' => $this->cheToken($e->getMessage()),
+            ]);
 
             return false;
         }
+    }
+
+    private function cheToken(string $vanBan): string
+    {
+        $token = (string) config('pos.telegram_bot_token');
+
+        return $token === '' ? $vanBan : str_replace($token, '***', $vanBan);
     }
 
     /**
