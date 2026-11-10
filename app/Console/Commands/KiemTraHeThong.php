@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\DonHang;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Schema;
 
 class KiemTraHeThong extends Command
 {
@@ -30,6 +31,7 @@ class KiemTraHeThong extends Command
         $this->kiemTraMoiTruong();
         $this->kiemTraQuyenGhi();
         $this->kiemTraLog();
+        $this->kiemTraEngine();
         $this->kiemTraMigration();
 
         $this->line(sprintf('Kết quả: %d lỗi, %d cảnh báo.', $this->soLoi, $this->soCanhBao));
@@ -170,6 +172,35 @@ class KiemTraHeThong extends Command
         }
 
         $this->bao('WARN', 'Log', 'kênh "'.implode(',', $danhSach).'" không phải daily — đặt LOG_STACK=daily để log xoay vòng '.$soNgay.' ngày');
+    }
+
+    /**
+     * MyISAM không hỗ trợ transaction và khóa dòng, khiến các luồng tiền/tồn kho
+     * mất tính nguyên tử. Chỉ kiểm tra trên MySQL/MariaDB.
+     */
+    private function kiemTraEngine(): void
+    {
+        $driver = config('database.default');
+        $loai = (string) config("database.connections.{$driver}.driver", $driver);
+
+        if (! in_array($loai, ['mysql', 'mariadb'], true)) {
+            $this->bao('OK', 'Engine lưu trữ', 'không áp dụng cho '.$loai);
+
+            return;
+        }
+
+        $khongInnodb = collect(Schema::getTables())
+            ->filter(fn (array $bang): bool => strcasecmp((string) ($bang['engine'] ?? ''), 'InnoDB') !== 0)
+            ->pluck('name')
+            ->all();
+
+        if ($khongInnodb !== []) {
+            $this->bao('FAIL', 'Engine lưu trữ', count($khongInnodb).' bảng không phải InnoDB ('.implode(', ', array_slice($khongInnodb, 0, 5)).') — transaction và khóa dòng không có tác dụng');
+
+            return;
+        }
+
+        $this->bao('OK', 'Engine lưu trữ', 'toàn bộ bảng dùng InnoDB');
     }
 
     private function kiemTraMigration(): void

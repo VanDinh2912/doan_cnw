@@ -160,6 +160,15 @@ class KiemTraHeThongTest extends TestCase
             ->assertExitCode(0);
     }
 
+    public function test_engine_luu_tru_khong_ap_dung_cho_sqlite(): void
+    {
+        Cache::put(KiemTraHeThong::KHOA_SCHEDULER, now()->getTimestamp(), now()->addDay());
+
+        $this->artisan('he-thong:kiem-tra')
+            ->expectsOutputToContain('[OK] Engine lưu trữ: không áp dụng cho sqlite')
+            ->assertExitCode(0);
+    }
+
     public function test_canh_bao_migration_chua_ap_dung(): void
     {
         Cache::put(KiemTraHeThong::KHOA_SCHEDULER, now()->getTimestamp(), now()->addDay());
