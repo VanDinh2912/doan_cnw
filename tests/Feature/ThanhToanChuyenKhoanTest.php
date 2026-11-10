@@ -9,9 +9,14 @@ use App\Models\DonHang;
 use App\Models\KhachHang;
 use App\Models\SanPham;
 use App\Models\User;
+use Illuminate\Contracts\Http\Kernel;
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
+use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Routing\Route as RoutingRoute;
 use Illuminate\Routing\RouteCollection;
+use Illuminate\Session\TokenMismatchException;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
@@ -41,6 +46,7 @@ class ThanhToanChuyenKhoanTest extends TestCase
 
     public function test_webhook_chi_dang_ky_mot_post_dung_action_name_va_throttle(): void
     {
+        $this->app->make(Kernel::class);
         $routesGoc = Route::getRoutes();
         // RouteCollection ghi đè URI trùng nhau nên phải đếm ngay lúc đăng ký.
         $routes = new class extends RouteCollection
@@ -73,10 +79,81 @@ class ThanhToanChuyenKhoanTest extends TestCase
             $this->assertSame('webhook.thanhtoan', $webhooks[0]->getName());
             $this->assertSame(WebhookController::class.'@postThanhToan', $webhooks[0]->getActionName());
             $this->assertContains('throttle:60,1', $webhooks[0]->gatherMiddleware());
+            $this->assertSame([ThrottleRequests::class.':60,1'], $this->app['router']->gatherRouteMiddleware($webhooks[0]));
             $this->assertFalse(Route::has('api.webhook.thanhtoan'));
         } finally {
             Route::setRoutes($routesGoc);
         }
+    }
+
+    public function test_csrf_dang_bat_chi_mien_dung_path_webhook(): void
+    {
+        $middleware = $this->middlewareCsrfDangBat();
+        $this->assertSame(['api/webhook/thanhtoan'], $middleware->getExcludedPaths());
+        $session = $this->app['session']->driver();
+        $session->start();
+        $this->assertNotEmpty($session->token());
+
+        foreach ([
+            '/api/webhook/thanhtoan' => 204,
+            '/api/webhook/khac' => 419,
+            '/api/webhook/thanhtoan/khac' => 419,
+            '/dangnhap' => 419,
+        ] as $path => $statusMongDoi) {
+            $request = Request::create($path, 'POST');
+            $request->setLaravelSession($session);
+
+            try {
+                $status = $middleware->handle($request, fn () => response('', 204))->getStatusCode();
+            } catch (TokenMismatchException) {
+                $status = 419;
+            }
+
+            $this->assertSame($statusMongDoi, $status, $path);
+        }
+    }
+
+    public function test_webhook_khong_can_session_cookie_khi_csrf_dang_bat(): void
+    {
+        $this->app->instance(ValidateCsrfToken::class, $this->middlewareCsrfDangBat());
+
+        $response = $this->postJson(route('webhook.thanhtoan'), []);
+        $response->assertUnauthorized()->assertJson(['error' => 'Unauthorized']);
+        $this->assertFalse($this->app['request']->hasSession());
+        $this->assertSame([], $this->app['request']->cookies->all());
+        $this->assertSame([], $response->headers->getCookies());
+
+        $response = $this->guiSepayWebhook([]);
+        $response->assertStatus(400)->assertJson(['error' => 'Invalid payload']);
+        $this->assertFalse($this->app['request']->hasSession());
+        $this->assertSame([], $response->headers->getCookies());
+
+        $donHang = $this->taoHoaDonChoThanhToan();
+        $response = $this->guiSepayWebhook([
+            'id' => 987654321,
+            'transferAmount' => 200000,
+            'transferType' => 'in',
+            'content' => $donHang->ma_hoadon,
+        ]);
+        $response->assertOk()->assertJson(['success' => true]);
+        $this->assertSame('da_thanh_toan', $donHang->fresh()->trang_thai);
+        $this->assertFalse($this->app['request']->hasSession());
+        $this->assertSame([], $response->headers->getCookies());
+
+        $this->postJson(route('auth.postdangnhap'), [])->assertStatus(419);
+    }
+
+    private function middlewareCsrfDangBat(): ValidateCsrfToken
+    {
+        $this->app->make(Kernel::class);
+
+        return new class($this->app, $this->app['encrypter']) extends ValidateCsrfToken
+        {
+            protected function runningUnitTests()
+            {
+                return false;
+            }
+        };
     }
 
     /**

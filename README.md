@@ -639,7 +639,7 @@ php artisan test --compact
 Remove-Item Env:XDEBUG_MODE
 ```
 
-Các test nghiệp vụ hiện có (**165 test**: 164 pass, 1 skip; 792 assertions — xem
+Các test nghiệp vụ hiện có (**167 test**: 166 pass, 1 skip; 814 assertions — xem
 kết quả chạy thực tế ở mục 18):
 
 **Unit (11 test)**
@@ -649,7 +649,7 @@ kết quả chạy thực tế ở mục 18):
   sạch nội dung, template dự phòng.
 - `ExampleTest` Unit (1).
 
-**Feature (154 test, trong đó 1 skip)**
+**Feature (156 test, trong đó 1 skip)**
 
 - `AuthFlowTest` (7): đăng ký khách hàng, liên kết khách walk-in, chặn trùng số
   điện thoại, chuyển hướng theo vai trò, chặn khách hàng vào trang nhân viên.
@@ -683,10 +683,14 @@ kết quả chạy thực tế ở mục 18):
 - `StorefrontHomeTest` (6): trang chủ storefront, sản phẩm thật, sắp xếp loại theo
   số sản phẩm, trạng thái rỗng, header theo vai trò.
 - `TacVuNenTest` (2): `hold:clean` chỉ xóa giỏ quá 24h, Telegram thành công.
-- `ThanhToanChuyenKhoanTest` (19: T-CK01..T-CK18 + 1 test route duy nhất): tạo QR,
-  webhook hợp lệ/sai key/trùng lặp/dư/thiếu/out, xác nhận/hủy thủ công, polling,
-  hủy lười, lệnh hủy quá hạn, in/doanh thu, webhook tới đơn đã hủy (T-CK17),
-  webhook tới đơn quá hạn chưa hủy (T-CK18), route POST đúng action/name/throttle.
+- `ThanhToanChuyenKhoanTest` (21: T-CK01..T-CK18 + 1 test route duy nhất + 2 test
+  CSRF thật): tạo QR, webhook hợp lệ/sai key/trùng lặp/dư/thiếu/out, xác nhận/hủy
+  thủ công, polling, hủy lười, lệnh hủy quá hạn, in/doanh thu, webhook tới đơn đã
+  hủy (T-CK17), webhook tới đơn quá hạn chưa hủy (T-CK18), route POST đúng
+  action/name/throttle. Hai test mới bật CSRF thật (override `runningUnitTests()`
+  → false): ngoại lệ đúng path `api/webhook/thanhtoan` (path khác vẫn 419) và
+  webhook chạy không session/cookie khi CSRF đang bật (401/400/200, đăng nhập
+  không token vẫn 419).
 - `ThongBaoLoiTest` (5): trang lỗi 404/403/419/500 tiếng Việt, 500 không lộ chi
   tiết, POS hiển thị hướng dẫn khi phiên hết hạn và giữ giỏ hàng.
 - `ToanVenGiaoDichTest` (6): tính nguyên tử của hủy đơn, nhập kho và thanh toán.
@@ -1147,13 +1151,18 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
 - **`db:wipe` đã có chốt chặn production** như `migrate:fresh`: cần
   `--force-dangerous` và đúng tên database đích; `--force` đơn lẻ không đủ.
   Test chốt chặn dùng mock DB/schema/migrator, không xóa hay migrate CSDL thật.
-- **Kiểm thử hiện tại: 164 pass, 1 skip, 792 assertions** (230.67s,
+- **Kiểm thử hiện tại: 166 pass, 1 skip, 814 assertions** (231.37s,
   `XDEBUG_MODE=off`). `KhoaDongMysqlTest` bị skip vì SQLite không có khóa
   dòng/InnoDB; cần trỏ vào bản sao MySQL để chạy (mục 9). Lượt bổ sung này không
   kiểm lại MySQL hoặc luồng trình duyệt POS; số pass không thay thế kiểm tra đó.
 - **Webhook chỉ còn một route POST `/api/webhook/thanhtoan`** trong
   `routes/web.php`, giữ `throttle:60,1`; đã gỡ khai báo bị che trong `routes/api.php`.
-  Có test đếm route và kiểm tra middleware; không đổi URI/hành vi webhook.
+  Route được đưa ra khỏi nhóm `web` bằng `withoutMiddleware('web')` nên không còn
+  session/cookie/CSRF/bindings — controller chỉ xác thực bằng API Key. Ngoại lệ
+  CSRF trong `bootstrap/app.php` thu hẹp từ wildcard `api/webhook/*` về đúng path
+  `api/webhook/thanhtoan`. Hai test bật CSRF thật (override `runningUnitTests()`)
+  chứng minh đúng path được miễn, path khác và đăng nhập không token vẫn 419, và
+  webhook trả 401/400/200 mà không có session/cookie. Không đổi URI/tên/hành vi.
 
 ## 18. Kết quả kiểm tra
 
@@ -1198,6 +1207,16 @@ Cập nhật lần cuối: **2026-11-10**, trên nhánh `feat/san-sang-van-hanh`
 Các số liệu MySQL/health check ở đợt nâng cấp ban đầu phía trên và bên dưới là
 kết quả lịch sử, không phải phép đo mới của đợt bổ sung này. Chi tiết thay đổi và
 phương án múi giờ: [báo cáo vận hành](docs/BAO_CAO_SAN_SANG_VAN_HANH.md).
+
+### Đợt bổ sung cùng ngày — siết ngoại lệ CSRF và middleware webhook
+
+| Kiểm tra | Kết quả | Ghi chú |
+|----------|---------|---------|
+| `XDEBUG_MODE=off php artisan test --compact --filter=ThanhToanChuyenKhoanTest` | **21 passed (130 assertions), 39.27s** | Gồm 2 test CSRF thật mới; test route đã khởi tạo HTTP Kernel để phân giải alias `throttle` |
+| `XDEBUG_MODE=off php artisan test --compact` (cuối) | **166 passed, 1 skipped (814 assertions), 231.37s**, exit 0 | 167 ca: 11 Unit + 156 Feature; skip duy nhất `KhoaDongMysqlTest` |
+| `php artisan route:list --json` | **103 routes** | POST `/api/webhook/thanhtoan`, tên `webhook.thanhtoan`, middleware chỉ còn `throttle:60,1` (đã bỏ nhóm `web`) |
+| Ngoại lệ CSRF | `bootstrap/app.php` thu về đúng `api/webhook/thanhtoan` | Không còn wildcard `api/webhook/*`; test khẳng định path khác vẫn 419 khi CSRF bật |
+| `.env` / lệnh phá hủy | **Không đọc/ghi; không chạy** | Không merge/push |
 
 Kết quả `he-thong:kiem-tra` trên CSDL thật ngày 2026-11-10 (trước triển khai, đợt ban đầu):
 

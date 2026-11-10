@@ -32,6 +32,7 @@ Route::get('/dangxuat', [\App\Http\Controllers\AuthController::class, 'getDangXu
     ->name('auth.dangxuat');
 
 Route::post('/api/webhook/thanhtoan', [\App\Http\Controllers\WebhookController::class, 'postThanhToan'])
+    ->withoutMiddleware('web')
     ->middleware('throttle:60,1')
     ->name('webhook.thanhtoan');
 

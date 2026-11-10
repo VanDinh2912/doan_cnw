@@ -28,8 +28,9 @@
 8. **N+1 và thiếu index vận hành** — đã thêm index và bật cảnh báo lazy-load.
 
 Suite test tăng từ **66** lên **145 test** ở đợt nâng cấp ban đầu (144 pass,
-1 skip, 627 assertions), rồi **165 test** sau đợt bổ sung: **164 pass, 1 skip,
-792 assertions**, 230.67s với `XDEBUG_MODE=off`.
+1 skip, 627 assertions), rồi **165 test** sau đợt bổ sung (164 pass, 1 skip,
+792 assertions, 230.67s), và **167 test** sau đợt siết CSRF webhook: **166 pass,
+1 skip, 814 assertions**, 231.37s với `XDEBUG_MODE=off`.
 
 ## 2. Bảng trước / sau
 
@@ -49,7 +50,7 @@ Suite test tăng từ **66** lên **145 test** ở đợt nâng cấp ban đầu
 | Trang lỗi | Mặc định Laravel/tiếng Anh | 403/404/419/500 tiếng Việt, 500 không lộ chi tiết |
 | N+1 | Không kiểm soát | `Model::preventLazyLoading()` ngoài production + sửa N+1 trang chủ |
 | Index vận hành | Thiếu index ngày tạo | 4 index cho invoices, stock_movements, activity_logs |
-| Test | 66 test | 165 test (164 pass, 1 skip, 792 assertions); đợt ban đầu 145 test |
+| Test | 66 test | 167 test (166 pass, 1 skip, 814 assertions); các đợt trước 145 rồi 165 test |
 | Tài liệu | Chưa có hướng dẫn triển khai | README mục 5/5A/7/8/9/10/12/14/16/17/18 + báo cáo này |
 
 ### Bổ sung cùng ngày — đối chiếu với HEAD `8835b52`
@@ -57,7 +58,7 @@ Suite test tăng từ **66** lên **145 test** ở đợt nâng cấp ban đầu
 | Hạng mục | Trước đợt bổ sung này | Sau |
 |---|---|---|
 | Đường dẫn tài liệu | Có đường dẫn máy cá nhân trong README/báo cáo | Placeholder theo thư mục dự án và từng binary; kiểm tra cả README, `docs/`, `scripts/` |
-| Webhook | Hai khai báo cùng URI; route API bị che | Chỉ giữ POST `/api/webhook/thanhtoan` trong `web.php`, có `throttle:60,1`; thêm test route duy nhất |
+| Webhook | Hai khai báo cùng URI; route API bị che; miễn CSRF bằng wildcard `api/webhook/*`; thuộc nhóm `web` (session/cookie) | Chỉ giữ POST `/api/webhook/thanhtoan` trong `web.php`, `withoutMiddleware('web')` + `throttle:60,1`; ngoại lệ CSRF thu về đúng path; thêm test route duy nhất và 2 test CSRF bật thật |
 | `db:wipe` | Chưa có chốt chặn riêng | Dùng cùng chốt chặn production với `migrate:fresh`: `--force-dangerous` + đúng tên DB đích; `--force` đơn lẻ không đủ |
 | Điểm trả hàng | Đã có `diem_hoan` nhưng tính theo tiền hoàn đã làm tròn; hóa đơn thực trả 0 không hoàn điểm; chưa giữ số lượng phiếu chờ duyệt | Tính theo giá trị hàng trả gốc cộng dồn, floor rồi trừ điểm đã cam kết, capped điểm gốc; giữ số lượng/điểm phiếu chờ duyệt, ghi nhật ký khi hoàn thành |
 | Múi giờ | UTC | **Vẫn UTC**; chỉ có phương án, kiểm tra và hoàn tác ở mục 6.2, chưa đổi cấu hình/dữ liệu |
@@ -388,12 +389,33 @@ php artisan test --filter=KhoaDongMysqlTest
 | Tìm đường dẫn cá nhân trong README/`docs/`/`scripts/` | **0 kết quả** |
 | Mục lục README / `config/app.php` | 19 anchor hợp lệ; không còn 15.5; cấu hình timezone không đổi (UTC) |
 
-165 ca hiện tại gồm **11 Unit + 154 Feature**; Feature gồm `LenhNguyHiemTest`
+Đợt này có 165 ca gồm **11 Unit + 154 Feature**; Feature gồm `LenhNguyHiemTest`
 19 ca, `PosWorkflowTest` 32 và `ThanhToanChuyenKhoanTest` 19. Một skip vẫn là
 `KhoaDongMysqlTest` vì suite dùng SQLite `:memory:`. Lượt bật Xdebug đã dừng trước
 kết quả cuối, không tính là pass/fail. Không kiểm lại MySQL, không chạy migration
 hoặc lệnh phá hủy trên CSDL thật, không đọc/ghi `.env`, không thử luồng trình duyệt
 POS trong đợt bổ sung. Các số liệu MySQL/health check phía trên thuộc đợt trước.
+
+### Đợt siết CSRF và middleware webhook (2026-11-10, cùng nhánh)
+
+| Lệnh/kiểm tra | Kết quả thực chạy |
+|---|---|
+| `XDEBUG_MODE=off php artisan test --compact --filter=ThanhToanChuyenKhoanTest` | **21 passed, 130 assertions, 39.27s** (gồm 2 test CSRF bật thật) |
+| `XDEBUG_MODE=off php artisan test --compact` — cuối | **166 passed, 1 skipped, 814 assertions, 231.37s, exit 0** |
+| `php artisan route:list --json` | **103 routes**; POST `/api/webhook/thanhtoan` middleware chỉ `throttle:60,1` (đã bỏ nhóm `web`), đúng URI/tên |
+
+Thay đổi: ngoại lệ CSRF trong `bootstrap/app.php:15-17` thu từ wildcard
+`api/webhook/*` về đúng `api/webhook/thanhtoan`; route thêm
+`withoutMiddleware('web')` (`routes/web.php:34-37`) nên không còn session/cookie/
+CSRF/bindings, giữ nguyên URI/tên/throttle. Hai test mới
+(`ThanhToanChuyenKhoanTest.php:89`, `:116`) dùng anonymous subclass override
+`runningUnitTests()` → false để bật CSRF thật: đúng path được miễn (204), path anh
+em/con và đăng nhập không token vẫn 419; webhook trả 401/400/200 không session/
+cookie. Test route (`:47`) khởi tạo HTTP Kernel để phân giải alias `throttle`.
+
+Hiện có **167 ca** (11 Unit + 156 Feature); `ThanhToanChuyenKhoanTest` tăng 19 →
+21. Một skip vẫn là `KhoaDongMysqlTest`. Không đọc/ghi `.env`, không chạy lệnh phá
+hủy, không merge/push. Số 164 pass/792 assertions/230.67s ở đợt trước là lịch sử.
 
 ## 8. Hướng dẫn migration an toàn (khi triển khai)
 
@@ -423,7 +445,9 @@ POS trong đợt bổ sung. Các số liệu MySQL/health check phía trên thu�
 - **Đối soát là thủ công**: chỉ đánh dấu + ghi chú, chưa tự khớp tiền vào hóa đơn.
 - **Hai cột mã giao dịch song song** vẫn tồn tại (mục 6.1).
 - **Route webhook trùng đã được gỡ** trong đợt bổ sung: giữ duy nhất bản
-  `routes/web.php:34-36`, có `throttle:60,1`; không còn là rủi ro chờ quyết định.
+  `routes/web.php:34-37`, `withoutMiddleware('web')` + `throttle:60,1`; ngoại lệ
+  CSRF thu về đúng `api/webhook/thanhtoan` (không wildcard), có test CSRF bật thật;
+  không còn là rủi ro chờ quyết định.
 - **Múi giờ UTC**: `config/app.php` giữ mặc định; giờ hóa đơn/log lệch 7 giờ so với
   Việt Nam. Chưa đổi vì sẽ làm lệch dữ liệu cũ.
 - **`db:wipe` đã được bảo vệ** trong đợt bổ sung; không chạy lệnh trên CSDL thật để kiểm chứng.
@@ -496,3 +520,23 @@ Mỗi nhóm là một commit độc lập trên `feat/san-sang-van-hanh`:
   seeder. Sửa đúng chuỗi thực tế và giới hạn assertion movement theo hóa đơn,
   không đổi nghiệp vụ hoặc bỏ assertion để che lỗi. Kết quả các lượt chạy được
   ghi ở mục 7.
+
+### Đợt siết CSRF và middleware webhook
+
+- `bootstrap/app.php:15-17`: ngoại lệ CSRF đổi từ `api/webhook/*` sang đúng
+  `api/webhook/thanhtoan` — không miễn nhầm path con/anh em không tồn tại.
+- `routes/web.php:34-37`: thêm `withoutMiddleware('web')`; URI, tên
+  `webhook.thanhtoan` và `throttle:60,1` giữ nguyên. Controller chỉ xác thực API
+  Key, không dùng session/cookie nên bỏ nhóm `web` an toàn (route không có tham
+  số nên mất `SubstituteBindings` không ảnh hưởng).
+- `ThanhToanChuyenKhoanTest.php:47`: test route khởi tạo HTTP Kernel
+  (`$this->app->make(Kernel::class)`) để phân giải alias, khẳng định
+  `gatherRouteMiddleware()` chỉ còn `ThrottleRequests:60,1`. Trước đó thiếu bước
+  này nên alias chưa phân giải (`throttle:60,1` thô) làm test fail; đã sửa khởi
+  tạo, không nới assertion.
+- `ThanhToanChuyenKhoanTest.php:89`, `:116`, helper `:146`: 2 test mới bật CSRF
+  thật bằng anonymous subclass của `ValidateCsrfToken` override
+  `runningUnitTests()` → false (mặc định framework bỏ qua CSRF trong PHPUnit).
+  Test 1 kiểm `getExcludedPaths()` đúng path và ma trận 204/419; test 2 bind
+  middleware vào container, gọi HTTP thật khẳng định 401/400/200 không session/
+  cookie và đăng nhập không token vẫn 419. `ThanhToanChuyenKhoanTest` tăng 19 → 21.

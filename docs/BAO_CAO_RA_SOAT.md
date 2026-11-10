@@ -135,9 +135,9 @@
 
 | Lớp | File:dòng | Bằng chứng |
 |-----|-----------|-----------|
-| Route active (có throttle) | `routes/web.php:33-35` → `POST /api/webhook/thanhtoan`, name `webhook.thanhtoan`, `throttle:60,1` | `route:list` chỉ hiện route này |
-| Route trùng bị che khuất | `routes/api.php:5-6` → cùng URI, name `api.webhook.thanhtoan` | **không xuất hiện** trong `route:list` (bị `web.php` ghi đè) — nên xóa |
-| CSRF exemption | `bootstrap/app.php:15-17` (`except: api/webhook/*`) | — |
+| Route active (có throttle) | `routes/web.php:34-37` → `POST /api/webhook/thanhtoan`, name `webhook.thanhtoan`, `withoutMiddleware('web')` + `throttle:60,1` | `route:list` chỉ hiện route này, middleware chỉ còn `throttle:60,1` |
+| Route trùng bị che khuất | ~~`routes/api.php:5-6`~~ → cùng URI, name `api.webhook.thanhtoan` | **ĐÃ GỠ** (2026-11-10); `routes/api.php` chỉ còn `<?php` |
+| CSRF exemption | `bootstrap/app.php:15-17` (`except: ['api/webhook/thanhtoan']`) — thu hẹp từ wildcard `api/webhook/*` | Test CSRF bật thật: `ThanhToanChuyenKhoanTest.php:89` |
 | Auth API key | `WebhookController.php:31-35` → gọi `SepayWebhook::xacThuc`; sai → 401 | T-CK04 (`:218`) |
 | **Fail-closed khi key rỗng** | `SepayWebhook.php:17-19` (key rỗng → trả false → 401) | **chưa có test riêng** nhánh key rỗng (T-CK setUp luôn set key) |
 | Header `Authorization: Apikey <KEY>` | `SepayWebhook.php:21`, `:24` (regex), `:27`/`:31` (`hash_equals`) | T-CK03 (`:180`), T-CK04 (`:218`) |
@@ -436,9 +436,51 @@ nhật theo code trên `feat/san-sang-van-hanh`, đối chiếu HEAD `8835b52`:
 | Tìm đường dẫn cá nhân trong README, `docs/`, `scripts/` | **0 kết quả** |
 | Mục lục README | 19 liên kết hợp lệ, thứ tự mục chính đúng, không còn mục 15.5 |
 
-Hiện có **165 ca** (11 Unit + 154 Feature); một skip là `KhoaDongMysqlTest` trên
+Đợt này có **165 ca** (11 Unit + 154 Feature); một skip là `KhoaDongMysqlTest` trên
 SQLite. Không kiểm lại MySQL hoặc UI trình duyệt trong đợt này. Không đọc/ghi
 `.env`, không chạy migration/lệnh phá hủy trên CSDL thật, không đổi timezone,
 không merge/push. Số liệu lịch sử và các phép đo MySQL cũ không được coi là kết
 quả mới. Chi tiết trước/sau và lý do thay đổi test ở
 [BAO_CAO_SAN_SANG_VAN_HANH.md](BAO_CAO_SAN_SANG_VAN_HANH.md).
+
+## Bổ sung — Siết ngoại lệ CSRF và middleware webhook (2026-11-10)
+
+Yêu cầu: xác nhận webhook có được miễn CSRF không; nếu miễn bằng wildcard thì thu
+về đúng path, đưa route ra khỏi nhóm middleware session/cookie nhưng giữ URI/tên/
+throttle, và viết test chứng minh khi CSRF **bật thật** (test mặc định tự bỏ qua
+CSRF qua `runningUnitTests()`).
+
+| Hạng mục | Trước | Sau | File:dòng |
+|---|---|---|---|
+| Ngoại lệ CSRF | Wildcard `api/webhook/*` (miễn cả path con không tồn tại) | Đúng `api/webhook/thanhtoan`; path anh em/con vẫn bị chặn | [`bootstrap/app.php:15-17`](../bootstrap/app.php#L15-L17) |
+| Nhóm middleware route | Thuộc nhóm `web` (EncryptCookies, StartSession, ValidateCsrfToken, SubstituteBindings…) | `withoutMiddleware('web')` → chỉ `throttle:60,1`; controller không dùng session/cookie | [`routes/web.php:34-37`](../routes/web.php#L34-L37) |
+| Bằng chứng CSRF bật | Không có (test mặc định skip CSRF) | 2 test override `runningUnitTests()` → false, gọi middleware thật | [`ThanhToanChuyenKhoanTest.php:89`](../tests/Feature/ThanhToanChuyenKhoanTest.php#L89), [`:116`](../tests/Feature/ThanhToanChuyenKhoanTest.php#L116), helper [`:146`](../tests/Feature/ThanhToanChuyenKhoanTest.php#L146) |
+
+Cơ chế framework đã đối chiếu (vendor, chỉ đọc): `VerifyCsrfToken::handle()`
+(`vendor/.../VerifyCsrfToken.php:79-95`) bỏ qua khi `isReading || runningUnitTests
+|| inExceptArray || tokensMatch`; `runningUnitTests()` (`:113-116`) trả true trong
+PHPUnit nên test thường không kiểm CSRF. Test mới dùng anonymous subclass của
+`ValidateCsrfToken` override `runningUnitTests()` → false để bật kiểm tra thật:
+
+- `test_csrf_dang_bat_chi_mien_dung_path_webhook` (`:89`): khẳng định
+  `getExcludedPaths() === ['api/webhook/thanhtoan']`; POST `/api/webhook/thanhtoan`
+  → 204 (miễn), còn `/api/webhook/khac`, `/api/webhook/thanhtoan/khac`, `/dangnhap`
+  → 419 (`TokenMismatchException`).
+- `test_webhook_khong_can_session_cookie_khi_csrf_dang_bat` (`:116`): bind middleware
+  CSRF bật vào container rồi gọi HTTP thật — webhook trả 401 (thiếu key), 400
+  (payload thiếu), 200 (đủ tiền, đơn `da_thanh_toan`); mọi response không có
+  session (`hasSession() === false`) và không cookie; đăng nhập không token vẫn 419.
+- Test route (`:47`) khởi tạo HTTP Kernel để phân giải alias, khẳng định
+  `gatherRouteMiddleware()` chỉ còn `ThrottleRequests:60,1`.
+
+### Kết quả kiểm tra đợt siết CSRF
+
+| Kiểm tra | Số thực chạy |
+|---|---|
+| `XDEBUG_MODE=off php artisan test --compact --filter=ThanhToanChuyenKhoanTest` | **21 passed, 130 assertions, 39.27s** |
+| `XDEBUG_MODE=off php artisan test --compact` — cuối | **166 passed, 1 skipped; 814 assertions, 231.37s, exit 0** |
+| `php artisan route:list --json` | **103 routes**; POST webhook middleware chỉ `throttle:60,1`, đúng URI/tên |
+
+Hiện có **167 ca** (11 Unit + 156 Feature); một skip là `KhoaDongMysqlTest`. Không
+đọc/ghi `.env`, không chạy lệnh phá hủy, không merge/push. Số 164 pass/792
+assertions/230.67s ở đợt trước là lịch sử, không phải phép đo mới.
