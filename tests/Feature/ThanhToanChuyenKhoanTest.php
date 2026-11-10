@@ -541,16 +541,24 @@ class ThanhToanChuyenKhoanTest extends TestCase
         // 2. Không được tính vào doanh thu thống kê
         $resDoanhThu = $this->actingAs($this->admin)->get(route('thongke.doanhthu'));
         $resDoanhThu->assertOk();
-        $duLieu = $resDoanhThu->json();
-        // Kiểm tra hóa đơn chưa thanh toán không nằm trong doanh thu
-        $this->assertIsArray($duLieu);
+        // Hóa đơn chưa thanh toán không được xuất hiện trong doanh thu.
+        $this->assertSame([], $resDoanhThu->json());
 
         // 3. Sau khi thanh toán thành công
         $this->actingAs($this->cashier)
             ->postJson(route('donhang.xacnhan', $donHang))
             ->assertOk();
 
-        // 4. In được hóa đơn
+        // 4. Doanh thu ghi nhận đúng số tiền của hóa đơn vừa thanh toán.
+        $doanhThu = $this->actingAs($this->admin)
+            ->get(route('thongke.doanhthu'))
+            ->assertOk()
+            ->json();
+        $this->assertCount(1, $doanhThu);
+        $this->assertSame(now()->format('Y-m-d'), $doanhThu[0]['ngay']);
+        $this->assertSame(100000, (int) $doanhThu[0]['doanh_thu']);
+
+        // 5. In được hóa đơn
         $this->actingAs($this->cashier)
             ->get(route('donhang.inhoadon', $donHang))
             ->assertOk();
