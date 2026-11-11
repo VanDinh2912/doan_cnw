@@ -124,6 +124,36 @@ thật. Chi tiết đầy đủ: `docs/BAO_CAO_LOI_STOREFRONT.md`.
 
 ---
 
+## BƯỚC 1.9 — TEST KHÓI TOÀN BỘ ROUTE GET THEO VAI TRÒ (2026-11-11)
+
+Mục tiêu: mọi route GET phải trả 200/302/403 hợp lệ theo vai trò, **tuyệt đối không
+500**; dữ liệu tạo ≥3 bản ghi mỗi mô hình có quan hệ để `preventLazyLoading()`
+(`AppServiceProvider.php:28-30`) thực sự kích hoạt. Test:
+`tests/Feature/RouteKhoiTest.php`, `RefreshDatabase` trên SQLite `:memory:`.
+
+| Nhóm route | Số route | Phủ |
+|---|---|---|
+| Công khai: `/`, `/tim-kiem`, giỏ hàng, đăng nhập/đăng ký/đăng xuất, `/up` | 11 | Khách + 3 vai trò; đăng xuất đặt cuối để không hủy phiên giữa lượt |
+| Chi tiết có `{id}`: sản phẩm, danh mục, in hóa đơn, trạng thái đơn, chọn/xem phiếu trả, sửa khách, hóa đơn nhập xem/sửa, kiểm kê, sửa NCC, chi tiết đơn nhập, sửa/tem sản phẩm, sửa loại, đối soát | 18 | Dùng id thật vừa tạo |
+| Nhóm admin + thu ngân (POS, đơn hàng, hold, giỏ, khách, tìm kiếm, trả hàng) | 17 | Admin/thu ngân 200–302; thủ kho 403; khách 302 |
+| Nhóm admin + thủ kho (sản phẩm, loại, kho, kiểm kê, nhập hàng, hóa đơn nhập, báo cáo XNT) | 17 | Admin/thủ kho 200; thu ngân 403; khách 302 |
+| Chỉ admin (nhật ký, đối soát, thống kê, báo cáo hóa đơn) + `tongquan` | 8 | Admin 200; vai trò khác 403; khách 302 |
+| **Tổng** | **61/62 route GET** | Chưa phủ `storage/{path}`: route phục vụ tệp của framework, cần đường dẫn tệp thật, trả 404 khi thiếu — không phải trang/nghiệp vụ |
+
+Kết quả thực chạy:
+
+| Kiểm tra | Số thật |
+|---|---|
+| `--filter=RouteKhoiTest` | **4 passed, 244 assertions, 9.50s** (61 route × 4 vai trò) |
+| `XDEBUG_MODE=off php artisan test --compact` | **175 passed, 1 skipped, 1068 assertions, 255.79s**, exit 0 (176 ca: 11 Unit + 165 Feature) |
+| Lỗi lazy-load/N+1 phát hiện | **0** — không phải sửa `with()`/`load()` ở controller/view nào |
+| Đường dẫn máy cá nhân trong README, `docs/`, `scripts/` | **0 kết quả**; báo cáo storefront dùng `<thư-mục-dự-án>`, dòng HEAD khớp `git log` |
+
+Không đọc/ghi `.env`, không chạy migrate/seed/demo:reset, không đổi nghiệp vụ, không
+nới assertion, không tắt `preventLazyLoading`, không merge/push.
+
+---
+
 ## BƯỚC 2 — BIẾN MÔI TRƯỜNG & XÁC THỰC WEBHOOK
 
 ### 2.1 Code thật sự đọc biến nào?

@@ -1,8 +1,8 @@
 # BÁO CÁO LỖI STOREFRONT — CHẨN ĐOÁN VÀ SỬA
 
 **Ngày:** 2026-11-11
-**Nhánh:** `feat/san-sang-van-hanh` (HEAD kế tiếp `b0c3636`; merge-base với chính nhánh
-này = HEAD, tức xuất phát từ `feat/san-sang-van-hanh`)
+**Nhánh:** `feat/san-sang-van-hanh` (HEAD lúc chẩn đoán `08f5ff5`; merge-base với chính nhánh
+này = `08f5ff5`, tức xuất phát từ `feat/san-sang-van-hanh`)
 **Phạm vi:** chi tiết sản phẩm (`/san-pham/{sanPham}`) và danh mục (`/danh-muc/{loaiSanPham}`)
 **Ràng buộc đã giữ:** không đọc/ghi `.env`; không chạy migrate/seed/demo:reset trên DB thật;
 không tắt/comment route storefront; không thêm tính năng, không thêm migration/slug.
@@ -30,7 +30,7 @@ không tắt/comment route storefront; không thêm tính năng, không thêm mi
 ### 2.1 Quy trình
 
 1. Server cổng 8081 là `php artisan serve` (PID cha 16980, con 30492) chạy từ đúng
-   `D:\Study\xampp\www\DA`; đã dừng bằng `taskkill /F /T`.
+   `<thư-mục-dự-án>`; đã dừng bằng `taskkill /F /T`.
 2. `php artisan route:clear` → "Route cache cleared successfully"; **không tồn tại**
    `bootstrap/cache/routes-*.php` trước lẫn sau (không có route cache cũ).
 3. Khởi động lại `php artisan serve --host=127.0.0.1 --port=8081` từ đúng thư mục dự án.

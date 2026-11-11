@@ -639,7 +639,7 @@ php artisan test --compact
 Remove-Item Env:XDEBUG_MODE
 ```
 
-Các test nghiệp vụ hiện có (**172 test**: 171 pass, 1 skip; 824 assertions — xem
+Các test nghiệp vụ hiện có (**176 test**: 175 pass, 1 skip; 1068 assertions — xem
 kết quả chạy thực tế ở mục 18):
 
 **Unit (11 test)**
@@ -649,7 +649,7 @@ kết quả chạy thực tế ở mục 18):
   sạch nội dung, template dự phòng.
 - `ExampleTest` Unit (1).
 
-**Feature (161 test, trong đó 1 skip)**
+**Feature (165 test, trong đó 1 skip)**
 
 - `AuthFlowTest` (7): đăng ký khách hàng, liên kết khách walk-in, chặn trùng số
   điện thoại, chuyển hướng theo vai trò, chặn khách hàng vào trang nhân viên.
@@ -678,6 +678,12 @@ kết quả chạy thực tế ở mục 18):
   tạm dừng, lọc hóa đơn theo ngày, upload ảnh, tìm kiếm, tem barcode, tích điểm,
   xuất báo cáo, đơn nhập/hóa đơn nhập, phân quyền, nhật ký, trả hàng (quá hạn, giảm
   giá + điểm, floor cộng dồn, tiền hoàn 0, chờ duyệt, dòng trùng), hold giỏ, kiểm kê.
+- `RouteKhoiTest` (4): test khói toàn bộ route GET cho khách, thu ngân, thủ kho,
+  admin với dữ liệu ≥3 bản ghi mỗi mô hình có quan hệ (loại + sản phẩm, khách,
+  hóa đơn + chi tiết, nhà cung cấp, đơn nhập, hóa đơn nhập, phiếu trả, biến động
+  kho, kiểm kê, giỏ tạm, nhật ký, webhook đối soát). Mỗi route chỉ được 200/302
+  hoặc 403 đúng vai trò, tuyệt đối không 500; gồm cả route `{id}` với id thật
+  (chi tiết sản phẩm, in hóa đơn, phiếu trả, hóa đơn nhập, kiểm kê, đối soát).
 - `SaoLuuCsdlTest` (4): sao lưu SQLite, giữ N bản mới nhất, từ chối `:memory:`,
   báo lỗi rõ khi thiếu `mysqldump`.
 - `StorefrontHomeTest` (6): trang chủ storefront, sản phẩm thật, sắp xếp loại theo
@@ -1160,10 +1166,15 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
 - **`db:wipe` đã có chốt chặn production** như `migrate:fresh`: cần
   `--force-dangerous` và đúng tên database đích; `--force` đơn lẻ không đủ.
   Test chốt chặn dùng mock DB/schema/migrator, không xóa hay migrate CSDL thật.
-- **Kiểm thử hiện tại: 171 pass, 1 skip, 824 assertions** (309.48s,
+- **Kiểm thử hiện tại: 175 pass, 1 skip, 1068 assertions** (255.79s,
   `XDEBUG_MODE=off`). `KhoaDongMysqlTest` bị skip vì SQLite không có khóa
   dòng/InnoDB; cần trỏ vào bản sao MySQL để chạy (mục 9). Lượt bổ sung này không
   kiểm lại MySQL hoặc luồng trình duyệt POS; số pass không thay thế kiểm tra đó.
+- **Test khói route GET phủ 61/62 route GET**: đủ 4 vai trò (khách, thu ngân, thủ
+  kho, admin), mọi route không/ có tham số `{id}` dùng id thật đều trả 200/302/403
+  hợp lệ, không 500. Route duy nhất chưa phủ là `storage/{path}` — route phục vụ
+  tệp của framework, cần đường dẫn tệp thật và trả 404 khi thiếu, không phải
+  trang/nghiệp vụ.
 - **Webhook chỉ còn một route POST `/api/webhook/thanhtoan`** trong
   `routes/web.php`, giữ `throttle:60,1`; đã gỡ khai báo bị che trong `routes/api.php`.
   Route được đưa ra khỏi nhóm `web` bằng `withoutMiddleware('web')` nên không còn
@@ -1240,6 +1251,18 @@ phương án múi giờ: [báo cáo vận hành](docs/BAO_CAO_SAN_SANG_VAN_HANH.
 
 Không đọc/ghi `.env`, không chạy migrate/seed/demo:reset, không tắt/comment route,
 không thêm migration/slug, không merge/push.
+
+### Đợt test khói route GET theo vai trò (2026-11-11)
+
+| Kiểm tra | Kết quả | Ghi chú |
+|----------|---------|---------|
+| `XDEBUG_MODE=off php artisan test --compact --filter=RouteKhoiTest` | **4 passed (244 assertions), 9.50s** | 61 route GET × 4 vai trò; dữ liệu ≥3 bản ghi mỗi mô hình có quan hệ |
+| `XDEBUG_MODE=off php artisan test --compact` (cuối) | **175 passed, 1 skipped (1068 assertions), 255.79s**, exit 0 | 176 ca: 11 Unit + 165 Feature; skip duy nhất `KhoaDongMysqlTest` |
+| Route GET phủ / chưa phủ | **61/62** | Chưa phủ `storage/{path}`: route phục vụ tệp của framework, không phải trang/nghiệp vụ |
+| Lỗi lazy-load/N+1 phát hiện | **0** | Không phải sửa `with()`/`load()` ở controller hay view nào trong đợt này |
+| Đường dẫn máy cá nhân trong README, `docs/`, `scripts/` | **0 kết quả** | Báo cáo storefront dùng `<thư-mục-dự-án>`; dòng HEAD khớp `git log` |
+| `.env` / migrate/seed/demo:reset | **Không đọc/ghi; không chạy** | Chỉ SQLite `:memory:`; không merge/push |
+
 
 Kết quả `he-thong:kiem-tra` trên CSDL thật ngày 2026-11-10 (trước triển khai, đợt ban đầu):
 
