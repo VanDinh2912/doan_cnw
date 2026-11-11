@@ -77,6 +77,7 @@ class StorefrontController extends Controller
             ->where('soluong', '>', 0)
             ->where('category_id', $sanPham->category_id)
             ->where('id', '!=', $sanPham->id)
+            ->with('loaiSanPham')
             ->limit(4)
             ->get();
 
