@@ -100,6 +100,18 @@ class SepayDoiSoatTest extends TestCase
             ->count();
     }
 
+    /**
+     * @return list<string>
+     */
+    private function noiDungTelegram(): array
+    {
+        return collect(Http::recorded())
+            ->filter(fn (array $cap): bool => str_contains($cap[0]->url(), 'api.telegram.org'))
+            ->map(fn (array $cap): string => (string) ($cap[0]->data()['text'] ?? ''))
+            ->values()
+            ->all();
+    }
+
     private function taoHoaDon(
         string $ma,
         string $trangThai = 'cho_thanh_toan',
@@ -333,6 +345,57 @@ class SepayDoiSoatTest extends TestCase
             ->assertExitCode(0);
         $this->assertSame(20, (int) $khachHang->fresh()->diem_tichluy);
         $this->assertSame(1, PaymentWebhook::where('ma_tham_chieu', 'FT-DS-004')->count());
+    }
+
+    // T-SDS11: Giao dịch không tìm thấy hóa đơn chỉ ghi /doisoat, không gửi Telegram.
+    public function test_T_SDS11_khong_tim_thay_hoa_don_khong_gui_telegram(): void
+    {
+        $this->fakeApi([
+            $this->giaoDichApi('uuid-ds-201', 'CHUYEN TIEN CA NHAN', 50000, 'FT-DS-201'),
+            $this->giaoDichApi('uuid-ds-202', 'THANH TOAN HD20261111-9999', 70000, 'FT-DS-202'),
+        ]);
+
+        $this->artisan('sepay:doi-soat', ['--gio' => 2])
+            ->expectsOutputToContain('2 giao dịch tiền vào, 0 đã có, 2 thiếu mới')
+            ->assertExitCode(0);
+
+        $this->assertDatabaseHas('payment_webhooks', [
+            'ma_giao_dich_ngoai' => 'api:uuid-ds-201',
+            'ly_do' => 'khong_tim_thay_ma_hoadon',
+        ]);
+        $this->assertDatabaseHas('payment_webhooks', [
+            'ma_giao_dich_ngoai' => 'api:uuid-ds-202',
+            'ly_do' => 'hoadon_khong_ton_tai',
+        ]);
+        $this->assertSame(0, $this->soLanGuiTelegram());
+    }
+
+    // T-SDS12: Giới hạn tin Telegram mỗi lần chạy; phần vượt gộp thành một tin tóm tắt.
+    public function test_T_SDS12_gioi_han_telegram_va_gop_tin_con_lai(): void
+    {
+        config(['pos.sepay_doi_soat_telegram_toi_da' => 2]);
+
+        $ds = [];
+        foreach ([1, 2, 3, 4] as $i) {
+            $ma = sprintf('HD20261111-02%02d', $i);
+            $this->taoHoaDon($ma, 'cho_thanh_toan', 100000);
+            $ds[] = $this->giaoDichApi('uuid-ds-30'.$i, 'THANH TOAN '.$ma, 100000, 'FT-DS-30'.$i);
+        }
+        $ds[] = $this->giaoDichApi('uuid-ds-305', 'CHUYEN TIEN CA NHAN', 80000, 'FT-DS-305');
+        $this->fakeApi($ds);
+
+        $this->artisan('sepay:doi-soat', ['--gio' => 2])
+            ->expectsOutputToContain('5 giao dịch tiền vào, 0 đã có, 5 thiếu mới')
+            ->assertExitCode(0);
+
+        $tin = $this->noiDungTelegram();
+        $this->assertCount(3, $tin, 'Hai tin chi tiết + một tin tóm tắt phần vượt giới hạn.');
+        $this->assertStringContainsString('Còn 2 giao dịch thiếu webhook', implode("\n", $tin));
+
+        // Giao dịch không có hóa đơn không được lọt vào tin chi tiết.
+        foreach ($tin as $noiDung) {
+            $this->assertStringNotContainsString('Hóa đơn: không rõ', $noiDung);
+        }
     }
 
     // T-SDS05: --ap-dung bị từ chối trước khi gọi mạng hay ghi dữ liệu.
