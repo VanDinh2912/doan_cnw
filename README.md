@@ -173,6 +173,11 @@ Lệnh kiểm tra số lượng bản ghi, tổng hóa đơn, tồn kho và move
 | `POS_QR_TEMPLATE` | Không | compact2 | Template QR (compact, compact2, qr_only, print) | VietQR |
 | `POS_CHO_THANH_TOAN_PHUT` | Không | 15 | Thời hạn chờ thanh toán (phút) | Webhook/QR |
 | `SEPAY_WEBHOOK_API_KEY` | Không | (rỗng) | API Key SePay (header `Authorization: Apikey`) | Webhook |
+| `SEPAY_API_TOKEN` | Không | (rỗng) | Token đối soát chủ động (header `Authorization: Bearer`); **khác** `SEPAY_WEBHOOK_API_KEY` | Đối soát API |
+| `SEPAY_API_BASE_URL` | Không | https://userapi.sepay.vn/v2 | URL gốc SePay API v2 | Đối soát API |
+| `SEPAY_API_VERSION` | Không | v2 | Phiên bản API; chỉ hỗ trợ `v2` (v1 đã ngừng phát triển) | Đối soát API |
+| `SEPAY_API_TIMEOUT` | Không | 15 | Timeout mỗi request (giây) | Đối soát API |
+| `SEPAY_API_RETRIES` | Không | 3 | Số lần thử lại khi 429/5xx/lỗi mạng | Đối soát API |
 | `TELEGRAM_BOT_TOKEN` | Không | (rỗng) | Token Telegram Bot | Thông báo |
 | `TELEGRAM_CHAT_ID` | Không | (rỗng) | Chat ID nhận thông báo | Thông báo |
 | `POS_DIEM_MOI_DONG` | Không | 100000 | Doanh thu để được 1 điểm | Tích điểm |
@@ -195,6 +200,17 @@ Lệnh kiểm tra số lượng bản ghi, tổng hóa đơn, tồn kho và move
 > được đăng ký ở bất kỳ route nào và xác thực kiểu **fail-open**
 > (`if ($secret) { ... }` — secret rỗng thì bỏ qua kiểm tra chữ ký), nên bị xóa
 > để tránh rủi ro nếu sau này bị route lại.
+
+### Hai khóa SePay khác nhau — không dùng lẫn
+
+| Khóa | Chiều gọi | Header | Nơi dùng | Mục đích |
+|---|---|---|---|---|
+| `SEPAY_WEBHOOK_API_KEY` | SePay → POS | `Authorization: Apikey <KEY>` | `config('pos.sepay_webhook_api_key')`, `WebhookController` | Xác thực webhook SePay gửi vào |
+| `SEPAY_API_TOKEN` | POS → SePay | `Authorization: Bearer <TOKEN>` | `config('pos.sepay_api_token')`, `SepayApiClient` | Đọc giao dịch để đối soát chủ động |
+
+Hai khóa do SePay cấp ở hai màn hình khác nhau và **không thể thay thế nhau**.
+Dùng `SEPAY_API_TOKEN` cho webhook sẽ bị 401; dùng `SEPAY_WEBHOOK_API_KEY` để gọi
+API cũng bị 401. `SepayApiClient` chỉ gọi `GET`, không có endpoint ghi/hoàn tiền.
 
 
 ## 4. Thiết lập thiết bị và thanh toán thực tế
@@ -257,6 +273,27 @@ Cấu hình biến môi trường theo [Bảng biến môi trường đầy đ�
    - Vào mục **Mô phỏng giao dịch** trên SePay Dashboard.
    - Nhập số tiền chuyển và nội dung chuyển khoản chứa mã hóa đơn (ví dụ: `HD202611020001` hoặc `HD20261102-0001`).
    - Bấm **Gửi Webhook**. Hệ thống POS sẽ tự động nhận diện và hoàn tất hóa đơn trong vòng vài giây.
+
+**Đối soát chủ động qua SePay API (tùy chọn, chỉ đọc):**
+Dùng khi webhook có thể bị mất (tunnel rớt, SePay retry hết). Hệ thống đọc lại
+giao dịch tiền vào từ SePay API và đưa các giao dịch thiếu webhook vào `/doisoat`.
+1. Trên SePay Dashboard, tạo **API Token** (quyền đọc giao dịch) — đây là khóa
+   **khác** với `SEPAY_WEBHOOK_API_KEY` ở bước 3.
+2. Mở `.env`, **thêm dòng mới** `SEPAY_API_TOKEN=` và dán token ngay sau dấu `=`.
+   Không sửa `SEPAY_WEBHOOK_API_KEY`. Không dán token vào chat, tài liệu hay mã nguồn.
+3. Xóa cache cấu hình và kiểm tra kết nối:
+   ```powershell
+   php artisan config:clear
+   php artisan sepay:kiem-tra-ket-noi
+   ```
+   Lệnh chỉ gọi một request nhỏ (`per_page=1`), in `Kết nối SePay API OK.` hoặc
+   `SePay API trả 401 Unauthorized — kiểm tra SEPAY_API_TOKEN.`; không in token
+   hay dữ liệu giao dịch.
+4. Chạy đối soát thử (mặc định **chỉ báo cáo**, không đổi hóa đơn):
+   ```powershell
+   php artisan sepay:doi-soat --gio=6
+   ```
+   Kết quả nằm trong `/doisoat`, cột **Nguồn** ghi `api_doi_soat`.
 
 **Tạo Tunnel công khai (Cloudflare Tunnel / ngrok):**
 Vì SePay gửi webhook từ internet về máy local, bạn cần mở tunnel:
@@ -354,6 +391,7 @@ Các task trong `routes/console.php`:
 | `donhang:huy-qua-han` | Mỗi phút | Hủy hóa đơn `cho_thanh_toan` quá `POS_CHO_THANH_TOAN_PHUT`, hoàn kho/điểm |
 | `hold:clean` | Mỗi ngày | Xóa giỏ tạm quá 24 giờ |
 | `sao-luu:csdl` | Mỗi ngày 02:00 | Sao lưu CSDL vào `storage/app/backups` |
+| `sepay:doi-soat --gio=6` | Mỗi 10 phút | Đối soát SePay API (**chỉ báo cáo**), tự bỏ qua khi thiếu `SEPAY_API_TOKEN`; Telegram một lần cho mỗi giao dịch thiếu mới |
 | heartbeat | Mỗi phút | Ghi mốc thời gian để `he-thong:kiem-tra` biết scheduler còn sống |
 
 Nếu **không** chạy, đơn `cho_thanh_toan` quá hạn chỉ bị hủy "lười" khi POS poll
@@ -375,6 +413,8 @@ nhất một mục `FAIL`. Các mục kiểm tra:
 - **Đơn chờ quá hạn**: số hóa đơn `cho_thanh_toan` quá `POS_CHO_THANH_TOAN_PHUT`.
 - **Cấu hình**: chỉ báo thiếu/đủ `POS_BANK_CODE` + `POS_BANK_ACCOUNT`,
   `SEPAY_WEBHOOK_API_KEY`, `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID`.
+- **SePay API**: `SEPAY_API_TOKEN` đủ/thiếu — chỉ `WARN` vì đối soát chủ động là
+  tùy chọn; kèm thời điểm `sepay:doi-soat` chạy gần nhất, `WARN` nếu quá 30 phút.
 - **Môi trường**: `APP_ENV` (production), `APP_DEBUG` (production mà bật là `FAIL`),
   `APP_URL`, trạng thái `config:cache`.
 - **Quyền ghi**: `storage`, `storage/logs`, `storage/framework/{views,sessions}`,
@@ -553,7 +593,7 @@ Thanh toán sử dụng một transaction duy nhất:
   dấu giao dịch (xem mục "Đối soát chuyển khoản" bên dưới).
 - Thu ngân có thể bấm "Xác nhận đã nhận tiền" hoặc "Hủy chờ" thủ công trên POS.
 - Lệnh `php artisan donhang:huy-qua-han` (lập lịch mỗi phút) tự hủy đơn quá hạn, hoàn kho/điểm.
-- Cấu hình trong `.env`: `SEPAY_WEBHOOK_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `POS_CHO_THANH_TOAN_PHUT`.
+- Cấu hình trong `.env`: `SEPAY_WEBHOOK_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `POS_CHO_THANH_TOAN_PHUT`; tùy chọn `SEPAY_API_TOKEN` cho đối soát chủ động.
 
 ### Đối soát chuyển khoản
 
@@ -567,6 +607,24 @@ Thanh toán sử dụng một transaction duy nhất:
   thời gian và ghi nhật ký `doi_soat_danh_dau`.
 - Xử lý lặp bị chặn: giao dịch đã đánh dấu sẽ trả 422, không ghi đè người xử lý cũ.
 - Đây là đối soát thủ công (đánh dấu + ghi chú), chưa tự khớp lại tiền vào hóa đơn.
+
+### Đối soát chủ động qua SePay API (mặc định chỉ báo cáo)
+
+- Lệnh `php artisan sepay:doi-soat {--gio=24}` gọi **GET** `/v2/transactions`
+  (tiền vào, phân trang, tôn trọng `Retry-After` khi 429, timeout/retry cấu hình).
+  Mỗi giao dịch được chuẩn hóa về DTO nội bộ; số tài khoản chỉ lưu bản đã che.
+- Giao dịch có trên API nhưng chưa có trong `payment_webhooks` được ghi thêm một
+  bản ghi `ket_qua = can_doi_soat`, `nha_cung_cap = sepay_api`, nhãn nguồn
+  `api_doi_soat` trong `/doisoat`. Không tự đổi hóa đơn, không đổi kho/điểm.
+- Chống trùng trong nội bộ: bản ghi API dùng khóa `api:<id>`; webhook và API gộp
+  theo cột `ma_tham_chieu` (mã tham chiếu) khi có. `--ap-dung` hiện **bị khóa**
+  vì tài liệu SePay chưa chứng minh khóa duy nhất chung giữa API v2 (`id` UUID,
+  `reference_number`) và webhook (`id` số, `referenceCode`) — xem mục 17 và
+  `docs/BAO_CAO_SEPAY_DOI_SOAT.md`.
+- Lịch chạy mỗi 10 phút (`sepay:doi-soat --gio=6`) chỉ khi đã cấu hình
+  `SEPAY_API_TOKEN`; mỗi giao dịch thiếu **mới** gửi Telegram đúng một lần.
+- Lệnh `php artisan sepay:kiem-tra-ket-noi` chỉ kiểm tra token/kết nối, không in
+  token hay dữ liệu giao dịch.
 
 ### Quản lý kho
 
@@ -639,7 +697,7 @@ php artisan test --compact
 Remove-Item Env:XDEBUG_MODE
 ```
 
-Các test nghiệp vụ hiện có (**176 test**: 175 pass, 1 skip; 1068 assertions — xem
+Các test nghiệp vụ hiện có (**202 test**: 201 pass, 1 skip; 1208 assertions — xem
 kết quả chạy thực tế ở mục 18):
 
 **Unit (11 test)**
@@ -649,7 +707,7 @@ kết quả chạy thực tế ở mục 18):
   sạch nội dung, template dự phòng.
 - `ExampleTest` Unit (1).
 
-**Feature (165 test, trong đó 1 skip)**
+**Feature (191 test, trong đó 1 skip)**
 
 - `AuthFlowTest` (7): đăng ký khách hàng, liên kết khách walk-in, chặn trùng số
   điện thoại, chuyển hướng theo vai trò, chặn khách hàng vào trang nhân viên.
@@ -660,8 +718,9 @@ kết quả chạy thực tế ở mục 18):
 - `ExampleTest` Feature (1).
 - `KhoaDongMysqlTest` (1, **skip trên SQLite**): khóa dòng `SELECT ... FOR UPDATE`
   thật trên MySQL/InnoDB — chỉ chạy khi trỏ vào bản sao MySQL (xem bên dưới).
-- `KiemTraHeThongTest` (13): từng mục của `he-thong:kiem-tra`, gồm scheduler,
-  cấu hình thiếu/đủ, log, engine, migration, mã thoát.
+- `KiemTraHeThongTest` (16): từng mục của `he-thong:kiem-tra`, gồm scheduler,
+  cấu hình thiếu/đủ, log, engine, migration, mã thoát; thêm `SEPAY_API_TOKEN`
+  đủ/thiếu (WARN) và tuổi lần đối soát gần nhất.
 - `LenhNguyHiemTest` (19 ca): chốt chặn `migrate:fresh`, `db:wipe`, `demo:reset`,
   `documents:import`; thiếu cờ/tên, sai DB, kết nối đích, xác nhận tương tác,
   chuyển tiếp lệnh con và không tái sử dụng xác nhận. Dùng mock DB/schema/migrator,
@@ -686,14 +745,26 @@ kết quả chạy thực tế ở mục 18):
   (chi tiết sản phẩm, in hóa đơn, phiếu trả, hóa đơn nhập, kiểm kê, đối soát).
 - `SaoLuuCsdlTest` (4): sao lưu SQLite, giữ N bản mới nhất, từ chối `:memory:`,
   báo lỗi rõ khi thiếu `mysqldump`.
+- `SepayApiClientTest` (8): chuẩn hóa DTO tiền vào, che số tài khoản, 401, 429
+  đọc `Retry-After` rồi thành công, phân trang, 5xx, lỗi kết nối, từ chối v1;
+  toàn bộ dùng `Http::fake()` + `preventStrayRequests()`, token không lộ.
+- `SepayDoiSoatTest` (10): báo cáo-only không đổi hóa đơn/kho/điểm; chạy lại
+  không trùng và Telegram một lần; webhook trước/API sau và API trước/webhook sau
+  gộp đúng một bản ghi; sai mã/không tồn tại/đã hủy/đã thanh toán/thiếu tiền chỉ
+  báo; `--ap-dung` bị từ chối trước khi gọi mạng; thiếu token; 401 không lộ token;
+  lịch đã đăng ký; `/doisoat` gắn nhãn nguồn và chỉ admin.
+- `SepayKiemTraKetNoiTest` (4): 200 in OK và dùng Bearer, 401 báo rõ, lỗi kết nối
+  có token trong message vẫn bị che, thiếu token không gọi mạng; assert cả output
+  lẫn log Monolog không chứa token.
 - `StorefrontHomeTest` (6): trang chủ storefront, sản phẩm thật, sắp xếp loại theo
   số sản phẩm, trạng thái rỗng, header theo vai trò.
 - `StorefrontProductTest` (5): chi tiết sản phẩm/danh mục trả 200 và hiển thị tên,
   id không tồn tại trả 404 trang lỗi tiếng Việt, link danh mục trên trang chủ trỏ
   đúng route; tái hiện lỗi lazy-load `loaiSanPham` ở danh sách sản phẩm liên quan.
 - `TacVuNenTest` (2): `hold:clean` chỉ xóa giỏ quá 24h, Telegram thành công.
-- `ThanhToanChuyenKhoanTest` (21: T-CK01..T-CK18 + 1 test route duy nhất + 2 test
-  CSRF thật): tạo QR, webhook hợp lệ/sai key/trùng lặp/dư/thiếu/out, xác nhận/hủy
+- `ThanhToanChuyenKhoanTest` (22: T-CK01..T-CK18 + T-CK03b + 1 test route duy nhất
+  + 2 test CSRF thật): tạo QR, webhook hợp lệ/sai key/trùng lặp/dư/thiếu/out, lưu
+  mã tham chiếu khi webhook thành công (T-CK03b), xác nhận/hủy
   thủ công, polling, hủy lười, lệnh hủy quá hạn, in/doanh thu, webhook tới đơn đã
   hủy (T-CK17), webhook tới đơn quá hạn chưa hủy (T-CK18), route POST đúng
   action/name/throttle. Hai test mới bật CSRF thật (override `runningUnitTests()`
@@ -1125,6 +1196,26 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
 ## 17. Giới hạn đã biết
 
 - **Không có đối soát tự động** nếu không cấu hình `SEPAY_WEBHOOK_API_KEY` và tunnel công khai.
+- **Đối soát chủ động SePay API chỉ ở chế độ báo cáo**: `sepay:doi-soat` đọc tiền
+  vào và ghi bản ghi `api_doi_soat` vào `/doisoat`, nhưng **không tự hoàn tất hóa
+  đơn**. `--ap-dung` bị từ chối trước khi gọi mạng vì tài liệu SePay chưa chứng
+  minh khóa duy nhất chung: API v2 dùng `id` UUID và `reference_number`, webhook
+  dùng `id` số và `referenceCode`; tài liệu đối soát chỉ gợi ý dùng `id`/
+  `reference_number` mà không khẳng định `reference_number == referenceCode`.
+  Muốn mở `--ap-dung` cần người dùng xác nhận bằng giao dịch thật (xem
+  `docs/BAO_CAO_SEPAY_DOI_SOAT.md`).
+- **Webhook cũ trước migration có thể không gộp được với API**: cột `ma_tham_chieu`
+  chỉ được ghi từ đợt này; bản ghi cũ đọc dự phòng `referenceCode` từ `payload`,
+  nên webhook cũ thiếu mã tham chiếu có thể bị API báo lại một lần trong `/doisoat`
+  (không ảnh hưởng hóa đơn vì chế độ chỉ báo cáo).
+- **v1 đã deprecated, không hỗ trợ**: `SEPAY_API_VERSION` khác `v2` trả lỗi rõ
+  ràng, không âm thầm gọi endpoint cũ. API v2 giới hạn khoảng 3 request/giây;
+  client giữ khoảng cách tối thiểu 350 ms và đọc `Retry-After` khi gặp 429, tối
+  đa `SEPAY_API_RETRIES` lần; cửa sổ lớn có thể cần nhiều trang (tối đa 1000).
+- **Migration `ma_tham_chieu` chưa áp lên CSDL thật**: migration mới chỉ được viết
+  và kiểm trên SQLite `:memory:` trong test; chưa chạy `migrate` trên `doan_cnw`.
+  Trước khi dùng đối soát trên máy cửa hàng phải sao lưu rồi `migrate --force`
+  theo mục 5A (cần người dùng xác nhận thời điểm).
 - **Không đọc barcode bằng webcam** (chỉ hỗ trợ máy quét USB HID/keyboard wedge).
 - **Không in tự động** không qua hộp thoại trình duyệt (cần QZ Tray hoặc print server).
 - **Không có ứng dụng mobile / API REST** (chỉ web POS).
@@ -1166,7 +1257,7 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
 - **`db:wipe` đã có chốt chặn production** như `migrate:fresh`: cần
   `--force-dangerous` và đúng tên database đích; `--force` đơn lẻ không đủ.
   Test chốt chặn dùng mock DB/schema/migrator, không xóa hay migrate CSDL thật.
-- **Kiểm thử hiện tại: 175 pass, 1 skip, 1068 assertions** (255.79s,
+- **Kiểm thử hiện tại: 201 pass, 1 skip, 1208 assertions** (280.21s,
   `XDEBUG_MODE=off`). `KhoaDongMysqlTest` bị skip vì SQLite không có khóa
   dòng/InnoDB; cần trỏ vào bản sao MySQL để chạy (mục 9). Lượt bổ sung này không
   kiểm lại MySQL hoặc luồng trình duyệt POS; số pass không thay thế kiểm tra đó.
@@ -1186,8 +1277,8 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
 
 ## 18. Kết quả kiểm tra
 
-Cập nhật lần cuối: **2026-11-11**, trên nhánh `feat/san-sang-van-hanh` (tiếp nối
-`docs/ra-soat-readme`). Số liệu của đợt rà soát cũ được giữ lại để đối chiếu.
+Cập nhật lần cuối: **2026-11-11**, trên nhánh `feat/sepay-doi-soat` (tách từ
+`main`, chưa merge/push). Số liệu của các đợt rà soát cũ được giữ lại để đối chiếu.
 
 | Kiểm tra | Kết quả | Ghi chú |
 |----------|---------|---------|
@@ -1262,6 +1353,18 @@ không thêm migration/slug, không merge/push.
 | Lỗi lazy-load/N+1 phát hiện | **0** | Không phải sửa `with()`/`load()` ở controller hay view nào trong đợt này |
 | Đường dẫn máy cá nhân trong README, `docs/`, `scripts/` | **0 kết quả** | Báo cáo storefront dùng `<thư-mục-dự-án>`; dòng HEAD khớp `git log` |
 | `.env` / migrate/seed/demo:reset | **Không đọc/ghi; không chạy** | Chỉ SQLite `:memory:`; không merge/push |
+
+### Đợt bổ sung đối soát chủ động SePay API (2026-11-11, nhánh `feat/sepay-doi-soat`)
+
+| Kiểm tra | Kết quả | Ghi chú |
+|----------|---------|---------|
+| `XDEBUG_MODE=off php artisan test --filter='Sepay'` | **30 passed (151 assertions), 36.54s** | Client + đối soát + kiểm tra kết nối + webhook SePay |
+| `XDEBUG_MODE=off php artisan test` (cuối) | **201 passed, 1 skipped (1208 assertions), 280.21s**, exit 0 | 202 ca: 11 Unit + 191 Feature; skip duy nhất `KhoaDongMysqlTest` |
+| `php artisan schedule:list` | ✅ có `sepay:doi-soat --gio=6`, `*/10 * * * *` | `withoutOverlapping`, tự bỏ qua khi thiếu token |
+| `php artisan sepay:kiem-tra-ket-noi` | Chưa chạy với token thật | Chỉ kiểm bằng `Http::fake()`; không có token trong repo/phiên này |
+| Migration `ma_tham_chieu` | **Chưa áp lên CSDL thật** | Chỉ chạy trong SQLite `:memory:` của test |
+| `--ap-dung` | **Bị từ chối có chủ đích** | Chưa chứng minh khóa chung API v2/webhook; xem `docs/BAO_CAO_SEPAY_DOI_SOAT.md` |
+| `.env` / mạng thật / merge / push | **Không đọc/ghi; không gọi; không merge/push** | Token do người dùng tự nhập sau |
 
 
 Kết quả `he-thong:kiem-tra` trên CSDL thật ngày 2026-11-10 (trước triển khai, đợt ban đầu):
