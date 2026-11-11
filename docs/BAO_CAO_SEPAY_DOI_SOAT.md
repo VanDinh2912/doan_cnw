@@ -16,6 +16,12 @@ Tính năng đã được bật ở **chế độ BÁO CÁO** (mặc định và
 `--ap-dung` **bị từ chối có chủ đích** trước khi gọi mạng. Lý do: tài liệu SePay
 không chứng minh được một khóa duy nhất chung giữa API v2 và webhook (mục 3).
 
+Đợt siết tiếp theo: webhook **chỉ chống trùng theo id giao dịch**, không dùng
+`referenceCode` để bỏ qua giao dịch (mã rỗng/trùng không còn chặn tiền thật); mã
+tham chiếu chỉ gộp bản ghi báo cáo API cùng số tiền. `sepay:doi-soat` chỉ gửi
+Telegram khi tìm được hóa đơn, tối đa 5 tin chi tiết mỗi lần chạy (cấu hình được),
+phần vượt gộp thành một tin tóm tắt.
+
 ## 2. Căn cứ tài liệu
 
 Đã đọc tài liệu chính thức (không gọi mạng thật trong test):
@@ -58,18 +64,22 @@ Webhook hiện có (theo tài liệu webhook SePay): `id` là **số**, `referen
 
 Bản ghi API dùng tiền tố `api:` nên không bao giờ đụng unique index với `id` số
 của webhook. Khi webhook đến sau, `WebhookController::ghiNhanWebhook` tìm bản ghi
-theo `ma_giao_dich_ngoai` trước, rồi theo `ma_tham_chieu`, và **cập nhật** thay vì
-tạo trùng.
+theo `ma_giao_dich_ngoai` trước; nếu chưa có, chỉ gộp vào bản ghi báo cáo
+`nha_cung_cap = sepay_api`, `ket_qua = can_doi_soat`, **cùng `ma_tham_chieu` và
+cùng `so_tien`**, rồi cập nhật thay vì tạo trùng. Mã tham chiếu không bao giờ được
+dùng để bỏ qua một webhook, và không bao giờ gộp/ghi đè bản ghi webhook của giao
+dịch khác — kể cả khi `referenceCode` rỗng, chỉ khoảng trắng hoặc bị dùng lại.
 
 ## 4. Thay đổi theo tệp
 
 ### Cấu hình
 
-- `config/pos.php:14-21` — `sepay_api_token`, `sepay_api_base_url`,
+- `config/pos.php:14-22` — `sepay_api_token`, `sepay_api_base_url`,
   `sepay_api_version`, `sepay_api_timeout`, `sepay_api_retries`,
-  `sepay_api_per_page`, `sepay_api_min_interval_ms`, `sepay_api_max_retry_after`.
-- `.env.example:12-17` — placeholder `SEPAY_API_TOKEN` + 4 biến phụ; **không có
-  token thật**.
+  `sepay_api_per_page`, `sepay_api_min_interval_ms`, `sepay_api_max_retry_after`,
+  `sepay_doi_soat_telegram_toi_da` (mặc định 5).
+- `.env.example:12-19` — placeholder `SEPAY_API_TOKEN`, 4 biến phụ và
+  `SEPAY_DOI_SOAT_TELEGRAM_TOI_DA=5`; **không có token thật**.
 - `README.md` — bảng biến môi trường, bảng "Hai khóa SePay khác nhau", mục 4.3
   (người dùng tự nhập token + `sepay:kiem-tra-ket-noi`), mục 5 (scheduler), mục 6
   (health check), mục 7 (đối soát chủ động), mục 9/17/18 (test & giới hạn).
@@ -101,27 +111,31 @@ tạo trùng.
 ### Lệnh và lịch chạy
 
 - `app/Console/Commands/SepayDoiSoat.php` — `--ap-dung` từ chối (`:45-51`);
-  thiếu token thoát (`:53-57`); vòng lặp giao dịch (`:66`); phân loại
-  (`:154-179`): `khong_tim_thay_ma_hoadon`, `hoadon_khong_ton_tai`, `don_da_huy`,
-  `hoadon_da_thanh_toan`, `thieu_tien`, còn lại `api_doi_soat`; tạo bản ghi
-  `can_doi_soat` (`:78-90`); Telegram chỉ khi vừa tạo (`:101-107`); lưu mốc
-  lần chạy vào cache (`:119`); lỗi in thông điệp an toàn (`:109-117`).
+  thiếu token thoát (`:53-57`); giới hạn Telegram mỗi lần chạy (`:65-69`);
+  vòng lặp giao dịch (`:72`); phân loại (`:176-201`): `khong_tim_thay_ma_hoadon`,
+  `hoadon_khong_ton_tai`, `don_da_huy`, `hoadon_da_thanh_toan`, `thieu_tien`, còn
+  lại `api_doi_soat`; tạo bản ghi `can_doi_soat` (`:84-96`); chỉ gửi Telegram khi
+  tìm được hóa đơn, tối đa N tin chi tiết, phần vượt cộng dồn (`:107-125`); gửi
+  một tin tóm tắt phần vượt (`:137-139`); lưu mốc lần chạy vào cache (`:141`); lỗi
+  in thông điệp an toàn (`:127-135`).
 - `app/Console/Commands/SepayKiemTraKetNoi.php:20-33` — in OK/401/lỗi mạng,
   không in token hay dữ liệu giao dịch.
 - `routes/console.php:13-16` — `sepay:doi-soat --gio=6` mỗi 10 phút,
   `withoutOverlapping()`, chỉ đăng ký khi có `SEPAY_API_TOKEN`.
-- `app/Services/ThongBaoService.php:118-126` — Telegram "GIAO DỊCH THIẾU
+- `app/Services/ThongBaoService.php:114-124` — tin tóm tắt "Còn N giao dịch thiếu
+  webhook..." cho phần vượt giới hạn; `:130-138` — Telegram "GIAO DỊCH THIẾU
   WEBHOOK" gồm số tiền, hóa đơn, mã tham chiếu, lý do; không có nội dung chuyển
   khoản hay số tài khoản.
 
 ### Webhook và màn đối soát
 
-- `app/Http/Controllers/WebhookController.php:47` chuẩn hóa mã tham chiếu;
-  `:57-64` chỉ chặn trùng khi đã có bản ghi `success` cùng mã tham chiếu;
-  `:156` ghi nhận thành công qua `ghiNhanWebhook`; `:192-228` gộp theo
-  `ma_giao_dich_ngoai` hoặc `ma_tham_chieu`; `:230-235` cắt mã 100 ký tự.
-  Hành vi webhook cũ (xác thực, chống trùng theo `ma_giaodich`, hoàn tất đơn)
-  không đổi.
+- `app/Http/Controllers/WebhookController.php:53-58` chống trùng **chỉ** theo id
+  giao dịch webhook (`ma_giaodich`/`ma_giao_dich`); không còn kiểm tra bản ghi
+  `success` cùng `ma_tham_chieu`; `:151` ghi nhận thành công qua
+  `ghiNhanWebhook`; `:186-230` gộp theo `ma_giao_dich_ngoai`, hoặc chỉ vào bản
+  ghi báo cáo `sepay_api`/`can_doi_soat` cùng `ma_tham_chieu` **và** cùng
+  `so_tien`; `:232-238` cắt mã 100 ký tự. Hành vi webhook cũ (xác thực, chống
+  trùng theo `ma_giaodich`, hoàn tất đơn) không đổi.
 - `resources/views/doisoat/index.blade.php:37,52` — cột **Nguồn**, nhãn
   `api_doi_soat`; `show.blade.php:14-26` — nhãn nguồn và mã tham chiếu.
   Không thêm nút tự hoàn tất.
@@ -153,13 +167,30 @@ Toàn bộ dùng `Http::fake()` + `Http::preventStrayRequests()`, SQLite `:memor
 | `/doisoat` nhãn nguồn, chỉ admin | `test_T_SDS09_...` (quyền admin cũng có trong `DoiSoatTest`) |
 | Kiểm tra kết nối + log không chứa token | `SepayKiemTraKetNoiTest` (4 test, assert cả output và Monolog) |
 | Webhook thành công lưu `ma_tham_chieu` | `ThanhToanChuyenKhoanTest::test_T_CK03b_...` |
+| Hai giao dịch khác id cùng `referenceCode` đều hoàn tất, giữ bản ghi riêng | `test_T_CK03c_...` |
+| `referenceCode` rỗng/null/chỉ khoảng trắng không kích hoạt chống trùng | `test_T_CK03d_...` |
+| Webhook gửi lại đúng id cũ vẫn idempotent, chỉ một bản ghi | `test_T_CK05_...` |
+| Không tìm thấy hóa đơn/không tồn tại: ghi `/doisoat`, **không** Telegram | `SepayDoiSoatTest::test_T_SDS11_...` |
+| Giới hạn tin Telegram + một tin tóm tắt phần vượt | `test_T_SDS12_...` |
 | Health check token/lần đối soát | `KiemTraHeThongTest` (16 test) |
 
-Kết quả chạy thật:
+Kết quả chạy thật (đợt siết chống trùng + giảm nhiễu):
 
-- `XDEBUG_MODE=off php artisan test --filter='Sepay'`: **30 passed (151 assertions), 36.54s**.
-- `XDEBUG_MODE=off php artisan test`: **201 passed, 1 skipped (1208 assertions), 280.21s**, exit 0.
-  Skip duy nhất là `KhoaDongMysqlTest` (cần MySQL), không liên quan đợt này.
+- `XDEBUG_MODE=off php artisan test --filter='test_T_CK03c|test_T_CK03d|test_T_CK05'`:
+  **3 passed (34 assertions), 4.48s**.
+- `XDEBUG_MODE=off php artisan test --filter=SepayDoiSoatTest`:
+  **12 passed (91 assertions), 23.25s**.
+- `XDEBUG_MODE=off php artisan test`: **205 passed, 1 skipped (1249 assertions),
+  259.95s**, exit 0. 206 ca: 11 Unit + 195 Feature; skip duy nhất là
+  `KhoaDongMysqlTest` (cần MySQL), không liên quan đợt này.
+- Hai lượt chạy full trước đó đều gặp flake có sẵn tại `PosWorkflowTest` (trùng
+  `ma_phieu` trả hàng do `random_int(10,99)` trong cùng giây,
+  `TraHangController.php:77`); chạy riêng test đó 10/10 lần và cả lớp
+  `PosWorkflowTest` (32 passed) đều xanh. Không sửa vì ngoài phạm vi đợt này.
+
+Trước đợt siết, kết quả của đợt tính năng ban đầu: `--filter='Sepay'` **30 passed
+(151 assertions), 36.54s**; full suite **201 passed, 1 skipped (1208 assertions),
+280.21s**.
 
 **Khác biệt so với yêu cầu ban đầu:** yêu cầu có mục "`--ap-dung` hoàn tất đúng
 một lần và chạy lại không đổi". Do điều kiện an toàn số 4 (không chứng minh được
@@ -171,6 +202,13 @@ không ghi dữ liệu** thay vì hoàn tất. Đây là chủ ý, không phải
 - **Chỉ báo cáo**: không tự khớp lại tiền vào hóa đơn; admin vẫn xử lý thủ công
   tại `/doisoat`.
 - **Không có khóa chung được tài liệu chứng minh**; `--ap-dung` bị khóa.
+- **Mã tham chiếu chỉ để gộp hiển thị**: webhook không bị bỏ qua khi
+  `referenceCode` rỗng/trùng, và không ghi đè bản ghi webhook khác. Khi gộp vào
+  báo cáo API phải cùng mã **và** cùng số tiền.
+- **Nhiễu Telegram**: giao dịch lạ (không mã hóa đơn, hóa đơn không tồn tại) chỉ
+  vào `/doisoat`, không gửi Telegram. Mỗi lần chạy tối đa
+  `SEPAY_DOI_SOAT_TELEGRAM_TOI_DA` (mặc định 5) tin chi tiết, phần vượt gộp một
+  tin tóm tắt. Lần đầu nên chạy tay `--gio=1` và dùng tài khoản ngân hàng riêng.
 - **v1 deprecated, không hỗ trợ**; chỉ `SEPAY_API_VERSION=v2`.
 - **Rate limit ~3 req/giây**: client giữ 350 ms giữa các request và xử lý 429;
   cửa sổ lớn có thể mất nhiều thời gian/phân trang (giới hạn 1000 trang).
@@ -197,8 +235,11 @@ không ghi dữ liệu** thay vì hoàn tất. Đây là chủ ý, không phải
 2. **Khóa chung**: xác nhận bằng ít nhất một giao dịch thật rằng `referenceCode`
    của webhook trùng `reference_number` của API (hoặc cung cấp tài liệu SePay
    khẳng định điều này). Chỉ khi đó mới bàn đến việc mở `--ap-dung`.
-3. **Migration**: đồng ý thời điểm sao lưu và chạy `migrate --force` cho cột
-   `ma_tham_chieu` trên CSDL vận hành.
+3. **Migration và thứ tự bật**: đồng ý thời điểm sao lưu và chạy `migrate --force`
+   cho cột `ma_tham_chieu` trên CSDL vận hành. Thứ tự bắt buộc: **sao lưu →
+   `migrate --force` → `he-thong:kiem-tra` (không còn migration chờ) → mới bật
+   webhook và lịch đối soát**. Chạy code mới trước khi migrate sẽ làm webhook lỗi
+   500 do thiếu cột.
 4. **Lịch chạy**: xác nhận Task Scheduler đã gọi `schedule:run` mỗi phút để
    `sepay:doi-soat --gio=6` thực sự chạy; nếu không, health check sẽ WARN sau
    30 phút.
