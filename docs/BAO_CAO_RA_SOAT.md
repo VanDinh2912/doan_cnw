@@ -100,6 +100,30 @@
 
 ---
 
+## BƯỚC 1.8 — STOREFRONT: CHẨN ĐOÁN ĐÚNG (CẬP NHẬT 2026-11-11)
+
+Báo cáo lỗi ban đầu chỉ liệt kê nghi vấn; đợt này tái hiện bằng `curl` + log và sửa lỗi
+thật. Chi tiết đầy đủ: `docs/BAO_CAO_LOI_STOREFRONT.md`.
+
+| Route | Kết quả thật | Nguyên nhân | File:dòng |
+|---|---|---|---|
+| `GET /san-pham/{id}` | **500** trước sửa, **200** sau sửa | Query `$related` không eager-load `loaiSanPham`; view thẻ sản phẩm đọc quan hệ → `LazyLoadingViolationException` | `app/Http/Controllers/StorefrontController.php:75-82` (fix `:80`); `resources/views/storefront/partials/_product-card.blade.php:29`; `app/Providers/AppServiceProvider.php:28-30` |
+| `GET /danh-muc/{id}` | **200** (không phải lỗi) | Binding theo `id`; view/model tồn tại | `routes/web.php:8`; `app/Models/LoaiSanPham.php:9-21` |
+| `GET /danh-muc/sac` | 404 (đúng) | "sac" không phải id; bảng `categories` không có cột `slug` | `database/migrations/2026_01_01_000001_create_categories_table.php:11-16` |
+
+- **Đính chính:** "trả về trang mặc định Laravel kèm logo" = **trang lỗi 500 ở chế độ
+  debug**; không phải thiếu view. `/danh-muc/sac` 404 do dùng slug thay id, không phải
+  thiếu cột slug.
+- **Không phải môi trường/cache:** `bootstrap/cache/routes-*.php` không tồn tại;
+  `route:clear` + restart đúng thư mục mà 500 vẫn tái hiện (chi tiết ở báo cáo).
+- **Sửa tối thiểu:** thêm `->with('loaiSanPham')` cho query sản phẩm liên quan.
+- **Test:** `tests/Feature/StorefrontProductTest.php` (5 ca) — trước sửa 1 failed/4 passed,
+  sau sửa 5 passed. Toàn bộ suite: 171 pass, 1 skip, 824 assertions.
+- **Slug:** muốn `/danh-muc/{slug}` cần migration thêm cột `slug` — để mục "Cần người dùng
+  xác nhận"; đợt này không thêm schema.
+
+---
+
 ## BƯỚC 2 — BIẾN MÔI TRƯỜNG & XÁC THỰC WEBHOOK
 
 ### 2.1 Code thật sự đọc biến nào?

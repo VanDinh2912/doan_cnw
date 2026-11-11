@@ -639,7 +639,7 @@ php artisan test --compact
 Remove-Item Env:XDEBUG_MODE
 ```
 
-Các test nghiệp vụ hiện có (**167 test**: 166 pass, 1 skip; 814 assertions — xem
+Các test nghiệp vụ hiện có (**172 test**: 171 pass, 1 skip; 824 assertions — xem
 kết quả chạy thực tế ở mục 18):
 
 **Unit (11 test)**
@@ -649,7 +649,7 @@ kết quả chạy thực tế ở mục 18):
   sạch nội dung, template dự phòng.
 - `ExampleTest` Unit (1).
 
-**Feature (156 test, trong đó 1 skip)**
+**Feature (161 test, trong đó 1 skip)**
 
 - `AuthFlowTest` (7): đăng ký khách hàng, liên kết khách walk-in, chặn trùng số
   điện thoại, chuyển hướng theo vai trò, chặn khách hàng vào trang nhân viên.
@@ -682,6 +682,9 @@ kết quả chạy thực tế ở mục 18):
   báo lỗi rõ khi thiếu `mysqldump`.
 - `StorefrontHomeTest` (6): trang chủ storefront, sản phẩm thật, sắp xếp loại theo
   số sản phẩm, trạng thái rỗng, header theo vai trò.
+- `StorefrontProductTest` (5): chi tiết sản phẩm/danh mục trả 200 và hiển thị tên,
+  id không tồn tại trả 404 trang lỗi tiếng Việt, link danh mục trên trang chủ trỏ
+  đúng route; tái hiện lỗi lazy-load `loaiSanPham` ở danh sách sản phẩm liên quan.
 - `TacVuNenTest` (2): `hold:clean` chỉ xóa giỏ quá 24h, Telegram thành công.
 - `ThanhToanChuyenKhoanTest` (21: T-CK01..T-CK18 + 1 test route duy nhất + 2 test
   CSRF thật): tạo QR, webhook hợp lệ/sai key/trùng lặp/dư/thiếu/out, xác nhận/hủy
@@ -1126,6 +1129,12 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
 - **Bóc tách PDF là heuristic**: kết quả bóc tách được điền vào form hóa đơn
   nhập nháp để thủ kho rà soát trước khi xác nhận (Human-in-the-Loop ngay trong
   `resources/views/hoadonnhap/form.blade.php`); không tự động xác nhận nhập kho.
+- **Storefront — đã sửa lỗi 500 trang chi tiết sản phẩm**: `/san-pham/{id}` trước
+  đây trả 500 (`LazyLoadingViolationException: loaiSanPham`) vì query sản phẩm liên
+  quan không eager-load quan hệ; đã thêm `->with('loaiSanPham')`
+  (`StorefrontController.php:80`). `/danh-muc/{id}` vốn hoạt động; URL dạng slug
+  (`/danh-muc/sac`) trả 404 vì route binding theo `id` và bảng chưa có cột `slug`.
+  Chi tiết: `docs/BAO_CAO_LOI_STOREFRONT.md`.
 - **Task Scheduler phải cài thủ công trên máy cửa hàng**: script và hướng dẫn có
   sẵn ở mục 5, nhưng nếu chưa cài thì đơn quá hạn chỉ bị hủy "lười" khi POS poll và
   `he-thong:kiem-tra` báo `FAIL` ở mục *Scheduler* sau 3 phút không có nhịp.
@@ -1151,7 +1160,7 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
 - **`db:wipe` đã có chốt chặn production** như `migrate:fresh`: cần
   `--force-dangerous` và đúng tên database đích; `--force` đơn lẻ không đủ.
   Test chốt chặn dùng mock DB/schema/migrator, không xóa hay migrate CSDL thật.
-- **Kiểm thử hiện tại: 166 pass, 1 skip, 814 assertions** (231.37s,
+- **Kiểm thử hiện tại: 171 pass, 1 skip, 824 assertions** (309.48s,
   `XDEBUG_MODE=off`). `KhoaDongMysqlTest` bị skip vì SQLite không có khóa
   dòng/InnoDB; cần trỏ vào bản sao MySQL để chạy (mục 9). Lượt bổ sung này không
   kiểm lại MySQL hoặc luồng trình duyệt POS; số pass không thay thế kiểm tra đó.
@@ -1166,7 +1175,7 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
 
 ## 18. Kết quả kiểm tra
 
-Cập nhật lần cuối: **2026-11-10**, trên nhánh `feat/san-sang-van-hanh` (tiếp nối
+Cập nhật lần cuối: **2026-11-11**, trên nhánh `feat/san-sang-van-hanh` (tiếp nối
 `docs/ra-soat-readme`). Số liệu của đợt rà soát cũ được giữ lại để đối chiếu.
 
 | Kiểm tra | Kết quả | Ghi chú |
@@ -1217,6 +1226,20 @@ phương án múi giờ: [báo cáo vận hành](docs/BAO_CAO_SAN_SANG_VAN_HANH.
 | `php artisan route:list --json` | **103 routes** | POST `/api/webhook/thanhtoan`, tên `webhook.thanhtoan`, middleware chỉ còn `throttle:60,1` (đã bỏ nhóm `web`) |
 | Ngoại lệ CSRF | `bootstrap/app.php` thu về đúng `api/webhook/thanhtoan` | Không còn wildcard `api/webhook/*`; test khẳng định path khác vẫn 419 khi CSRF bật |
 | `.env` / lệnh phá hủy | **Không đọc/ghi; không chạy** | Không merge/push |
+
+### Đợt chẩn đoán lỗi storefront (2026-11-11)
+
+| Kiểm tra | Kết quả | Ghi chú |
+|----------|---------|---------|
+| `curl -i` `/san-pham/1` trước sửa (sau `route:clear` + restart) | **HTTP 500** | Log: `LazyLoadingViolationException: loaiSanPham` tại `_product-card.blade.php:29` |
+| `curl -i` `/danh-muc/1` và `/danh-muc/sac` | **200** và **404** | `/danh-muc/1` đúng (binding theo id); `/danh-muc/sac` 404 vì "sac" không phải id (bảng chưa có `slug`) |
+| `php artisan route:clear` + restart đúng thư mục | Không có `routes-*.php`; 500 vẫn tái hiện | Loại trừ cache/môi trường |
+| `--filter=StorefrontProductTest` trước/sau sửa | **1 failed, 4 passed** → **5 passed (10 assertions)** | Test đỏ đúng lỗi lazy-load; sửa 1 dòng `with('loaiSanPham')` |
+| `curl -i` `/san-pham/1` sau sửa | **HTTP 200**, tiêu đề tiếng Việt đúng | Danh sách sản phẩm liên quan render được |
+| `XDEBUG_MODE=off php artisan test --compact` (cuối) | **171 passed, 1 skipped (824 assertions), 309.48s**, exit 0 | 172 ca: 11 Unit + 161 Feature |
+
+Không đọc/ghi `.env`, không chạy migrate/seed/demo:reset, không tắt/comment route,
+không thêm migration/slug, không merge/push.
 
 Kết quả `he-thong:kiem-tra` trên CSDL thật ngày 2026-11-10 (trước triển khai, đợt ban đầu):
 
