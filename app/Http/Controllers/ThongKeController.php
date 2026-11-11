@@ -19,6 +19,9 @@ class ThongKeController extends Controller
             'sanPhamTonThap' => in_array(auth()->user()->role, ['admin', 'thukho'], true)
                 ? SanPham::whereColumn('soluong', '<=', 'soluong_toithieu')->orderBy('soluong')->get()
                 : collect(),
+            'canhBaoMatKhauMacDinh' => auth()->user()->role === 'admin'
+                ? app(\App\Services\CanhBaoMatKhauMacDinh::class)->danhSachEmail()
+                : [],
         ];
 
         return view('tongquan', $data);

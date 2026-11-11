@@ -138,6 +138,8 @@
                     <img id="qr-modal-image" src="" alt="Mã VietQR" class="img-fluid" style="width: 240px; height: 240px; object-fit: contain;">
                 </div>
 
+                <div id="qr-polling-status" class="alert alert-warning d-none text-start small mb-3"></div>
+
                 <div id="qr-modal-error" class="alert alert-warning d-none text-start small mb-3">
                     <i class="fa fa-triangle-exclamation me-1"></i>
                     <strong>Không thể tải ảnh QR.</strong><br>
@@ -177,6 +179,7 @@ const btnTaoQr = document.getElementById('btn-tao-qr');
 const modalVietQrEl = document.getElementById('modal-vietqr');
 const qrModalImage = document.getElementById('qr-modal-image');
 const qrModalError = document.getElementById('qr-modal-error');
+const qrPollingStatus = document.getElementById('qr-polling-status');
 const qrModalMaHoaDon = document.getElementById('qr-modal-ma-hoadon');
 const qrModalTongTien = document.getElementById('qr-modal-tong-tien');
 const qrModalCountdown = document.getElementById('qr-modal-countdown');
@@ -207,6 +210,33 @@ let timer;
 let scannerTimer;
 let scannerBuffer = '';
 let scannerLastKeyAt = 0;
+let loiPollingLienTiep = 0;
+
+/**
+ * Đọc phản hồi JSON mà không làm vỡ luồng khi máy chủ trả HTML (419/500/404).
+ * Không bao giờ tải lại trang ở đây: giỏ hàng nằm trong session nên chỉ cần
+ * báo lỗi và để thu ngân thao tác lại.
+ */
+async function docPhanHoi(response, thongDiepMacDinh) {
+    let data = null;
+    try {
+        data = await response.json();
+    } catch (e) {
+        data = null;
+    }
+    if (response.status === 419) {
+        return { ok: false, loi: 'Phiên làm việc đã hết hạn. Vui lòng tải lại trang (F5) rồi thử lại; giỏ hàng vẫn được giữ.' };
+    }
+    if (!response.ok) {
+        const thongDiepMayChu = data && (data.error || data.message);
+        return { ok: false, loi: thongDiepMayChu || `${thongDiepMacDinh} (mã lỗi ${response.status}).` };
+    }
+    if (!data) {
+        return { ok: false, loi: thongDiepMacDinh };
+    }
+    return { ok: true, data };
+}
+
 function hienThiKetQua(products) {
     result.innerHTML = '';
     products.forEach(product => {
@@ -250,18 +280,35 @@ function hienThiKetQua(products) {
 }
 async function timKiem(query, chinhXac = false) {
     const categoryQuery = category.value ? `&category_id=${category.value}` : '';
-    const response = await fetch(`{{ route('sanpham.timkiem') }}?q=${encodeURIComponent(query)}${chinhXac ? '&chinhxac=1' : ''}${categoryQuery}`);
-    hienThiKetQua(await response.json());
+    try {
+        const response = await fetch(`{{ route('sanpham.timkiem') }}?q=${encodeURIComponent(query)}${chinhXac ? '&chinhxac=1' : ''}${categoryQuery}`);
+        const kq = await docPhanHoi(response, 'Không tải được danh sách sản phẩm.');
+        if (!kq.ok) {
+            result.innerHTML = `<div class="alert alert-warning">${kq.loi}</div>`;
+            return;
+        }
+        hienThiKetQua(kq.data);
+    } catch (e) {
+        result.innerHTML = '<div class="alert alert-warning">Mất kết nối tới máy chủ. Giỏ hàng vẫn được giữ, vui lòng thử lại.</div>';
+    }
 }
 async function themTuBarcode(barcode) {
     const categoryQuery = category.value ? `&category_id=${category.value}` : '';
-    const response = await fetch(`{{ route('sanpham.timkiem') }}?q=${encodeURIComponent(barcode)}&chinhxac=1${categoryQuery}`);
-    const products = await response.json();
-    if (products.length !== 1) {
-        result.innerHTML = '<div class="alert alert-warning">Không tìm thấy barcode hoặc sản phẩm đã hết hàng.</div>';
-        return;
+    try {
+        const response = await fetch(`{{ route('sanpham.timkiem') }}?q=${encodeURIComponent(barcode)}&chinhxac=1${categoryQuery}`);
+        const kq = await docPhanHoi(response, 'Không tra được barcode.');
+        if (!kq.ok) {
+            result.innerHTML = `<div class="alert alert-warning">${kq.loi}</div>`;
+            return;
+        }
+        if (kq.data.length !== 1) {
+            result.innerHTML = '<div class="alert alert-warning">Không tìm thấy barcode hoặc sản phẩm đã hết hàng.</div>';
+            return;
+        }
+        window.location.href = `{{ url('/giohang/them') }}/${kq.data[0].id}`;
+    } catch (e) {
+        result.innerHTML = '<div class="alert alert-warning">Mất kết nối tới máy chủ. Giỏ hàng vẫn được giữ, vui lòng thử lại.</div>';
     }
-    window.location.href = `{{ url('/giohang/them') }}/${products[0].id}`;
 }
 document.addEventListener('keydown', (event) => {
     if (document.activeElement !== input) return;
@@ -327,15 +374,16 @@ btnTaoQr?.addEventListener('click', async () => {
             })
         });
 
-        const data = await response.json();
-        if (!response.ok) {
-            alert(data.error || 'Không thể tạo mã QR thanh toán.');
-            btnTaoQr.disabled = false;
-            btnTaoQr.innerHTML = '<i class="fa fa-qrcode me-1"></i> Tạo mã QR';
+        const kq = await docPhanHoi(response, 'Không thể tạo mã QR thanh toán.');
+        if (!kq.ok) {
+            alert(kq.loi);
             return;
         }
+        const data = kq.data;
 
         currentInvoiceId = data.id;
+        qrPollingStatus.classList.add('d-none');
+        loiPollingLienTiep = 0;
         qrModalMaHoaDon.textContent = data.ma_hoadon;
         qrModalTongTien.textContent = Number(data.tong_thanh_toan).toLocaleString('vi-VN') + ' đ';
 
@@ -366,14 +414,20 @@ btnTaoQr?.addEventListener('click', async () => {
                     const stRes = await fetch(`/donhang/trangthai/${currentInvoiceId}`, {
                         headers: { 'Accept': 'application/json' }
                     });
-                    const stData = await stRes.json();
-                    if (stData.trang_thai === 'da_huy') {
+                    const stKq = await docPhanHoi(stRes, 'Không kiểm tra được trạng thái hóa đơn.');
+                    if (!stKq.ok) {
+                        qrPollingStatus.textContent = stKq.loi;
+                        qrPollingStatus.classList.remove('d-none');
+                    } else if (stKq.data.trang_thai === 'da_huy') {
                         currentInvoiceId = null;
                         bsModalInstance.hide();
                         alert('Hóa đơn đã hết thời gian chờ và tự động hủy.');
                         window.location.reload();
                     }
-                } catch (e) {}
+                } catch (e) {
+                    qrPollingStatus.textContent = 'Mất kết nối khi kiểm tra trạng thái. Hóa đơn vẫn đang chờ thanh toán.';
+                    qrPollingStatus.classList.remove('d-none');
+                }
                 return;
             }
             const phut = Math.floor(conLai / 60000);
@@ -387,7 +441,18 @@ btnTaoQr?.addEventListener('click', async () => {
                 const res = await fetch(`/donhang/trangthai/${currentInvoiceId}`, {
                     headers: { 'Accept': 'application/json' }
                 });
-                const resData = await res.json();
+                const kq = await docPhanHoi(res, 'Không kiểm tra được trạng thái hóa đơn.');
+                if (!kq.ok) {
+                    loiPollingLienTiep++;
+                    if (loiPollingLienTiep >= 3) {
+                        stopPollingAndTimer();
+                        qrPollingStatus.textContent = `${kq.loi} Đã tạm dừng tự động kiểm tra; hóa đơn vẫn ở trạng thái chờ thanh toán.`;
+                        qrPollingStatus.classList.remove('d-none');
+                    }
+                    return;
+                }
+                loiPollingLienTiep = 0;
+                const resData = kq.data;
                 if (resData.trang_thai === 'da_thanh_toan') {
                     stopPollingAndTimer();
                     currentInvoiceId = null;
@@ -402,12 +467,17 @@ btnTaoQr?.addEventListener('click', async () => {
                     window.location.reload();
                 }
             } catch (err) {
-                console.error('Polling error:', err);
+                loiPollingLienTiep++;
+                if (loiPollingLienTiep >= 3) {
+                    stopPollingAndTimer();
+                    qrPollingStatus.textContent = 'Mất kết nối tới máy chủ. Đã tạm dừng tự động kiểm tra; hóa đơn vẫn ở trạng thái chờ thanh toán.';
+                    qrPollingStatus.classList.remove('d-none');
+                }
             }
         }, 3000);
 
     } catch (e) {
-        alert('Lỗi tạo mã QR: ' + e.message);
+        alert('Mất kết nối tới máy chủ nên chưa tạo được mã QR. Giỏ hàng vẫn được giữ, vui lòng thử lại.');
     } finally {
         btnTaoQr.disabled = false;
         btnTaoQr.innerHTML = '<i class="fa fa-qrcode me-1"></i> Tạo mã QR';
@@ -430,19 +500,19 @@ btnModalXacNhan?.addEventListener('click', async () => {
                 'Accept': 'application/json'
             }
         });
-        const data = await res.json();
-        if (res.ok && data.success) {
+        const kq = await docPhanHoi(res, 'Không thể xác nhận thanh toán.');
+        if (kq.ok && kq.data.success) {
             stopPollingAndTimer();
             currentInvoiceId = null;
             bsModalInstance.hide();
-            window.location.href = data.url_in;
+            window.location.href = kq.data.url_in;
         } else {
-            alert(data.error || 'Không thể xác nhận thanh toán.');
+            alert(kq.ok ? (kq.data.error || 'Không thể xác nhận thanh toán.') : kq.loi);
             btnModalXacNhan.disabled = false;
             btnModalXacNhan.innerHTML = '<i class="fa fa-check me-1"></i> Xác nhận đã nhận tiền';
         }
     } catch (e) {
-        alert('Lỗi kết nối khi xác nhận: ' + e.message);
+        alert('Mất kết nối tới máy chủ nên chưa xác nhận được. Hóa đơn vẫn ở trạng thái chờ thanh toán.');
         btnModalXacNhan.disabled = false;
         btnModalXacNhan.innerHTML = '<i class="fa fa-check me-1"></i> Xác nhận đã nhận tiền';
     }
@@ -464,20 +534,20 @@ btnModalHuyCho?.addEventListener('click', async () => {
                 'Accept': 'application/json'
             }
         });
-        const data = await res.json();
-        if (res.ok && data.success) {
+        const kq = await docPhanHoi(res, 'Không thể hủy chờ thanh toán.');
+        if (kq.ok && kq.data.success) {
             stopPollingAndTimer();
             currentInvoiceId = null;
             bsModalInstance.hide();
             alert('Đã hủy chờ thanh toán thành công.');
             window.location.reload();
         } else {
-            alert(data.error || 'Không thể hủy chờ thanh toán.');
+            alert(kq.ok ? (kq.data.error || 'Không thể hủy chờ thanh toán.') : kq.loi);
             btnModalHuyCho.disabled = false;
             btnModalHuyCho.innerHTML = '<i class="fa fa-times me-1"></i> Hủy chờ';
         }
     } catch (e) {
-        alert('Lỗi kết nối khi hủy chờ: ' + e.message);
+        alert('Mất kết nối tới máy chủ nên chưa hủy được. Hóa đơn vẫn ở trạng thái chờ thanh toán.');
         btnModalHuyCho.disabled = false;
         btnModalHuyCho.innerHTML = '<i class="fa fa-times me-1"></i> Hủy chờ';
     }
@@ -498,8 +568,19 @@ customerPhone.addEventListener('input', async () => {
     const phone = customerPhone.value.trim();
     customerResults.innerHTML = '';
     if (!phone) return;
-    const response = await fetch(`{{ route('khachhang.timkiem') }}?sdt=${encodeURIComponent(phone)}`);
-    const customers = await response.json();
+    let customers = [];
+    try {
+        const response = await fetch(`{{ route('khachhang.timkiem') }}?sdt=${encodeURIComponent(phone)}`);
+        const kq = await docPhanHoi(response, 'Không tra được khách hàng.');
+        if (!kq.ok) {
+            customerResults.innerHTML = `<div class="alert alert-warning small mb-0">${kq.loi}</div>`;
+            return;
+        }
+        customers = kq.data;
+    } catch (e) {
+        customerResults.innerHTML = '<div class="alert alert-warning small mb-0">Mất kết nối tới máy chủ, vui lòng thử lại.</div>';
+        return;
+    }
     customers.forEach(customer => {
         const button = document.createElement('button');
         button.type = 'button';

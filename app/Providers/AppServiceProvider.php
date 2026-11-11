@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Schema;
 
@@ -21,5 +22,11 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Schema::defaultStringLength(150);
+
+        // Ngoài production, ném lỗi khi quan hệ bị lazy-load để phát hiện N+1
+        // ngay trong lúc phát triển/test thay vì âm thầm bắn truy vấn.
+        if (! $this->app->isProduction()) {
+            Model::preventLazyLoading();
+        }
     }
 }

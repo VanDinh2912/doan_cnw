@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ChanLenhPhaHuy;
 use App\Models\KhachHang;
 use App\Models\NhaCungCap;
 use Illuminate\Console\Command;
@@ -9,11 +10,21 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class NhapDuLieuTaiLieu extends Command
 {
-    protected $signature = 'documents:import {--customers} {--suppliers}';
+    use ChanLenhPhaHuy;
+
+    protected $signature = 'documents:import
+                            {--customers}
+                            {--suppliers}
+                            {--force-dangerous : Cho phép chạy ở production (vẫn phải nhập lại tên database)}
+                            {--ten-db-xac-nhan= : Tên database xác nhận khi chạy production không tương tác}';
     protected $description = 'Nhập dữ liệu khách hàng và nhà cung cấp từ TaiLieu';
 
     public function handle(): int
     {
+        if ($this->xacNhanLenhPhaHuy() === false) {
+            return self::FAILURE;
+        }
+
         $importCustomers = $this->option('customers') || (! $this->option('customers') && ! $this->option('suppliers'));
         $importSuppliers = $this->option('suppliers') || (! $this->option('customers') && ! $this->option('suppliers'));
 

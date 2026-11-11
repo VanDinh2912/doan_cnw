@@ -13,7 +13,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->validateCsrfTokens(except: [
-            'api/webhook/*',
+            'api/webhook/thanhtoan',
         ]);
 
         $middleware->redirectGuestsTo(fn () => route('auth.dangnhap'));

@@ -10,6 +10,23 @@
     </div>
 </div>
 
+@if (! empty($canhBaoMatKhauMacDinh))
+    <div class="alert alert-warning" role="alert">
+        <div class="d-flex align-items-center gap-2">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <strong>Cảnh báo bảo mật: tài khoản còn dùng mật khẩu mặc định</strong>
+        </div>
+        <ul class="mb-1 mt-2">
+            @foreach ($canhBaoMatKhauMacDinh as $email)
+                <li>{{ $email }}</li>
+            @endforeach
+        </ul>
+        <div>
+            Đổi ngay bằng <code>php artisan nguoidung:doi-matkhau &lt;email&gt;</code> trước khi đưa hệ thống vào sử dụng thật.
+        </div>
+    </div>
+@endif
+
 <div class="row g-3 mb-4">
     <div class="col-sm-6 col-lg-4">
         <div class="stat-card">

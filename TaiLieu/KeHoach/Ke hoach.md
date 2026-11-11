@@ -430,8 +430,8 @@ Tài liệu `Giai doan 4.pdf` (được chuẩn hóa từ phụ lục VietQR) m�
 - **Bước 2** ✅: Xây dựng `App\Services\VietQrService` chuẩn hóa logic tạo QR và làm sạch nội dung.
 - **Bước 3** ✅: Viết Unit Test `tests/Unit/VietQrServiceTest.php` kiểm tra toàn bộ ca T61 đến T65 (5/5 passed).
 - **Bước 4** ✅: Thêm route `GET /pos/vietqr` và cập nhật view `pos/index.blade.php` để lấy QR an toàn từ server thay vì build client-side.
-- **Bước 5** ✅: Tạo migration bảng `payment_webhooks` và cột `ma_giao_dich` trong `invoices`. Tạo Model `PaymentWebhook`. Cập nhật Model `DonHang` (sửa `ma_giaodich` → `ma_giao_dich`, thêm relationship `paymentWebhooks`).
-- **Bước 6** ✅: Xây dựng `PaymentWebhookController` tại `POST /api/webhook/thanhtoan` và viết Feature Test T66–T68 (3/3 passed, 13 assertions).
+- **Bước 5** ✅: Tạo migration bảng `payment_webhooks` và cột `ma_giao_dich` trong `invoices`. Tạo Model `PaymentWebhook`. Cập nhật Model `DonHang`: thêm `ma_giao_dich` song song với `ma_giaodich` đã có (giữ `ma_giaodich` làm cột chuẩn), thêm relationship `paymentWebhooks`.
+- **Bước 6** ✅: Xây dựng `WebhookController@postThanhToan` tại `POST /api/webhook/thanhtoan`; test webhook hiện nằm trong `tests/Feature/ThanhToanChuyenKhoanTest.php` (T-CK03–T-CK09) và `tests/Feature/DoiSoatTest.php` (T-DS07).
 
 ## 5. Tổng kết Giai đoạn 4
 
@@ -442,21 +442,21 @@ Tài liệu `Giai doan 4.pdf` (được chuẩn hóa từ phụ lục VietQR) m�
 |------|-------|
 | `app/Services/VietQrService.php` | Service tạo URL ảnh VietQR server-side |
 | `app/Models/PaymentWebhook.php` | Model bảng log webhook thanh toán |
-| `app/Http/Controllers/Api/PaymentWebhookController.php` | Controller nhận webhook, HMAC, idempotent, lockForUpdate |
+| `app/Http/Controllers/WebhookController.php` | Controller nhận webhook SePay (thay cho `Api/PaymentWebhookController` đã xóa), xác thực API key, idempotent, lockForUpdate |
 | `routes/api.php` | Route API `POST /api/webhook/thanhtoan` |
 | `database/migrations/2026_11_02_033147_add_ma_giao_dich_to_invoices_table.php` | Thêm cột `ma_giao_dich` vào invoices |
 | `database/migrations/2026_11_02_033152_create_payment_webhooks_table.php` | Tạo bảng `payment_webhooks` |
 | `tests/Unit/VietQrServiceTest.php` | Unit test T61–T65 (5 tests) |
-| `tests/Feature/PaymentWebhookTest.php` | Feature test T66–T68 (3 tests) |
+| `tests/Feature/ThanhToanChuyenKhoanTest.php` | Feature test webhook SePay T-CK03–T-CK09 |
 
 ### File đã sửa
 | File | Thay đổi |
 |------|----------|
-| `config/pos.php` | Thêm `qr_template`, `webhook_secret` |
+| `config/pos.php` | Thêm `qr_template`, `sepay_webhook_api_key` |
 | `bootstrap/app.php` | Đăng ký `routes/api.php` |
 | `routes/web.php` | Thêm route `GET /pos/vietqr` |
 | `app/Http/Controllers/DonHangController.php` | Thêm method `getVietQr()` trả JSON |
-| `app/Models/DonHang.php` | Sửa fillable `ma_giao_dich`, thêm relationship `paymentWebhooks()` |
+| `app/Models/DonHang.php` | Thêm fillable `ma_giao_dich` (giữ `ma_giaodich` là cột chuẩn), thêm relationship `paymentWebhooks()` |
 | `resources/views/pos/index.blade.php` | Refactor `capNhatQr()` từ client-side sang AJAX fetch server |
 
 ---

@@ -21,6 +21,7 @@ Route::name('storefront.')->group(function (): void {
 Route::get('/dangnhap', [\App\Http\Controllers\AuthController::class, 'getDangNhap'])
     ->name('auth.dangnhap');
 Route::post('/dangnhap', [\App\Http\Controllers\AuthController::class, 'postDangNhap'])
+    ->middleware('throttle:10,1')
     ->name('auth.postdangnhap');
 Route::get('/dang-ky', [\App\Http\Controllers\AuthController::class, 'getDangKy'])
     ->name('auth.dangky');
@@ -31,6 +32,7 @@ Route::get('/dangxuat', [\App\Http\Controllers\AuthController::class, 'getDangXu
     ->name('auth.dangxuat');
 
 Route::post('/api/webhook/thanhtoan', [\App\Http\Controllers\WebhookController::class, 'postThanhToan'])
+    ->withoutMiddleware('web')
     ->middleware('throttle:60,1')
     ->name('webhook.thanhtoan');
 
@@ -150,6 +152,9 @@ Route::middleware(['auth', 'staff.only'])->group(function (): void {
     Route::middleware('role:admin')->group(function (): void {
         Route::post('/kiemke/{phieu}/duyet', [\App\Http\Controllers\KiemKeController::class, 'approve'])->name('kiemke.approve');
         Route::get('/nhatky', [\App\Http\Controllers\NhatKyController::class, 'index'])->name('nhatky.index');
+        Route::get('/doisoat', [\App\Http\Controllers\DoiSoatController::class, 'index'])->name('doisoat.index');
+        Route::get('/doisoat/{webhook}', [\App\Http\Controllers\DoiSoatController::class, 'show'])->name('doisoat.show');
+        Route::post('/doisoat/{webhook}/xuly', [\App\Http\Controllers\DoiSoatController::class, 'xuLy'])->name('doisoat.xuly');
         Route::post('/trahang/duyet/{phieuTra}', [\App\Http\Controllers\TraHangController::class, 'postDuyet'])->name('trahang.duyet');
         Route::get('/thongke', [\App\Http\Controllers\ThongKeController::class, 'getTrangThongKe'])
             ->name('thongke.index');

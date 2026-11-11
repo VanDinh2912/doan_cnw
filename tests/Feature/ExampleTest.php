@@ -2,11 +2,14 @@
 
 namespace Tests\Feature;
 
-// use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class ExampleTest extends TestCase
 {
+    // Trang đăng nhập đọc bảng users để cảnh báo mật khẩu mặc định.
+    use RefreshDatabase;
+
     /**
      * A basic test example.
      */

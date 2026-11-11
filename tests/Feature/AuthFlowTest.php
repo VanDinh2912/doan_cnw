@@ -26,7 +26,7 @@ class AuthFlowTest extends TestCase
         $this->get('/')
             ->assertOk()
             ->assertSee('PhoneShop')
-            ->assertSee('Điện thoại nổi bật')
+            ->assertSee('Phụ kiện nổi bật')
             ->assertSee('Đăng nhập')
             ->assertSee('Đăng ký');
     }

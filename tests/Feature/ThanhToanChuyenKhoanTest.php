@@ -2,14 +2,24 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\WebhookController;
 use App\Models\BienDongKho;
 use App\Models\ChiTietDonHang;
 use App\Models\DonHang;
 use App\Models\KhachHang;
 use App\Models\SanPham;
 use App\Models\User;
+use Illuminate\Contracts\Http\Kernel;
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
+use Illuminate\Routing\Middleware\ThrottleRequests;
+use Illuminate\Routing\Route as RoutingRoute;
+use Illuminate\Routing\RouteCollection;
+use Illuminate\Session\TokenMismatchException;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
 class ThanhToanChuyenKhoanTest extends TestCase
@@ -32,6 +42,118 @@ class ThanhToanChuyenKhoanTest extends TestCase
         Config::set('pos.cho_thanh_toan_phut', 15);
         Config::set('pos.telegram_bot_token', '');
         Config::set('pos.telegram_chat_id', '');
+    }
+
+    public function test_webhook_chi_dang_ky_mot_post_dung_action_name_va_throttle(): void
+    {
+        $this->app->make(Kernel::class);
+        $routesGoc = Route::getRoutes();
+        // RouteCollection ghi đè URI trùng nhau nên phải đếm ngay lúc đăng ký.
+        $routes = new class extends RouteCollection
+        {
+            public int $soPostWebhook = 0;
+
+            public function add(RoutingRoute $route)
+            {
+                if ($route->uri() === 'api/webhook/thanhtoan' && in_array('POST', $route->methods(), true)) {
+                    $this->soPostWebhook++;
+                }
+
+                return parent::add($route);
+            }
+        };
+
+        try {
+            Route::setRoutes($routes);
+            Route::prefix('api')->middleware('api')->group(base_path('routes/api.php'));
+            Route::middleware('web')->group(base_path('routes/web.php'));
+            $routes->refreshNameLookups();
+
+            $webhooks = collect($routes->getRoutes())->filter(fn (RoutingRoute $route) =>
+                $route->uri() === 'api/webhook/thanhtoan' && in_array('POST', $route->methods(), true)
+            )->values();
+
+            $this->assertSame(1, $routes->soPostWebhook);
+            $this->assertCount(1, $webhooks);
+            $this->assertSame(['POST'], $webhooks[0]->methods());
+            $this->assertSame('webhook.thanhtoan', $webhooks[0]->getName());
+            $this->assertSame(WebhookController::class.'@postThanhToan', $webhooks[0]->getActionName());
+            $this->assertContains('throttle:60,1', $webhooks[0]->gatherMiddleware());
+            $this->assertSame([ThrottleRequests::class.':60,1'], $this->app['router']->gatherRouteMiddleware($webhooks[0]));
+            $this->assertFalse(Route::has('api.webhook.thanhtoan'));
+        } finally {
+            Route::setRoutes($routesGoc);
+        }
+    }
+
+    public function test_csrf_dang_bat_chi_mien_dung_path_webhook(): void
+    {
+        $middleware = $this->middlewareCsrfDangBat();
+        $this->assertSame(['api/webhook/thanhtoan'], $middleware->getExcludedPaths());
+        $session = $this->app['session']->driver();
+        $session->start();
+        $this->assertNotEmpty($session->token());
+
+        foreach ([
+            '/api/webhook/thanhtoan' => 204,
+            '/api/webhook/khac' => 419,
+            '/api/webhook/thanhtoan/khac' => 419,
+            '/dangnhap' => 419,
+        ] as $path => $statusMongDoi) {
+            $request = Request::create($path, 'POST');
+            $request->setLaravelSession($session);
+
+            try {
+                $status = $middleware->handle($request, fn () => response('', 204))->getStatusCode();
+            } catch (TokenMismatchException) {
+                $status = 419;
+            }
+
+            $this->assertSame($statusMongDoi, $status, $path);
+        }
+    }
+
+    public function test_webhook_khong_can_session_cookie_khi_csrf_dang_bat(): void
+    {
+        $this->app->instance(ValidateCsrfToken::class, $this->middlewareCsrfDangBat());
+
+        $response = $this->postJson(route('webhook.thanhtoan'), []);
+        $response->assertUnauthorized()->assertJson(['error' => 'Unauthorized']);
+        $this->assertFalse($this->app['request']->hasSession());
+        $this->assertSame([], $this->app['request']->cookies->all());
+        $this->assertSame([], $response->headers->getCookies());
+
+        $response = $this->guiSepayWebhook([]);
+        $response->assertStatus(400)->assertJson(['error' => 'Invalid payload']);
+        $this->assertFalse($this->app['request']->hasSession());
+        $this->assertSame([], $response->headers->getCookies());
+
+        $donHang = $this->taoHoaDonChoThanhToan();
+        $response = $this->guiSepayWebhook([
+            'id' => 987654321,
+            'transferAmount' => 200000,
+            'transferType' => 'in',
+            'content' => $donHang->ma_hoadon,
+        ]);
+        $response->assertOk()->assertJson(['success' => true]);
+        $this->assertSame('da_thanh_toan', $donHang->fresh()->trang_thai);
+        $this->assertFalse($this->app['request']->hasSession());
+        $this->assertSame([], $response->headers->getCookies());
+
+        $this->postJson(route('auth.postdangnhap'), [])->assertStatus(419);
+    }
+
+    private function middlewareCsrfDangBat(): ValidateCsrfToken
+    {
+        $this->app->make(Kernel::class);
+
+        return new class($this->app, $this->app['encrypter']) extends ValidateCsrfToken
+        {
+            protected function runningUnitTests()
+            {
+                return false;
+            }
+        };
     }
 
     /**
@@ -540,18 +662,157 @@ class ThanhToanChuyenKhoanTest extends TestCase
         // 2. Không được tính vào doanh thu thống kê
         $resDoanhThu = $this->actingAs($this->admin)->get(route('thongke.doanhthu'));
         $resDoanhThu->assertOk();
-        $duLieu = $resDoanhThu->json();
-        // Kiểm tra hóa đơn chưa thanh toán không nằm trong doanh thu
-        $this->assertIsArray($duLieu);
+        // Hóa đơn chưa thanh toán không được xuất hiện trong doanh thu.
+        $this->assertSame([], $resDoanhThu->json());
 
         // 3. Sau khi thanh toán thành công
         $this->actingAs($this->cashier)
             ->postJson(route('donhang.xacnhan', $donHang))
             ->assertOk();
 
-        // 4. In được hóa đơn
+        // 4. Doanh thu ghi nhận đúng số tiền của hóa đơn vừa thanh toán.
+        $doanhThu = $this->actingAs($this->admin)
+            ->get(route('thongke.doanhthu'))
+            ->assertOk()
+            ->json();
+        $this->assertCount(1, $doanhThu);
+        $this->assertSame(now()->format('Y-m-d'), $doanhThu[0]['ngay']);
+        $this->assertSame(100000, (int) $doanhThu[0]['doanh_thu']);
+
+        // 5. In được hóa đơn
         $this->actingAs($this->cashier)
             ->get(route('donhang.inhoadon', $donHang))
             ->assertOk();
+    }
+
+    // ----------------------------------------------------------------
+    // T-CK17: Webhook tới đơn đã hủy ➜ bỏ qua, không đổi trạng thái/kho/điểm
+    // ----------------------------------------------------------------
+    public function test_T_CK17_webhook_toi_don_da_huy_bi_bo_qua(): void
+    {
+        $sp = SanPham::firstOrFail();
+
+        $kh = KhachHang::create([
+            'ho_ten'       => 'Test Webhook Da Huy',
+            'so_dienthoai' => '0977112233',
+            'diem_tichluy' => 25,
+        ]);
+
+        $donHang = $this->taoHoaDonChoThanhToan(200000, $kh, 0, 20);
+        // Cho đơn quá hạn rồi chạy lệnh hủy để có trạng thái da_huy thật (kho đã hoàn).
+        $donHang->created_at = now()->subMinutes(20);
+        $donHang->save();
+        $this->artisan('donhang:huy-qua-han')->assertExitCode(0);
+
+        $donHang->refresh();
+        $this->assertSame('da_huy', $donHang->trang_thai);
+        $tonKhoSauHuy = $sp->fresh()->soluong;
+        $diemSauHuy   = $kh->fresh()->diem_tichluy;
+
+        $cleanMa = str_replace('-', '', $donHang->ma_hoadon);
+        $response = $this->guiSepayWebhook([
+            'id'             => 778899,
+            'transferType'   => 'in',
+            'transferAmount' => 200000,
+            'content'        => 'THANH TOAN DON ' . $cleanMa,
+        ]);
+
+        $response->assertOk();
+        $response->assertJson(['success' => true, 'message' => 'Hóa đơn đã bị hủy trước đó.']);
+
+        // Đơn vẫn da_huy: không ghi mã giao dịch, không cộng điểm, không hoàn kho lần 2.
+        $donHang->refresh();
+        $this->assertSame('da_huy', $donHang->trang_thai);
+        $this->assertNull($donHang->ma_giaodich);
+        $this->assertNull($donHang->ma_giao_dich);
+        $this->assertNull($donHang->thoi_gian_thanh_toan);
+        $this->assertSame($tonKhoSauHuy, $sp->fresh()->soluong);
+        $this->assertSame($diemSauHuy, $kh->fresh()->diem_tichluy);
+
+        // Tiền đã về mà không hoàn tất được đơn => phải nằm trong hàng chờ đối soát.
+        $this->assertDatabaseHas('payment_webhooks', [
+            'ma_giao_dich_ngoai' => '778899',
+            'invoice_id' => $donHang->id,
+            'ket_qua' => 'can_doi_soat',
+            'ly_do' => 'don_da_huy',
+            'trang_thai_xu_ly' => 'chua_xu_ly',
+            'so_tien' => 200000,
+        ]);
+        $this->assertDatabaseCount('payment_webhooks', 1);
+
+        // SePay gửi lại cùng mã giao dịch: không nhân đôi bản ghi đối soát.
+        $this->guiSepayWebhook([
+            'id' => 778899, 'transferType' => 'in',
+            'transferAmount' => 200000, 'content' => 'THANH TOAN DON ' . $cleanMa,
+        ])->assertOk();
+        $this->assertDatabaseCount('payment_webhooks', 1);
+    }
+
+    // ----------------------------------------------------------------
+    // T-CK18: Webhook tới đơn quá hạn nhưng CHƯA bị hủy ➜ vẫn hoàn tất,
+    // kèm ghi chú "Thanh toán trễ hạn" trên đơn và cảnh báo Telegram cho thu ngân.
+    // Hành vi hoàn tất được giữ nguyên; chỉ bổ sung dấu vết để đối soát.
+    // ----------------------------------------------------------------
+    public function test_T_CK18_webhook_toi_don_qua_han_chua_huy_van_hoan_tat(): void
+    {
+        Http::fake(['api.telegram.org/*' => Http::response(['ok' => true], 200)]);
+        Config::set('pos.telegram_bot_token', 'test_telegram_token');
+        Config::set('pos.telegram_chat_id', '123456');
+
+        $sp = SanPham::firstOrFail();
+
+        $kh = KhachHang::create([
+            'ho_ten'       => 'Test Webhook Qua Han',
+            'so_dienthoai' => '0966445577',
+            'diem_tichluy' => 10,
+        ]);
+
+        $donHang = $this->taoHoaDonChoThanhToan(250000, $kh, 0, 25);
+        // Quá hạn chờ 15 phút nhưng không ai poll/chạy lệnh hủy nên vẫn cho_thanh_toan.
+        $donHang->created_at = now()->subMinutes(30);
+        $donHang->save();
+
+        $tonKhoSauKhiCho = $sp->fresh()->soluong;
+        $this->assertSame('cho_thanh_toan', $donHang->fresh()->trang_thai);
+
+        $cleanMa = str_replace('-', '', $donHang->ma_hoadon);
+        $response = $this->guiSepayWebhook([
+            'id'             => 334455,
+            'transferType'   => 'in',
+            'transferAmount' => 250000,
+            'content'        => 'THANH TOAN DON ' . $cleanMa,
+        ]);
+
+        $response->assertOk();
+        $response->assertJson(['success' => true, 'message' => 'Xác nhận thanh toán thành công.']);
+
+        $donHang->refresh();
+        $this->assertSame('da_thanh_toan', $donHang->trang_thai);
+        $this->assertSame('334455', $donHang->ma_giaodich);
+        $this->assertSame('334455', $donHang->ma_giao_dich);
+        $this->assertNotNull($donHang->thoi_gian_thanh_toan);
+
+        // Điểm thưởng vẫn được cộng dù đơn đã quá hạn chờ.
+        $this->assertSame(35, $kh->fresh()->diem_tichluy); // 10 + 25
+
+        // Tồn kho giữ nguyên mức đã trừ lúc tạo đơn chờ: không trừ lần 2, không hoàn kho.
+        $this->assertSame($tonKhoSauKhiCho, $sp->fresh()->soluong);
+
+        // Dấu vết trễ hạn để thu ngân biết mà đối soát.
+        $this->assertNotNull($donHang->ghi_chu);
+        $this->assertStringContainsString('Thanh toán trễ hạn', $donHang->ghi_chu);
+        $this->assertStringContainsString('15 phút', $donHang->ghi_chu);
+
+        // Đơn hoàn tất thành công nên KHÔNG nằm trong hàng chờ đối soát.
+        $this->assertDatabaseHas('payment_webhooks', [
+            'ma_giao_dich_ngoai' => '334455',
+            'ket_qua' => 'success',
+        ]);
+        $this->assertDatabaseCount('payment_webhooks', 1);
+
+        // Telegram phải nhận cả thông báo thành công lẫn cảnh báo trễ hạn.
+        Http::assertSent(fn ($request) => str_contains($request['text'] ?? '', 'THANH TOÁN TRỄ HẠN')
+            && str_contains($request['text'] ?? '', $donHang->ma_hoadon));
+        Http::assertSent(fn ($request) => str_contains($request['text'] ?? '', 'Đã nhận'));
     }
 }
