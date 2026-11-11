@@ -112,6 +112,18 @@ class ThongBaoService
     }
 
     /**
+     * Gộp phần giao dịch vượt giới hạn thông báo của một lần đối soát.
+     */
+    public function canhBaoGopGiaoDichThieuWebhook(int $soGiaoDich, int $tongTien): void
+    {
+        $gio = now()->format('H:i:s d/m/Y');
+        $tongTienFmt = number_format($tongTien, 0, ',', '.');
+        $msg = "⚠️ <b>CẢNH BÁO: GIAO DỊCH THIẾU WEBHOOK</b>\nCòn {$soGiaoDich} giao dịch thiếu webhook chưa gửi chi tiết (tổng {$tongTienFmt} đ).\nXem mục Đối soát để xử lý.\nThời gian: {$gio}";
+
+        $this->guiTelegram($msg);
+    }
+
+    /**
      * Cảnh báo giao dịch có trên SePay API nhưng chưa nhận webhook.
      * Không gửi nội dung chuyển khoản hay số tài khoản.
      */

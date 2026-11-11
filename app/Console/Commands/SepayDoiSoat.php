@@ -62,6 +62,12 @@ class SepayDoiSoat extends Command
         $soDaCo = 0;
         $soMoi = 0;
 
+        // Giới hạn số tin Telegram chi tiết mỗi lần chạy; phần vượt gộp thành một tin.
+        $gioiHanTelegram = max(0, (int) config('pos.sepay_doi_soat_telegram_toi_da', 5));
+        $soTelegramChiTiet = 0;
+        $soTelegramGop = 0;
+        $tongTienGop = 0;
+
         try {
             foreach ($this->client->layGiaoDichVao($tu, $den) as $giaoDich) {
                 $soGiaoDich++;
@@ -98,13 +104,25 @@ class SepayDoiSoat extends Command
                     PaymentWebhook::LY_DO[$lyDo] ?? $lyDo
                 ));
 
+                // Chỉ báo Telegram khi tìm được hóa đơn; giao dịch lạ (không có mã,
+                // hóa đơn không tồn tại) chỉ ghi /doisoat để tránh nhiễu.
                 // Chỉ gửi khi bản ghi vừa được tạo, nên chạy lại không lặp thông báo.
-                $this->thongBao->canhBaoGiaoDichThieuWebhook(
-                    $giaoDich->amountIn,
-                    $maHoaDon,
-                    $giaoDich->khoaThamChieu() ?? $giaoDich->maNgoai(),
-                    PaymentWebhook::LY_DO[$lyDo] ?? $lyDo
-                );
+                if ($donHang === null) {
+                    continue;
+                }
+
+                if ($soTelegramChiTiet < $gioiHanTelegram) {
+                    $this->thongBao->canhBaoGiaoDichThieuWebhook(
+                        $giaoDich->amountIn,
+                        $maHoaDon,
+                        $giaoDich->khoaThamChieu() ?? $giaoDich->maNgoai(),
+                        PaymentWebhook::LY_DO[$lyDo] ?? $lyDo
+                    );
+                    $soTelegramChiTiet++;
+                } else {
+                    $soTelegramGop++;
+                    $tongTienGop += $giaoDich->amountIn;
+                }
             }
         } catch (SepayApiException $e) {
             $this->error($e->getMessage());
@@ -114,6 +132,10 @@ class SepayDoiSoat extends Command
             $this->error('Lỗi đối soát: '.$e::class);
 
             return self::FAILURE;
+        }
+
+        if ($soTelegramGop > 0) {
+            $this->thongBao->canhBaoGopGiaoDichThieuWebhook($soTelegramGop, $tongTienGop);
         }
 
         Cache::put(self::KHOA_LAN_CUOI, now()->getTimestamp(), now()->addDay());

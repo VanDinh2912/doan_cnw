@@ -44,22 +44,16 @@ class WebhookController extends Controller
 
         // 3. Chuẩn hóa payload
         $txn = $this->sepayWebhook->chuanHoa($payload);
-        $maThamChieu = $this->chuanHoaMaThamChieu((string) ($txn['reference_code'] ?? ''));
 
         // Chỉ xử lý giao dịch tiền vào (transferType = in)
         if ($txn['loai'] !== 'in') {
             return response()->json(['success' => true, 'message' => 'Bỏ qua giao dịch không phải tiền vào.']);
         }
 
-        // 4. Chống trùng lặp (Idempotent): nếu mã giao dịch đã xử lý thì trả về thành công ngay.
-        // Bản ghi can_doi_soat (từ webhook trước hoặc từ báo cáo API) vẫn được xử lý tiếp;
-        // chỉ bản ghi success mới chứng minh giao dịch đã hoàn tất.
-        $daThanhCongTheoThamChieu = $maThamChieu !== '' && PaymentWebhook::query()
-            ->where('ma_tham_chieu', $maThamChieu)
-            ->where('ket_qua', 'success')
-            ->exists();
-
-        if ($daThanhCongTheoThamChieu || DonHang::where('ma_giaodich', $txn['ma_giaodich'])->orWhere('ma_giao_dich', $txn['ma_giaodich'])->exists()) {
+        // 4. Chống trùng lặp (Idempotent) chỉ dựa trên id giao dịch của webhook.
+        // Mã tham chiếu có thể rỗng hoặc dùng lại cho giao dịch khác, nên tuyệt đối
+        // không dùng nó để bỏ qua một webhook.
+        if (DonHang::where('ma_giaodich', $txn['ma_giaodich'])->orWhere('ma_giao_dich', $txn['ma_giaodich'])->exists()) {
             return response()->json(['success' => true, 'message' => 'Giao dịch đã được xử lý trước đó.']);
         }
 
@@ -214,8 +208,16 @@ class WebhookController extends Controller
         }
 
         $banGhi = PaymentWebhook::where('ma_giao_dich_ngoai', $maNgoai)->first();
+
+        // Mã tham chiếu chỉ dùng để gộp hiển thị vào bản ghi báo cáo của API,
+        // không bao giờ gộp/ghi đè bản ghi webhook của giao dịch khác.
         if ($banGhi === null && $maThamChieu !== null) {
-            $banGhi = PaymentWebhook::where('ma_tham_chieu', $maThamChieu)->first();
+            $banGhi = PaymentWebhook::query()
+                ->where('nha_cung_cap', 'sepay_api')
+                ->where('ket_qua', 'can_doi_soat')
+                ->where('ma_tham_chieu', $maThamChieu)
+                ->where('so_tien', (int) $txn['so_tien'])
+                ->first();
         }
 
         if ($banGhi !== null) {

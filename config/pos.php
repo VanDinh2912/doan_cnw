@@ -19,6 +19,7 @@ return [
     'sepay_api_per_page' => (int) env('SEPAY_API_PER_PAGE', 100),
     'sepay_api_min_interval_ms' => (int) env('SEPAY_API_MIN_INTERVAL_MS', 350),
     'sepay_api_max_retry_after' => (int) env('SEPAY_API_MAX_RETRY_AFTER', 30),
+    'sepay_doi_soat_telegram_toi_da' => (int) env('SEPAY_DOI_SOAT_TELEGRAM_TOI_DA', 5),
     'telegram_bot_token' => env('TELEGRAM_BOT_TOKEN', ''),
     'telegram_chat_id' => env('TELEGRAM_CHAT_ID', ''),
 ];
