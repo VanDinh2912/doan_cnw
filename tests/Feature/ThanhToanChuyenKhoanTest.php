@@ -7,6 +7,7 @@ use App\Models\BienDongKho;
 use App\Models\ChiTietDonHang;
 use App\Models\DonHang;
 use App\Models\KhachHang;
+use App\Models\PaymentWebhook;
 use App\Models\SanPham;
 use App\Models\User;
 use Illuminate\Contracts\Http\Kernel;
@@ -332,6 +333,32 @@ class ThanhToanChuyenKhoanTest extends TestCase
 
         // Cộng điểm thưởng
         $this->assertSame(80, $kh->fresh()->diem_tichluy); // 50 + 30
+    }
+
+    // ----------------------------------------------------------------
+    // T-CK03b: Webhook thành công lưu mã tham chiếu để đối soát API biết đã nhận
+    // ----------------------------------------------------------------
+    public function test_T_CK03b_webhook_thanh_cong_luu_ma_tham_chieu(): void
+    {
+        $donHang = $this->taoHoaDonChoThanhToan(120000);
+        $cleanMa = str_replace('-', '', $donHang->ma_hoadon);
+
+        $this->guiSepayWebhook([
+            'id'              => 771122,
+            'gateway'         => 'VCB',
+            'transactionDate' => now()->toDateTimeString(),
+            'accountNumber'   => '1017588888',
+            'transferType'    => 'in',
+            'transferAmount'  => 120000,
+            'content'         => 'THANH TOAN DON ' . $cleanMa,
+            'referenceCode'   => 'FT-API-771122',
+        ])->assertOk()->assertJson(['success' => true]);
+
+        $banGhi = PaymentWebhook::where('ma_giao_dich_ngoai', '771122')->firstOrFail();
+        $this->assertSame('FT-API-771122', $banGhi->ma_tham_chieu);
+        $this->assertSame('success', $banGhi->ket_qua);
+        $this->assertSame($donHang->id, (int) $banGhi->invoice_id);
+        $this->assertSame('da_xu_ly', $banGhi->trang_thai_xu_ly);
     }
 
     // ----------------------------------------------------------------
