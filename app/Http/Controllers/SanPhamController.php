@@ -6,6 +6,7 @@ use App\Models\LoaiSanPham;
 use App\Models\SanPham;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Illuminate\Validation\Rule;
@@ -65,9 +66,15 @@ class SanPhamController extends Controller
         return redirect()->route('sanpham.danhsach')->with('success', 'Đã cập nhật sản phẩm.');
     }
 
-    public function getXoa(SanPham $sanPham): RedirectResponse
+    public function getXoa(Request $request, SanPham $sanPham): RedirectResponse
     {
-        if ($sanPham->chiTietDonHangs()->exists() || $sanPham->bienDongKhos()->exists()) {
+        $daPhatSinhGiaoDich = $sanPham->chiTietDonHangs()->exists()
+            || $sanPham->bienDongKhos()->exists()
+            || DB::table('stocktake_items')->where('product_id', $sanPham->id)->exists()
+            || DB::table('purchase_invoice_items')->where('product_id', $sanPham->id)->exists()
+            || DB::table('return_items')->where('product_id', $sanPham->id)->exists();
+
+        if ($daPhatSinhGiaoDich) {
             return back()->with('error', 'Không thể xóa sản phẩm đã phát sinh giao dịch.');
         }
 
