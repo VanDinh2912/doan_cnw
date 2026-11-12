@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\KhachHang;
 use App\Models\User;
+use App\Rules\SoDienThoaiHopLe;
 use App\Services\CanhBaoMatKhauMacDinh;
 use App\Services\NhatKyService;
 use Illuminate\Http\RedirectResponse;
@@ -76,10 +77,14 @@ class AuthController extends Controller
 
     public function postDangKy(Request $request): RedirectResponse
     {
+        $request->merge([
+            'so_dienthoai' => SoDienThoaiHopLe::chuanHoa($request->input('so_dienthoai')),
+        ]);
+
         $data = $request->validate([
             'name' => ['required', 'string', 'max:100'],
             'email' => ['required', 'email', 'max:150', 'unique:users,email'],
-            'so_dienthoai' => ['required', 'string', 'regex:/^0\d{9,10}$/'],
+            'so_dienthoai' => ['required', 'string', new SoDienThoaiHopLe()],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ], [
             'name.required' => 'Vui lòng nhập họ tên.',
@@ -88,7 +93,6 @@ class AuthController extends Controller
             'email.email' => 'Email không hợp lệ.',
             'email.unique' => 'Email đã được sử dụng.',
             'so_dienthoai.required' => 'Vui lòng nhập số điện thoại.',
-            'so_dienthoai.regex' => 'Số điện thoại phải bắt đầu bằng 0 và gồm 10-11 chữ số.',
             'password.required' => 'Vui lòng nhập mật khẩu.',
             'password.min' => 'Mật khẩu phải có ít nhất 8 ký tự.',
             'password.confirmed' => 'Xác nhận mật khẩu không khớp.',

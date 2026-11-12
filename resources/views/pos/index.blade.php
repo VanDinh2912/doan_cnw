@@ -76,7 +76,7 @@
                         <div class="row g-2 mb-2">
                             <div class="col-md-8">
                                 <label class="form-label" for="so_dienthoai_khach">Số điện thoại khách</label>
-                                <input class="form-control" id="so_dienthoai_khach" type="search" autocomplete="off" placeholder="Nhập để tìm khách hàng">
+                                <input class="form-control" id="so_dienthoai_khach" type="search" inputmode="numeric" maxlength="20" autocomplete="off" placeholder="Nhập để tìm khách hàng">
                                 <input id="customer_id" name="customer_id" type="hidden">
                                 <div class="list-group mt-1" id="khach-hang-results"></div>
                             </div>
@@ -561,6 +561,10 @@ modalVietQrEl?.addEventListener('hidden.bs.modal', () => {
 });
 category.addEventListener('change', () => {
     if (input.value.trim()) timKiem(input.value.trim());
+});
+customerPhone.addEventListener('input', () => {
+    const cleaned = customerPhone.value.replace(/[^0-9+\-.\s()]/g, '').slice(0, 20);
+    if (cleaned !== customerPhone.value) customerPhone.value = cleaned;
 });
 customerPhone.addEventListener('input', async () => {
     customerId.value = '';
