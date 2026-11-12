@@ -150,6 +150,9 @@ Route::middleware(['auth', 'staff.only'])->group(function (): void {
     });
 
     Route::middleware('role:admin')->group(function (): void {
+        Route::get('/tong-quan/so-lieu', [\App\Http\Controllers\ThongKeController::class, 'getSoLieuTongQuan'])
+            ->middleware('throttle:30,1')
+            ->name('tongquan.solieu');
         Route::post('/kiemke/{phieu}/duyet', [\App\Http\Controllers\KiemKeController::class, 'approve'])->name('kiemke.approve');
         Route::get('/nhatky', [\App\Http\Controllers\NhatKyController::class, 'index'])->name('nhatky.index');
         Route::get('/doisoat', [\App\Http\Controllers\DoiSoatController::class, 'index'])->name('doisoat.index');
