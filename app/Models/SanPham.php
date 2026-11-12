@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 
 class SanPham extends Model
 {
@@ -41,5 +42,22 @@ class SanPham extends Model
     public function bienDongKhos(): HasMany
     {
         return $this->hasMany(BienDongKho::class, 'product_id');
+    }
+
+    public function getAnhUrlAttribute(): string
+    {
+        $value = $this->hinh_anh;
+
+        if ($value === null || $value === '') {
+            return asset('img/no-image.svg');
+        }
+        if (str_starts_with($value, 'https://')) {
+            return $value;
+        }
+        if (str_starts_with($value, 'upload/') || str_starts_with($value, 'storage/')) {
+            return asset($value);
+        }
+
+        return Storage::disk('public')->url($value);
     }
 }

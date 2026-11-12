@@ -27,8 +27,9 @@
                 <div style="background:var(--sf-surface);border:1px solid var(--sf-border);border-radius:12px;overflow:hidden;margin-bottom:20px;">
                     @foreach ($cart as $id => $item)
                         <div style="display:grid;grid-template-columns:80px 1fr 120px 120px 48px;gap:12px;align-items:center;padding:16px;border-bottom:1px solid var(--sf-border);" class="sf-cart-row">
-                            <img src="{{ asset($item['hinh_anh'] ?: 'img/no-image.svg') }}"
+                            <img src="{{ $item['hinh_anh'] ?: asset('img/no-image.svg') }}"
                                  alt="{{ $item['ten_sanpham'] }}"
+                                 loading="lazy" referrerpolicy="no-referrer"
                                  style="width:80px;height:80px;object-fit:cover;border-radius:8px;border:1px solid var(--sf-border);">
 
                             <div>

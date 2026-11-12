@@ -36,8 +36,35 @@
                     <input class="form-control" id="don_vi" name="don_vi" value="{{ old('don_vi', $sanPham->don_vi ?: 'Cái') }}" required>
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label" for="hinh_anh">Hình ảnh</label>
+                    <label class="form-label" for="hinh_anh">Hình ảnh (tải tệp)</label>
                     <input class="form-control" id="hinh_anh" name="hinh_anh" type="file" accept="image/*">
+                    @error('hinh_anh')
+                        <div class="text-danger small mt-1">{{ $message }}</div>
+                    @enderror
+                </div>
+                <div class="col-md-8">
+                    <label class="form-label" for="hinh_anh_url">Hoặc dán URL ảnh (https)</label>
+                    <input class="form-control" id="hinh_anh_url" name="hinh_anh_url" type="url" maxlength="255"
+                           value="{{ old('hinh_anh_url', $sanPham->exists && str_starts_with((string) $sanPham->hinh_anh, 'https://') ? $sanPham->hinh_anh : '') }}"
+                           placeholder="https://cdn.example.com/anh.jpg">
+                    @error('hinh_anh_url')
+                        <div class="text-danger small mt-1">{{ $message }}</div>
+                    @enderror
+                    <div class="form-text">Gửi cả tệp lẫn URL thì tệp tải lên được ưu tiên. URL chỉ nhận https, tối đa 255 ký tự.</div>
+                </div>
+                <div class="col-12 d-flex align-items-center gap-3">
+                    <img id="xem-truoc-anh"
+                         src="{{ $sanPham->exists ? $sanPham->anh_url : asset('img/no-image.svg') }}"
+                         data-mac-dinh="{{ $sanPham->exists ? $sanPham->anh_url : asset('img/no-image.svg') }}"
+                         alt="Xem trước ảnh sản phẩm"
+                         loading="lazy" referrerpolicy="no-referrer"
+                         style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid #dee2e6;">
+                    @if ($sanPham->exists)
+                        <div class="form-check">
+                            <input class="form-check-input" id="xoa_anh" name="xoa_anh" type="checkbox" value="1">
+                            <label class="form-check-label" for="xoa_anh">Xóa ảnh hiện tại</label>
+                        </div>
+                    @endif
                 </div>
                 <div class="col-md-3">
                     <label class="form-label" for="gia_nhap">Giá nhập</label>
@@ -68,3 +95,31 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+(function () {
+    const tep = document.getElementById('hinh_anh');
+    const url = document.getElementById('hinh_anh_url');
+    const xoaAnh = document.getElementById('xoa_anh');
+    const xemTruoc = document.getElementById('xem-truoc-anh');
+    if (!xemTruoc) return;
+    const anhMacDinh = xemTruoc.dataset.macDinh;
+    function capNhatXemTruoc() {
+        if (xoaAnh && xoaAnh.checked) {
+            xemTruoc.src = anhMacDinh;
+            return;
+        }
+        if (tep && tep.files && tep.files[0]) {
+            xemTruoc.src = URL.createObjectURL(tep.files[0]);
+            return;
+        }
+        const giaTri = url ? url.value.trim() : '';
+        xemTruoc.src = giaTri.startsWith('https://') ? giaTri : anhMacDinh;
+    }
+    if (tep) tep.addEventListener('change', capNhatXemTruoc);
+    if (url) url.addEventListener('input', capNhatXemTruoc);
+    if (xoaAnh) xoaAnh.addEventListener('change', capNhatXemTruoc);
+})();
+</script>
+@endpush

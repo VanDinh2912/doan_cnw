@@ -4,10 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\LoaiSanPham;
 use App\Models\SanPham;
+use App\Rules\AnhSanPhamUrl;
+use App\Services\TepAnhSanPham;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Illuminate\Validation\Rule;
 use Picqer\Barcode\BarcodeGeneratorSVG;
@@ -33,13 +34,24 @@ class SanPhamController extends Controller
     public function postThem(Request $request): RedirectResponse
     {
         $validated = $request->validate($this->rules(), $this->messages());
-        $validated['hinh_anh'] = $this->luuHinhAnh($request);
+        $urlAnh = trim((string) ($validated['hinh_anh_url'] ?? ''));
+        unset($validated['hinh_anh'], $validated['hinh_anh_url'], $validated['xoa_anh']);
+
+        $thongBao = 'Đã thêm sản phẩm.';
+        if ($request->hasFile('hinh_anh')) {
+            $validated['hinh_anh'] = $this->luuHinhAnh($request);
+            if ($urlAnh !== '') {
+                $thongBao .= ' Đã ưu tiên tệp tải lên thay vì URL.';
+            }
+        } elseif ($urlAnh !== '') {
+            $validated['hinh_anh'] = $urlAnh;
+        }
         $validated['trang_thai'] = $request->boolean('trang_thai');
 
         $sanPham = SanPham::create($validated);
         NhatKyService::ghi($request, 'them', 'san_pham', $sanPham->id, 'Thêm sản phẩm '.$sanPham->sku);
 
-        return redirect()->route('sanpham.danhsach')->with('success', 'Đã thêm sản phẩm.');
+        return redirect()->route('sanpham.danhsach')->with('success', $thongBao);
     }
 
     public function getSua(SanPham $sanPham): View
@@ -53,10 +65,18 @@ class SanPhamController extends Controller
     public function postSua(Request $request, SanPham $sanPham): RedirectResponse
     {
         $validated = $request->validate($this->rules($sanPham), $this->messages());
-        $hinhAnh = $this->luuHinhAnh($request);
-        if ($hinhAnh !== null) {
-            $this->xoaHinhAnh($sanPham->hinh_anh);
-            $validated['hinh_anh'] = $hinhAnh;
+        $urlAnh = trim((string) ($validated['hinh_anh_url'] ?? ''));
+        unset($validated['hinh_anh'], $validated['hinh_anh_url'], $validated['xoa_anh']);
+
+        if ($request->hasFile('hinh_anh')) {
+            TepAnhSanPham::xoaNeuLaTepCucBo($sanPham->hinh_anh);
+            $validated['hinh_anh'] = $this->luuHinhAnh($request);
+        } elseif ($request->boolean('xoa_anh')) {
+            TepAnhSanPham::xoaNeuLaTepCucBo($sanPham->hinh_anh);
+            $validated['hinh_anh'] = null;
+        } elseif ($urlAnh !== '') {
+            TepAnhSanPham::xoaNeuLaTepCucBo($sanPham->hinh_anh);
+            $validated['hinh_anh'] = $urlAnh;
         }
         $validated['trang_thai'] = $request->boolean('trang_thai');
 
@@ -78,7 +98,7 @@ class SanPhamController extends Controller
             return back()->with('error', 'Không thể xóa sản phẩm đã phát sinh giao dịch.');
         }
 
-        $this->xoaHinhAnh($sanPham->hinh_anh);
+        TepAnhSanPham::xoaNeuLaTepCucBo($sanPham->hinh_anh);
         $sanPham->delete();
         NhatKyService::ghi($request, 'xoa', 'san_pham', $sanPham->id, 'Xóa sản phẩm '.$sanPham->sku);
 
@@ -108,6 +128,8 @@ class SanPhamController extends Controller
             })
             ->limit(10)
             ->get(['id', 'sku', 'barcode', 'ten_sanpham', 'gia_ban', 'soluong', 'hinh_anh']);
+
+        $sanPhams->each->append('anh_url');
 
         return response()->json($sanPhams);
     }
@@ -146,6 +168,8 @@ class SanPhamController extends Controller
             'soluong' => ['required', 'integer', 'min:0'],
             'soluong_toithieu' => ['required', 'integer', 'min:0'],
             'hinh_anh' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'hinh_anh_url' => ['nullable', new AnhSanPhamUrl()],
+            'xoa_anh' => ['nullable', 'boolean'],
         ];
     }
 
@@ -175,14 +199,5 @@ class SanPhamController extends Controller
         }
 
         return $request->file('hinh_anh')->store('sanpham', 'public');
-    }
-
-    private function xoaHinhAnh(?string $duongDan): void
-    {
-        if ($duongDan !== null && ! str_starts_with($duongDan, 'upload/')) {
-            Storage::disk('public')->delete($duongDan);
-        } elseif ($duongDan !== null) {
-            @unlink(public_path($duongDan));
-        }
     }
 }

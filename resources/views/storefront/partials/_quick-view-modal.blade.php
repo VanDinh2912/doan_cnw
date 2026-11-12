@@ -10,7 +10,7 @@
                 <div class="row g-4 align-items-center">
                     <div class="col-md-5 text-center">
                         <div class="sf-qv-image-box p-3 border rounded-3 bg-white">
-                            <img id="qvImage" src="{{ asset('img/no-image.svg') }}" alt="Sản phẩm" class="img-fluid sf-qv-img" style="max-height: 280px; object-fit: contain;">
+                            <img id="qvImage" src="{{ asset('img/no-image.svg') }}" alt="Sản phẩm" class="img-fluid sf-qv-img" loading="lazy" referrerpolicy="no-referrer" style="max-height: 280px; object-fit: contain;">
                         </div>
                     </div>
                     <div class="col-md-7">

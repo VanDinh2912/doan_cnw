@@ -8,7 +8,7 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @stack('styles')
 </head>
-<body>
+<body data-img-fallback="{{ asset('img/no-image.svg') }}">
 <header class="app-topbar">
     <a class="app-brand" href="{{ route('tongquan') }}">
         <i class="fa-solid fa-cash-register"></i>

@@ -2,7 +2,7 @@
 
 @php
     $giaBan = (float) $sanPham->gia_ban;
-    $hinhAnh = $sanPham->hinh_anh ?: 'img/no-image.svg';
+    $hinhAnh = $sanPham->anh_url;
     $stockStatus = $sanPham->soluong <= 0
         ? 'is-out'
         : ($sanPham->soluong <= $sanPham->soluong_toithieu ? 'is-low' : 'is-in');
@@ -25,15 +25,16 @@
          data-name="{{ $sanPham->ten_sanpham }}"
          data-price="{{ number_format($giaBan, 0, ',', '.') }} ₫"
          data-sku="{{ $sanPham->sku }}"
-         data-image="{{ asset($hinhAnh) }}"
+         data-image="{{ $hinhAnh }}"
          data-category="{{ $sanPham->loaiSanPham?->ten_loai ?? 'Phụ kiện' }}"
          data-stock-label="{{ $stockLabel }}"
          data-stock-class="{{ $stockStatus }}"
          data-qty="{{ $sanPham->soluong }}">
     <div class="sf-product-media">
-        <img src="{{ asset($hinhAnh) }}"
+        <img src="{{ $hinhAnh }}"
              alt="{{ $shortName }}"
              loading="lazy"
+             referrerpolicy="no-referrer"
              width="300" height="300">
 
         <button type="button"

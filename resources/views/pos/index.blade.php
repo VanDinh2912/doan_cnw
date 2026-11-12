@@ -245,23 +245,14 @@ function hienThiKetQua(products) {
         const link = document.createElement('a');
         link.className = 'card h-100 text-decoration-none text-dark';
         link.href = `{{ url('/giohang/them') }}/${product.id}`;
-        if (product.hinh_anh) {
-            const image = document.createElement('img');
-            image.src = product.hinh_anh.startsWith('upload/')
-                ? `{{ asset('') }}${product.hinh_anh}`
-                : `{{ asset('storage') }}/${product.hinh_anh}`;
-            image.className = 'card-img-top';
-            image.style = 'height:120px;object-fit:cover';
-            image.alt = product.ten_sanpham;
-            link.appendChild(image);
-        } else {
-            const image = document.createElement('img');
-            image.src = `{{ asset('img/no-image.svg') }}`;
-            image.className = 'card-img-top';
-            image.style = 'height:120px;object-fit:cover';
-            image.alt = 'Chưa có ảnh';
-            link.appendChild(image);
-        }
+        const image = document.createElement('img');
+        image.src = product.anh_url || `{{ asset('img/no-image.svg') }}`;
+        image.className = 'card-img-top';
+        image.style = 'height:120px;object-fit:cover';
+        image.alt = product.ten_sanpham || 'Chưa có ảnh';
+        image.loading = 'lazy';
+        image.referrerPolicy = 'no-referrer';
+        link.appendChild(image);
         const body = document.createElement('div');
         body.className = 'card-body p-2';
         const name = document.createElement('strong');

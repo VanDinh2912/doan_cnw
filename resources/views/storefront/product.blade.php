@@ -4,7 +4,7 @@
 
 @section('content')
     @php
-        $hinhAnh = $sanPham->hinh_anh ?: 'img/no-image.svg';
+        $hinhAnh = $sanPham->anh_url;
         $inStock = $sanPham->soluong > 0;
         $isLow = $inStock && $sanPham->soluong <= $sanPham->soluong_toithieu;
         $badge = ! $inStock ? ['is-out', 'Hết hàng'] : ($isLow ? ['is-low', 'Sắp hết'] : ['is-in', 'Còn hàng']);
@@ -23,7 +23,8 @@
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:start;" class="sf-product-detail">
             <div style="background:var(--sf-surface);border:1px solid var(--sf-border);border-radius:12px;overflow:hidden;aspect-ratio:1/1;">
-                <img src="{{ asset($hinhAnh) }}" alt="{{ $sanPham->ten_sanpham }}"
+                <img src="{{ $hinhAnh }}" alt="{{ $sanPham->ten_sanpham }}"
+                     loading="lazy" referrerpolicy="no-referrer"
                      style="width:100%;height:100%;object-fit:contain;padding:16px;box-sizing:border-box;background:#fff;display:block;">
             </div>
 
