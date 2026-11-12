@@ -1085,6 +1085,8 @@ Sau khi kiểm thử, tạo Pull Request để merge vào `main`.
 Ưu tiên các phần đã có dữ liệu mẫu trong `TaiLieu/`, không mở rộng sang mobile
 hoặc API khi chưa cần cho đồ án.
 
+- Đặt hàng online tối thiểu (guest + khách đăng nhập, QR/pickup): đã có thiết kế chờ duyệt tại [docs/THIET_KE_DAT_HANG_ONLINE.md](docs/THIET_KE_DAT_HANG_ONLINE.md) — chưa triển khai.
+
 ### Pha 15 — Nhà cung cấp và đơn nhập hàng — Đã hoàn thành
 
 - Có migration cho `suppliers`, `purchase_orders`, `purchase_order_items` và
