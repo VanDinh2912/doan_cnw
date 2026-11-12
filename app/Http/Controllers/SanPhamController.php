@@ -33,8 +33,8 @@ class SanPhamController extends Controller
 
     public function postThem(Request $request): RedirectResponse
     {
-        $validated = $request->validate($this->rules(), $this->messages());
-        $urlAnh = trim((string) ($validated['hinh_anh_url'] ?? ''));
+        $validated = $request->validate($this->rules(null, $request->hasFile('hinh_anh')), $this->messages());
+        $urlAnh = is_string($validated['hinh_anh_url'] ?? null) ? trim($validated['hinh_anh_url']) : '';
         unset($validated['hinh_anh'], $validated['hinh_anh_url'], $validated['xoa_anh']);
 
         $thongBao = 'Đã thêm sản phẩm.';
@@ -64,8 +64,8 @@ class SanPhamController extends Controller
 
     public function postSua(Request $request, SanPham $sanPham): RedirectResponse
     {
-        $validated = $request->validate($this->rules($sanPham), $this->messages());
-        $urlAnh = trim((string) ($validated['hinh_anh_url'] ?? ''));
+        $validated = $request->validate($this->rules($sanPham, $request->hasFile('hinh_anh')), $this->messages());
+        $urlAnh = is_string($validated['hinh_anh_url'] ?? null) ? trim($validated['hinh_anh_url']) : '';
         unset($validated['hinh_anh'], $validated['hinh_anh_url'], $validated['xoa_anh']);
 
         if ($request->hasFile('hinh_anh')) {
@@ -155,7 +155,7 @@ class SanPhamController extends Controller
         ]);
     }
 
-    private function rules(?SanPham $sanPham = null): array
+    private function rules(?SanPham $sanPham = null, bool $coTepTaiLen = false): array
     {
         return [
             'category_id' => ['required', 'integer', 'exists:categories,id'],
@@ -168,7 +168,8 @@ class SanPhamController extends Controller
             'soluong' => ['required', 'integer', 'min:0'],
             'soluong_toithieu' => ['required', 'integer', 'min:0'],
             'hinh_anh' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
-            'hinh_anh_url' => ['nullable', new AnhSanPhamUrl()],
+            // Có tệp tải lên thì tệp thắng, URL hỏng không được chặn việc lưu tệp.
+            'hinh_anh_url' => $coTepTaiLen ? ['nullable'] : ['nullable', new AnhSanPhamUrl()],
             'xoa_anh' => ['nullable', 'boolean'],
         ];
     }

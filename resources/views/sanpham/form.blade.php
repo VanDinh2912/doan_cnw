@@ -44,13 +44,13 @@
                 </div>
                 <div class="col-md-8">
                     <label class="form-label" for="hinh_anh_url">Hoặc dán URL ảnh (https)</label>
-                    <input class="form-control" id="hinh_anh_url" name="hinh_anh_url" type="url" maxlength="255"
+                    <input class="form-control" id="hinh_anh_url" name="hinh_anh_url" type="url"
                            value="{{ old('hinh_anh_url', $sanPham->exists && str_starts_with((string) $sanPham->hinh_anh, 'https://') ? $sanPham->hinh_anh : '') }}"
                            placeholder="https://cdn.example.com/anh.jpg">
                     @error('hinh_anh_url')
                         <div class="text-danger small mt-1">{{ $message }}</div>
                     @enderror
-                    <div class="form-text">Gửi cả tệp lẫn URL thì tệp tải lên được ưu tiên. URL chỉ nhận https, tối đa 255 ký tự.</div>
+                    <div class="form-text">Gửi cả tệp lẫn URL thì tệp tải lên được ưu tiên. URL chỉ nhận https, tối đa 150 ký tự.</div>
                 </div>
                 <div class="col-12 d-flex align-items-center gap-3">
                     <img id="xem-truoc-anh"

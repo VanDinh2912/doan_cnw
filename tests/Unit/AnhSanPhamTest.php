@@ -19,7 +19,7 @@ class AnhSanPhamTest extends TestCase
             'đuôi jpg' => ['https://cdn.example.com/a.jpg'],
             'query string' => ['https://cdn.example.com/a.png?w=300&h=300'],
             'cổng' => ['https://cdn.example.com:8443/a.png'],
-            'đúng 255 ký tự' => ['https://cdn.example.com/'.str_repeat('a', 231)],
+            'đúng 150 ký tự' => ['https://cdn.example.com/'.str_repeat('a', 126)],
             'có khoảng trắng hai đầu (trim)' => ['  https://cdn.example.com/a.png  '],
         ];
     }
@@ -47,7 +47,7 @@ class AnhSanPhamTest extends TestCase
             'userinfo' => ['https://user:pass@host/a.png'],
             'khoảng trắng giữa' => ['https://host/a b.png'],
             'host rỗng' => ['https://'],
-            'quá 255 ký tự' => ['https://cdn.example.com/'.str_repeat('a', 232)],
+            'quá 150 ký tự' => ['https://cdn.example.com/'.str_repeat('a', 127)],
             'mảng' => [['https://cdn.example.com/a.png']],
             'tương đối' => ['/img/a.png'],
             'chrome-extension' => ['chrome-extension://abc/a.png'],
@@ -63,8 +63,11 @@ class AnhSanPhamTest extends TestCase
         );
 
         $this->assertTrue($validator->fails());
+        $quaDai = is_string($url) && mb_strlen(trim($url)) > AnhSanPhamUrl::MAX_DO_DAI;
         $this->assertSame(
-            'URL ảnh không hợp lệ. Chỉ chấp nhận https, tối đa 255 ký tự, không chứa khoảng trắng hay thông tin đăng nhập.',
+            $quaDai
+                ? 'Liên kết ảnh quá dài (tối đa 150 ký tự). Hãy dùng liên kết trực tiếp tới tệp ảnh, không dùng liên kết tìm kiếm hay quảng cáo.'
+                : 'Liên kết ảnh không hợp lệ. Hãy dán liên kết trực tiếp tới tệp ảnh bắt đầu bằng https://, không chứa khoảng trắng hay thông tin đăng nhập.',
             $validator->errors()->first('hinh_anh_url')
         );
     }
