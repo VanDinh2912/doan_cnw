@@ -482,6 +482,18 @@ Các email trên trùng với tài khoản được tạo trong `database/seeder
 - CRUD sản phẩm.
 - Validate tên, SKU, barcode, giá và số lượng.
 - Upload hình ảnh bằng `Storage::disk('public')` vào `storage/app/public/sanpham` (cần chạy `php artisan storage:link`); sản phẩm chưa có ảnh dùng `public/img/no-image.svg`.
+- **Ảnh theo URL**: form thêm/sửa nhận thêm trường `hinh_anh_url` (chỉ `https://`,
+  tối đa **255 ký tự** đúng cột `hinh_anh` VARCHAR(255) — không đổi schema; không
+  yêu cầu đuôi `.jpg/.png` vì CDN thường không có đuôi). Gửi cả tệp lẫn URL thì
+  **tệp tải lên được ưu tiên** (có thông báo). Sửa hỗ trợ đổi tệp ↔ URL và nút
+  "Xóa ảnh hiện tại". Rule dùng chung `App\Rules\AnhSanPhamUrl`; server **không
+  tải/gọi HTTP** tới URL người dùng nhập (chống SSRF) — chỉ lưu chuỗi, trình duyệt
+  hiển thị với `loading="lazy" referrerpolicy="no-referrer"`, lỗi tải ảnh tự thay
+  bằng ảnh mặc định. Mọi view dùng accessor `SanPham::anh_url` (https giữ nguyên,
+  tệp tải lên qua `Storage::url`, legacy `upload/`/`storage/` qua `asset()`, rỗng →
+  ảnh mặc định). Xóa tệp cũ khi thay ảnh chỉ diễn ra trong thư mục ảnh sản phẩm
+  (`App\Services\TepAnhSanPham`), không bao giờ xóa URL. Chi tiết:
+  [docs/BAO_CAO_ANH_URL_TONG_QUAN.md](docs/BAO_CAO_ANH_URL_TONG_QUAN.md).
 - Badge tồn kho:
   - Đỏ: hết hàng.
   - Vàng: tồn kho nhỏ hơn hoặc bằng ngưỡng tối thiểu.
@@ -594,6 +606,20 @@ Admin có thể truy cập:
 - Xuất danh sách hóa đơn và báo cáo xuất nhập tồn ra Excel/PDF.
 - Lợi nhuận dùng giá vốn được lưu tại thời điểm bán.
 
+**Dashboard tổng quan (`/tongquan`)** đọc số liệu từ một service chỉ-đọc
+`App\Services\TongQuanKhoService` (COUNT/SUM trực tiếp, không cache) và tự làm mới
+mỗi **30 giây** khi tab đang mở (tạm dừng khi tab ẩn), hiển thị "Cập nhật lúc
+HH:MM:SS" giờ Việt Nam; lỗi mạng giữ số cũ kèm cảnh báo nhỏ. Định nghĩa chỉ số:
+
+- *Mặt hàng đang kinh doanh / còn hàng / hết hàng*: chỉ đếm sản phẩm `trang_thai = true`
+  (còn hàng: `soluong > 0`; hết hàng: `soluong = 0`).
+- *Tổng tồn tốt / tổng hàng hỏng*: SUM(`soluong`) / SUM(`soluong_hong`) của **mọi**
+  sản phẩm kể cả tạm dừng (hàng vẫn trong kho).
+- *Giá trị tồn theo giá nhập* = Σ(`soluong` × `gia_nhap`), không gồm hàng hỏng.
+- Đơn chuyển khoản `cho_thanh_toan` **đã trừ kho ngay khi tạo QR**; hủy quá hạn hoàn
+  kho; webhook hoàn tất không trừ lần nữa (nghiệp vụ giữ nguyên, dashboard ghi chú).
+- JSON cùng số liệu: `GET /tong-quan/so-lieu` (chỉ admin, `throttle:30,1`).
+
 ## 8. Các URL chính
 
 | URL | Chức năng | Quyền |
@@ -603,6 +629,7 @@ Admin có thể truy cập:
 | `/dangnhap` | Đăng nhập | Khách |
 | `/dang-ky` | Đăng ký tài khoản khách hàng | Khách |
 | `/tongquan` | Dashboard | Mọi vai trò nhân viên |
+| `/tong-quan/so-lieu` | JSON số liệu dashboard (tự làm mới 30s) | Admin (throttle 30/phút) |
 | `/pos` | Màn hình bán hàng | Admin, thu ngân |
 | `/sanpham` | Quản lý sản phẩm | Admin, thủ kho |
 | `/loaisanpham` | Quản lý loại sản phẩm | Admin, thủ kho |
@@ -639,17 +666,21 @@ php artisan test --compact
 Remove-Item Env:XDEBUG_MODE
 ```
 
-Các test nghiệp vụ hiện có (**176 test**: 175 pass, 1 skip; 1068 assertions — xem
+Các test nghiệp vụ hiện có (**253 test**: 252 pass, 1 skip; 1310 assertions — xem
 kết quả chạy thực tế ở mục 18):
 
-**Unit (11 test)**
+**Unit (44 test)**
 
+- `AnhSanPhamTest` (33): rule URL ảnh (6 hợp lệ gồm CDN không đuôi/255 ký tự, 13
+  lỗi gồm javascript/data/http/userinfo/khoảng trắng/mảng), accessor `anh_url`
+  (https/tệp tải lên/legacy/rỗng), xóa tệp an toàn (chỉ thư mục ảnh, chặn
+  traversal/backslash/URL, legacy `upload/` với tệp thật tạm).
 - `ChanLenhPhaHuyTest` (5): chốt chặn production cho lệnh phá hủy dữ liệu.
 - `VietQrServiceTest` (5, t61..t65): URL VietQR, chưa cấu hình, số tiền âm, làm
   sạch nội dung, template dự phòng.
 - `ExampleTest` Unit (1).
 
-**Feature (165 test, trong đó 1 skip)**
+**Feature (209 test, trong đó 1 skip)**
 
 - `AuthFlowTest` (7): đăng ký khách hàng, liên kết khách walk-in, chặn trùng số
   điện thoại, chuyển hướng theo vai trò, chặn khách hàng vào trang nhân viên.
@@ -686,6 +717,13 @@ kết quả chạy thực tế ở mục 18):
   (chi tiết sản phẩm, in hóa đơn, phiếu trả, hóa đơn nhập, kiểm kê, đối soát).
 - `SaoLuuCsdlTest` (4): sao lưu SQLite, giữ N bản mới nhất, từ chối `:memory:`,
   báo lỗi rõ khi thiếu `mysqldump`.
+- `SanPhamAnhUrlTest` (26): thêm sản phẩm bằng URL https, 9 ca từ chối URL lỗi,
+  tải tệp vẫn hoạt động, gửi cả hai → tệp ưu tiên + thông báo, đổi tệp↔URL xóa tệp
+  cũ an toàn, sửa không gửi trường ảnh giữ nguyên, nút xóa ảnh, render escape trên
+  6 trang (admin/storefront/giỏ), dữ liệu bẩn vẫn escape, POS JSON `anh_url`, phân
+  quyền admin/thủ kho/thu ngân/khách hàng, xóa sản phẩm ảnh URL không 500 + chặn
+  xóa khi có hóa đơn/kiểm kê. Bật `Http::preventStrayRequests()` (server không gọi
+  URL người dùng).
 - `StorefrontHomeTest` (6): trang chủ storefront, sản phẩm thật, sắp xếp loại theo
   số sản phẩm, trạng thái rỗng, header theo vai trò.
 - `StorefrontProductTest` (5): chi tiết sản phẩm/danh mục trả 200 và hiển thị tên,
@@ -703,6 +741,11 @@ kết quả chạy thực tế ở mục 18):
 - `ThongBaoLoiTest` (5): trang lỗi 404/403/419/500 tiếng Việt, 500 không lộ chi
   tiết, POS hiển thị hướng dẫn khi phiên hết hạn và giữ giỏ hàng.
 - `ToanVenGiaoDichTest` (6): tính nguyên tử của hủy đơn, nhập kho và thanh toán.
+- `TongQuanSoLieuTest` (18): dashboard đọc đúng sau mọi nghiệp vụ — bán tiền mặt,
+  tạo QR trừ kho ngay, webhook không trừ lần nữa, hủy quá hạn hoàn kho, trả hàng
+  tốt/hỏng, nhập kho trực tiếp, xác nhận hóa đơn nhập, kiểm kê duyệt; sản phẩm
+  ẩn/xóa/hết hàng đếm đúng; endpoint `tongquan.solieu` chỉ admin (403/302 đúng vai
+  trò, throttle 30/phút); số trên trang khớp endpoint; giá trị tồn theo giá nhập.
 
 Lưu ý khi chạy test:
 
@@ -1166,10 +1209,11 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
 - **`db:wipe` đã có chốt chặn production** như `migrate:fresh`: cần
   `--force-dangerous` và đúng tên database đích; `--force` đơn lẻ không đủ.
   Test chốt chặn dùng mock DB/schema/migrator, không xóa hay migrate CSDL thật.
-- **Kiểm thử hiện tại: 175 pass, 1 skip, 1068 assertions** (255.79s,
-  `XDEBUG_MODE=off`). `KhoaDongMysqlTest` bị skip vì SQLite không có khóa
-  dòng/InnoDB; cần trỏ vào bản sao MySQL để chạy (mục 9). Lượt bổ sung này không
-  kiểm lại MySQL hoặc luồng trình duyệt POS; số pass không thay thế kiểm tra đó.
+- **Kiểm thử hiện tại: 252 pass, 1 skip, 1310 assertions** (219.44s,
+  `XDEBUG_MODE=off`, nhánh `feat/anh-url-tong-quan`). `KhoaDongMysqlTest` bị skip vì
+  SQLite không có khóa dòng/InnoDB; cần trỏ vào bản sao MySQL để chạy (mục 9). Lượt
+  bổ sung này không kiểm lại MySQL hoặc luồng trình duyệt POS; số pass không thay
+  thế kiểm tra đó.
 - **Test khói route GET phủ 61/62 route GET**: đủ 4 vai trò (khách, thu ngân, thủ
   kho, admin), mọi route không/ có tham số `{id}` dùng id thật đều trả 200/302/403
   hợp lệ, không 500. Route duy nhất chưa phủ là `storage/{path}` — route phục vụ
@@ -1186,8 +1230,8 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
 
 ## 18. Kết quả kiểm tra
 
-Cập nhật lần cuối: **2026-11-11**, trên nhánh `feat/san-sang-van-hanh` (tiếp nối
-`docs/ra-soat-readme`). Số liệu của đợt rà soát cũ được giữ lại để đối chiếu.
+Cập nhật lần cuối: **2026-11-11**, trên nhánh `feat/anh-url-tong-quan` (từ `main`).
+Số liệu của các đợt trước được giữ lại để đối chiếu.
 
 | Kiểm tra | Kết quả | Ghi chú |
 |----------|---------|---------|
@@ -1262,6 +1306,22 @@ không thêm migration/slug, không merge/push.
 | Lỗi lazy-load/N+1 phát hiện | **0** | Không phải sửa `with()`/`load()` ở controller hay view nào trong đợt này |
 | Đường dẫn máy cá nhân trong README, `docs/`, `scripts/` | **0 kết quả** | Báo cáo storefront dùng `<thư-mục-dự-án>`; dòng HEAD khớp `git log` |
 | `.env` / migrate/seed/demo:reset | **Không đọc/ghi; không chạy** | Chỉ SQLite `:memory:`; không merge/push |
+
+### Đợt ảnh URL + dashboard tổng quan (2026-11-11, nhánh `feat/anh-url-tong-quan`)
+
+| Kiểm tra | Kết quả | Ghi chú |
+|----------|---------|---------|
+| Test mới chạy trước triển khai (đỏ) | **70 failed, 6 passed (86 assertions), 3.20s** | 3 tệp: `AnhSanPhamTest`, `SanPhamAnhUrlTest`, `TongQuanSoLieuTest`; 6 pass là ca quyền/giữ-nguyên vốn đã đúng |
+| `XDEBUG_MODE=off php artisan test` phần A | **59 passed (156 assertions), 2.23s** | Rule URL + accessor + xóa tệp an toàn + form/view + vá `getXoa` |
+| `XDEBUG_MODE=off php artisan test` phần B | **18 passed (86 assertions), 0.99s** | Sau khi tách assertion guest thành test riêng (driver `actingAs` dính xuyên request) |
+| `npm run build` | ✅ Thành công (2.06s) | Bắt buộc sau khi sửa `app.js`/`storefront.js` (fallback ảnh lỗi) |
+| `XDEBUG_MODE=off php artisan test` (full suite cuối) | **252 passed, 1 skipped (1310 assertions), 219.44s**, exit 0 | 253 ca: 44 Unit + 209 Feature; skip duy nhất `KhoaDongMysqlTest`; flake `returns.ma_phieu` không xuất hiện |
+| `php artisan route:list --json` | **104 routes** (trước: 103) | Đúng 1 route mới `GET\|HEAD tong-quan/so-lieu => tongquan.solieu`, middleware `web,auth,staff.only,role:admin,throttle:30,1` |
+| Đối soát kho CHỈ ĐỌC trên `doan_cnw` (SQL mục 12, `tinker --execute`) | **300 sản phẩm, 0 lệch** | `products.soluong` khớp tổng `stock_movements`; không sửa dữ liệu, không cần dry-run |
+| `.env` / migrate/seed/demo:reset / schema | **Không đọc/ghi; không chạy; không thêm migration** | URL giới hạn 255 ký tự theo cột `hinh_anh` VARCHAR(255) hiện có; không merge/push |
+
+Chi tiết khảo sát, nguyên nhân dashboard sai định nghĩa và bằng chứng từng nghiệp vụ:
+[docs/BAO_CAO_ANH_URL_TONG_QUAN.md](docs/BAO_CAO_ANH_URL_TONG_QUAN.md).
 
 
 Kết quả `he-thong:kiem-tra` trên CSDL thật ngày 2026-11-10 (trước triển khai, đợt ban đầu):
