@@ -6,7 +6,9 @@ use App\Models\LoaiSanPham;
 use App\Models\SanPham;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
@@ -143,6 +145,41 @@ class AnhUrlSweepTest extends TestCase
                 : 'https://cdn.example.com/goc.png';
             $this->assertSame($mongDoi, $sanPham->fresh()->hinh_anh);
         }
+    }
+
+    public function test_them_gui_tep_va_url_hong_thi_van_luu_duoc_tep(): void
+    {
+        Storage::fake('public');
+        $admin = $this->nguoiDung('admin');
+        $urlHong = 'https://cdn.example.com/'.str_repeat('a', 300);
+
+        $this->actingAs($admin)->post(route('sanpham.postthem'), $this->duLieuForm('SWEEP-FILE-T', [
+            'hinh_anh' => UploadedFile::fake()->image('anh.jpg', 100, 100),
+            'hinh_anh_url' => $urlHong,
+        ]))->assertStatus(302)->assertSessionHas('success');
+
+        $sanPham = SanPham::where('sku', 'SWEEP-FILE-T')->firstOrFail();
+        $this->assertStringStartsWith('sanpham/', $sanPham->hinh_anh);
+        Storage::disk('public')->assertExists($sanPham->hinh_anh);
+    }
+
+    public function test_sua_gui_tep_va_url_hong_thi_van_luu_duoc_tep(): void
+    {
+        Storage::fake('public');
+        $admin = $this->nguoiDung('admin');
+        $sanPham = SanPham::create($this->duLieuForm('SWEEP-FILE-S', [
+            'hinh_anh' => 'https://cdn.example.com/goc.png',
+        ]));
+        $urlHong = 'javascript:alert(1)';
+
+        $this->actingAs($admin)->put(route('sanpham.postsua', $sanPham), $this->duLieuForm($sanPham->sku, [
+            'hinh_anh' => UploadedFile::fake()->image('moi.jpg', 100, 100),
+            'hinh_anh_url' => $urlHong,
+        ]))->assertStatus(302)->assertSessionHas('success');
+
+        $moi = $sanPham->fresh()->hinh_anh;
+        $this->assertStringStartsWith('sanpham/', $moi);
+        Storage::disk('public')->assertExists($moi);
     }
 
     public static function urlBanLegacyProvider(): array
