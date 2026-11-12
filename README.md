@@ -666,7 +666,7 @@ php artisan test --compact
 Remove-Item Env:XDEBUG_MODE
 ```
 
-Các test nghiệp vụ hiện có (**253 test**: 252 pass, 1 skip; 1310 assertions — xem
+Các test nghiệp vụ hiện có (**255 test**: 254 pass, 1 skip; 1323 assertions — xem
 kết quả chạy thực tế ở mục 18):
 
 **Unit (44 test)**
@@ -680,7 +680,7 @@ kết quả chạy thực tế ở mục 18):
   sạch nội dung, template dự phòng.
 - `ExampleTest` Unit (1).
 
-**Feature (209 test, trong đó 1 skip)**
+**Feature (211 test, trong đó 1 skip)**
 
 - `AuthFlowTest` (7): đăng ký khách hàng, liên kết khách walk-in, chặn trùng số
   điện thoại, chuyển hướng theo vai trò, chặn khách hàng vào trang nhân viên.
@@ -746,6 +746,11 @@ kết quả chạy thực tế ở mục 18):
   tốt/hỏng, nhập kho trực tiếp, xác nhận hóa đơn nhập, kiểm kê duyệt; sản phẩm
   ẩn/xóa/hết hàng đếm đúng; endpoint `tongquan.solieu` chỉ admin (403/302 đúng vai
   trò, throttle 30/phút); số trên trang khớp endpoint; giá trị tồn theo giá nhập.
+- `TraHangTrungMaPhieuTest` (2): hai phiếu trả tạo trong cùng một giây với bộ sinh
+  số ngẫu nhiên bị khóa trùng giá trị vẫn thành công, mã khác nhau, đúng định dạng
+  `TH+YmdHis+2 số`, kho hoàn đủ 2 lần; hết 90 hậu tố của giây thì báo lỗi có kiểm
+  soát, không tạo phiếu. Khóa RNG bằng hàm cùng namespace
+  (`tests/Support/bo-sinh-so-ngau-nhien.php`), không sửa code production để test.
 
 Lưu ý khi chạy test:
 
@@ -1209,11 +1214,24 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
 - **`db:wipe` đã có chốt chặn production** như `migrate:fresh`: cần
   `--force-dangerous` và đúng tên database đích; `--force` đơn lẻ không đủ.
   Test chốt chặn dùng mock DB/schema/migrator, không xóa hay migrate CSDL thật.
-- **Kiểm thử hiện tại: 252 pass, 1 skip, 1310 assertions** (219.44s,
-  `XDEBUG_MODE=off`, nhánh `feat/anh-url-tong-quan`). `KhoaDongMysqlTest` bị skip vì
+- **Kiểm thử hiện tại: 254 pass, 1 skip, 1323 assertions** (213.79s,
+  `XDEBUG_MODE=off`, nhánh `fix/ma-phieu-tra-hang`). `KhoaDongMysqlTest` bị skip vì
   SQLite không có khóa dòng/InnoDB; cần trỏ vào bản sao MySQL để chạy (mục 9). Lượt
   bổ sung này không kiểm lại MySQL hoặc luồng trình duyệt POS; số pass không thay
   thế kiểm tra đó.
+- **Mã phiếu trả chống trùng trong cùng giây (đã sửa 2026-11-12)**: `sinhMaPhieuTra`
+  (`TraHangController.php:152-171`) dò hậu tố đã dùng của giây hiện tại rồi quét tiến
+  từ điểm ngẫu nhiên, kèm vòng thử lại tối đa 5 lần khi vi phạm unique do giao dịch
+  đồng thời (`:89-100`). Định dạng in `TH+YmdHis+2 số` giữ nguyên, không đổi
+  cột/migration. Trần cứng **90 mã/giây** (hết hậu tố → lỗi có kiểm soát, đã có test).
+  Flake `PosWorkflowTest` trả hàng đã hết: 11 test trả hàng chạy 5 lần liên tiếp đều
+  xanh (mục 18). **Ba nơi sinh mã khác vẫn dùng mẫu cũ** `YmdHis + random_int(10,99)`
+  và còn nguy cơ trùng tương tự, chưa sửa trong đợt này: kiểm kê
+  (`KiemKeController.php:32`, KK), hóa đơn nhập (`HoaDonNhapController.php:140`, HN),
+  đơn nhập (`NhapHangController.php:96`, PN). Mã hóa đơn `HD{Ymd}-{XXXX}` là chuỗi
+  tuần tự theo ngày có `lockForUpdate` (`DonHangController.php:322-333`,
+  `ThanhToanChuyenKhoanService.php:309-320`), khác mẫu ngẫu nhiên. Chi tiết:
+  [docs/BAO_CAO_MA_PHIEU_TRA_HANG.md](docs/BAO_CAO_MA_PHIEU_TRA_HANG.md).
 - **Test khói route GET phủ 61/62 route GET**: đủ 4 vai trò (khách, thu ngân, thủ
   kho, admin), mọi route không/ có tham số `{id}` dùng id thật đều trả 200/302/403
   hợp lệ, không 500. Route duy nhất chưa phủ là `storage/{path}` — route phục vụ
@@ -1230,8 +1248,8 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
 
 ## 18. Kết quả kiểm tra
 
-Cập nhật lần cuối: **2026-11-11**, trên nhánh `feat/anh-url-tong-quan` (từ `main`).
-Số liệu của các đợt trước được giữ lại để đối chiếu.
+Cập nhật lần cuối: **2026-11-12**, trên nhánh `fix/ma-phieu-tra-hang` (từ
+`feat/anh-url-tong-quan`). Số liệu của các đợt trước được giữ lại để đối chiếu.
 
 | Kiểm tra | Kết quả | Ghi chú |
 |----------|---------|---------|
@@ -1322,6 +1340,21 @@ không thêm migration/slug, không merge/push.
 
 Chi tiết khảo sát, nguyên nhân dashboard sai định nghĩa và bằng chứng từng nghiệp vụ:
 [docs/BAO_CAO_ANH_URL_TONG_QUAN.md](docs/BAO_CAO_ANH_URL_TONG_QUAN.md).
+
+### Đợt sửa trùng mã phiếu trả (2026-11-12, nhánh `fix/ma-phieu-tra-hang`)
+
+| Kiểm tra | Kết quả | Ghi chú |
+|----------|---------|---------|
+| Test mới chạy trước sửa (đỏ) | **1 failed, 1 passed (4 assertions), 27.67s** | `TraHangTrungMaPhieuTest`: phiếu thứ hai ném `SQLSTATE[23000] UNIQUE constraint failed: returns.ma_phieu` → 500; RNG khóa trùng giá trị + thời gian đóng băng cùng giây |
+| `XDEBUG_MODE=off php artisan test --filter=TraHangTrungMaPhieuTest` (sau sửa) | **2 passed (13 assertions), 5.38s** | Hai phiếu cùng giây thành công, mã khác nhau, đúng định dạng `TH+YmdHis+2 số`; ca hết 90 hậu tố báo lỗi không tạo phiếu |
+| 11 test trả hàng `PosWorkflowTest` × 5 lần liên tiếp | **11 passed (113 assertions) mỗi lượt**; 32.40s / 31.14s / 32.58s / 30.80s / 27.63s | `--filter='return\|zero_cash'`; không lượt nào đỏ — hết flake |
+| `XDEBUG_MODE=off php artisan test` (full suite cuối) | **254 passed, 1 skipped (1323 assertions), 213.79s**, exit 0 | 255 ca: 44 Unit + 211 Feature; skip duy nhất `KhoaDongMysqlTest` |
+| `php -l app/Http/Controllers/TraHangController.php` | ✅ No syntax errors | Sửa tối thiểu trong controller, không đổi cột/migration |
+| `php artisan route:list --json` | **104 routes** (không đổi) | Không thêm route |
+| `.env` / migrate/seed/demo:reset / schema | **Không đọc/ghi; không chạy; không thêm migration** | Chỉ SQLite `:memory:`; không merge/push |
+
+Chi tiết khảo sát mọi nơi sinh mã (TH/KK/HN/PN/HD), nguyên nhân và thiết kế sửa:
+[docs/BAO_CAO_MA_PHIEU_TRA_HANG.md](docs/BAO_CAO_MA_PHIEU_TRA_HANG.md).
 
 
 Kết quả `he-thong:kiem-tra` trên CSDL thật ngày 2026-11-10 (trước triển khai, đợt ban đầu):

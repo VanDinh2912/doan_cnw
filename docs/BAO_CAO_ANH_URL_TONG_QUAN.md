@@ -257,6 +257,8 @@ lượt chạy lại xác nhận.
    hành vi JS polling/fallback/xem trước chưa chạy tay trên trình duyệt trong đợt này.
 8. Flake known: `PosWorkflowTest` trả hàng thỉnh thoảng trùng `ma_phieu`
    (YmdHis + 2 số ngẫu nhiên) — không sửa trong đợt này (ngoài phạm vi).
+   **Cập nhật 2026-11-12**: đã sửa trên nhánh `fix/ma-phieu-tra-hang`, xem
+   [BAO_CAO_MA_PHIEU_TRA_HANG.md](BAO_CAO_MA_PHIEU_TRA_HANG.md).
 
 ## 6. Cần người dùng xác nhận
 
