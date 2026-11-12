@@ -483,16 +483,24 @@ Các email trên trùng với tài khoản được tạo trong `database/seeder
 - Validate tên, SKU, barcode, giá và số lượng.
 - Upload hình ảnh bằng `Storage::disk('public')` vào `storage/app/public/sanpham` (cần chạy `php artisan storage:link`); sản phẩm chưa có ảnh dùng `public/img/no-image.svg`.
 - **Ảnh theo URL**: form thêm/sửa nhận thêm trường `hinh_anh_url` (chỉ `https://`,
-  tối đa **255 ký tự** đúng cột `hinh_anh` VARCHAR(255) — không đổi schema; không
-  yêu cầu đuôi `.jpg/.png` vì CDN thường không có đuôi). Gửi cả tệp lẫn URL thì
-  **tệp tải lên được ưu tiên** (có thông báo). Sửa hỗ trợ đổi tệp ↔ URL và nút
+  tối đa **150 ký tự** đúng cột thật `hinh_anh` VARCHAR(150) utf8mb4 — migration khai
+  255 nhưng DB thật chưa áp; không đổi schema; không yêu cầu đuôi `.jpg/.png` vì CDN
+  thường không có đuôi). URL sai bị chặn bằng thông báo tiếng Việt ngay dưới ô nhập
+  ("Liên kết ảnh không hợp lệ…" / "Liên kết ảnh quá dài (tối đa 150 ký tự)…"), giữ
+  `old()` — không bao giờ 500. Gửi cả tệp lẫn URL thì **tệp tải lên được ưu tiên**
+  (có thông báo); URL hỏng không chặn việc lưu tệp. Sửa hỗ trợ đổi tệp ↔ URL và nút
   "Xóa ảnh hiện tại". Rule dùng chung `App\Rules\AnhSanPhamUrl`; server **không
   tải/gọi HTTP** tới URL người dùng nhập (chống SSRF) — chỉ lưu chuỗi, trình duyệt
   hiển thị với `loading="lazy" referrerpolicy="no-referrer"`, lỗi tải ảnh tự thay
-  bằng ảnh mặc định. Mọi view dùng accessor `SanPham::anh_url` (https giữ nguyên,
-  tệp tải lên qua `Storage::url`, legacy `upload/`/`storage/` qua `asset()`, rỗng →
-  ảnh mặc định). Xóa tệp cũ khi thay ảnh chỉ diễn ra trong thư mục ảnh sản phẩm
-  (`App\Services\TepAnhSanPham`), không bao giờ xóa URL. Chi tiết:
+  bằng ảnh mặc định. Form có kiểm tra ảnh phía trình duyệt (debounce 500ms + blur,
+  `new Image()` với `referrerPolicy=no-referrer`, timeout 8s, vùng trạng thái
+  `aria-live`, chặn nút Lưu khi URL hỏng cho tới khi sửa hoặc chọn tệp/xóa ảnh) —
+  chỉ là UX, không phải biện pháp bảo mật; server vẫn là nguồn sự thật. Mọi view
+  dùng accessor `SanPham::anh_url` (https giữ nguyên, tệp tải lên qua `Storage::url`,
+  legacy `upload/`/`storage/` qua `asset()`, rỗng → ảnh mặc định). Xóa tệp cũ khi
+  thay ảnh chỉ diễn ra trong thư mục ảnh sản phẩm (`App\Services\TepAnhSanPham`),
+  không bao giờ xóa URL. Chi tiết:
+  [docs/BAO_CAO_ANH_URL_VALIDATE.md](docs/BAO_CAO_ANH_URL_VALIDATE.md) và
   [docs/BAO_CAO_ANH_URL_TONG_QUAN.md](docs/BAO_CAO_ANH_URL_TONG_QUAN.md).
 - Badge tồn kho:
   - Đỏ: hết hàng.
@@ -666,13 +674,13 @@ php artisan test --compact
 Remove-Item Env:XDEBUG_MODE
 ```
 
-Các test nghiệp vụ hiện có (**255 test**: 254 pass, 1 skip; 1323 assertions — xem
+Các test nghiệp vụ hiện có (**376 test**: 338 pass, 38 skip; 1714 assertions — xem
 kết quả chạy thực tế ở mục 18):
 
 **Unit (44 test)**
 
-- `AnhSanPhamTest` (33): rule URL ảnh (6 hợp lệ gồm CDN không đuôi/255 ký tự, 13
-  lỗi gồm javascript/data/http/userinfo/khoảng trắng/mảng), accessor `anh_url`
+- `AnhSanPhamTest` (33): rule URL ảnh (6 hợp lệ gồm CDN không đuôi/đúng 150 ký tự, 13
+  lỗi gồm javascript/data/http/userinfo/khoảng trắng/mảng/quá 150), accessor `anh_url`
   (https/tệp tải lên/legacy/rỗng), xóa tệp an toàn (chỉ thư mục ảnh, chặn
   traversal/backslash/URL, legacy `upload/` với tệp thật tạm).
 - `ChanLenhPhaHuyTest` (5): chốt chặn production cho lệnh phá hủy dữ liệu.
@@ -680,8 +688,17 @@ kết quả chạy thực tế ở mục 18):
   sạch nội dung, template dự phòng.
 - `ExampleTest` Unit (1).
 
-**Feature (211 test, trong đó 1 skip)**
+**Feature (332 test, trong đó 38 skip)**
 
+- `AnhUrlMysqlCopyTest` (37, **skip trên SQLite**): sweep 35 URL lạ qua thêm+sửa trên
+  bản sao MySQL strict mode (không `RefreshDatabase` để giữ cột VARCHAR(150) thật,
+  tự dọn bản ghi), biên 150/151 ký tự, chuỗi multibyte 150 ký tự legacy vẫn hiển thị.
+  Chỉ chạy khi trỏ vào bản sao `*_copy` (xem bên dưới).
+- `AnhUrlSweepTest` (83): 35 chuỗi lạ × POST thêm + POST sửa (admin) — hợp đồng
+  "không bao giờ 500": 302 thành công hoặc 302 kèm lỗi validate `hinh_anh_url` tiếng
+  Việt; 2 ca gửi cả tệp lẫn URL hỏng → tệp thắng; 11 ca hiển thị URL bẩn/legacy
+  (aclk 255, nháy, `<>`, Unicode, null byte, `upload/`, `storage/`...) trên
+  admin/storefront/giỏ/POS vẫn 200. Bật `Http::preventStrayRequests()`.
 - `AuthFlowTest` (7): đăng ký khách hàng, liên kết khách walk-in, chặn trùng số
   điện thoại, chuyển hướng theo vai trò, chặn khách hàng vào trang nhân viên.
 - `BaoMatDangNhapTest` (6): throttle 10 lần/phút, cảnh báo mật khẩu mặc định trên
@@ -738,8 +755,9 @@ kết quả chạy thực tế ở mục 18):
   → false): ngoại lệ đúng path `api/webhook/thanhtoan` (path khác vẫn 419) và
   webhook chạy không session/cookie khi CSRF đang bật (401/400/200, đăng nhập
   không token vẫn 419).
-- `ThongBaoLoiTest` (5): trang lỗi 404/403/419/500 tiếng Việt, 500 không lộ chi
-  tiết, POS hiển thị hướng dẫn khi phiên hết hạn và giữ giỏ hàng.
+- `ThongBaoLoiTest` (6): trang lỗi 404/403/419/500 tiếng Việt, 500 không lộ chi
+  tiết, exception thật render trang 500 khi `app.debug=false`, POS hiển thị hướng
+  dẫn khi phiên hết hạn và giữ giỏ hàng.
 - `ToanVenGiaoDichTest` (6): tính nguyên tử của hủy đơn, nhập kho và thanh toán.
 - `TongQuanSoLieuTest` (18): dashboard đọc đúng sau mọi nghiệp vụ — bán tiền mặt,
   tạo QR trừ kho ngay, webhook không trừ lần nữa, hủy quá hạn hoàn kho, trả hàng
@@ -770,9 +788,15 @@ Lưu ý khi chạy test:
   Remove-Item Env:DB_CONNECTION, Env:DB_DATABASE, Env:DB_USERNAME, Env:DB_PASSWORD
   ```
 
+  `AnhUrlMysqlCopyTest` cũng chạy bằng cách trỏ bản sao như trên (đổi `--filter`);
+  riêng lớp này **không** `RefreshDatabase` — nó cần cột `hinh_anh` VARCHAR(150)
+  thật của bản sao để tái hiện lỗi 1406, và tự dọn bản ghi nó tạo.
+
 - Chưa có test cho: hành vi khi hai webhook đến đồng thời trên môi trường thật
-  (đã có test khóa dòng tuần tự trên bản sao MySQL), và luồng trình duyệt thật của
-  POS (các test hiện gọi HTTP nội bộ).
+  (đã có test khóa dòng tuần tự trên bản sao MySQL), luồng trình duyệt thật của
+  POS (các test hiện gọi HTTP nội bộ), và **JS kiểm tra ảnh URL phía trình duyệt**
+  trong form sản phẩm (đã kiểm chứng thủ công bằng trình duyệt trên bản sao MySQL;
+  checklist ở [docs/BAO_CAO_ANH_URL_VALIDATE.md](docs/BAO_CAO_ANH_URL_VALIDATE.md)).
 
 Kiểm tra cú pháp PHP:
 
@@ -1214,11 +1238,11 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
 - **`db:wipe` đã có chốt chặn production** như `migrate:fresh`: cần
   `--force-dangerous` và đúng tên database đích; `--force` đơn lẻ không đủ.
   Test chốt chặn dùng mock DB/schema/migrator, không xóa hay migrate CSDL thật.
-- **Kiểm thử hiện tại: 254 pass, 1 skip, 1323 assertions** (213.79s,
-  `XDEBUG_MODE=off`, nhánh `fix/ma-phieu-tra-hang`). `KhoaDongMysqlTest` bị skip vì
-  SQLite không có khóa dòng/InnoDB; cần trỏ vào bản sao MySQL để chạy (mục 9). Lượt
-  bổ sung này không kiểm lại MySQL hoặc luồng trình duyệt POS; số pass không thay
-  thế kiểm tra đó.
+- **Kiểm thử hiện tại: 338 pass, 38 skip, 1714 assertions** (250.41s,
+  `XDEBUG_MODE=off`, nhánh `fix/anh-url-validate`). 38 skip = `KhoaDongMysqlTest`
+  (1) + `AnhUrlMysqlCopyTest` (37) — SQLite không có khóa dòng/InnoDB và không
+  cưỡng chế độ dài VARCHAR; cần trỏ vào bản sao MySQL để chạy (mục 9). Số pass
+  không thay thế kiểm tra đó.
 - **Mã phiếu trả chống trùng trong cùng giây (đã sửa 2026-11-12)**: `sinhMaPhieuTra`
   (`TraHangController.php:152-171`) dò hậu tố đã dùng của giây hiện tại rồi quét tiến
   từ điểm ngẫu nhiên, kèm vòng thử lại tối đa 5 lần khi vi phạm unique do giao dịch
@@ -1232,6 +1256,17 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
   tuần tự theo ngày có `lockForUpdate` (`DonHangController.php:322-333`,
   `ThanhToanChuyenKhoanService.php:309-320`), khác mẫu ngẫu nhiên. Chi tiết:
   [docs/BAO_CAO_MA_PHIEU_TRA_HANG.md](docs/BAO_CAO_MA_PHIEU_TRA_HANG.md).
+- **URL ảnh đã hết lỗi 500 do quá dài (sửa 2026-11-12)**: cột thật `products.hinh_anh`
+  là VARCHAR(150) utf8mb4 (migration khai 255 nhưng chưa áp lên DB thật), rule cũ
+  cho lọt URL 151–255 ký tự → `SQLSTATE[22001] 1406` → 500. `AnhSanPhamUrl` nay
+  giới hạn **150 ký tự** với 2 thông báo tiếng Việt riêng (không hợp lệ / quá dài);
+  có tệp tải lên thì URL hỏng không chặn lưu tệp. JS form kiểm tra ảnh phía trình
+  duyệt (debounce 500ms + blur, `Image()` no-referrer, timeout 8s, chặn nút Lưu)
+  **chỉ là UX, không phải bảo mật** và chưa có test tự động; server vẫn là nguồn sự
+  thật. URL legacy >150 ký tự vẫn hiển thị nhưng khi sửa phải xóa trắng ô URL/chọn
+  tệp/xóa ảnh mới lưu được; chưa dọn dữ liệu legacy. Chi tiết + phương án
+  Content-Type phía server (kèm chống SSRF) chờ xác nhận:
+  [docs/BAO_CAO_ANH_URL_VALIDATE.md](docs/BAO_CAO_ANH_URL_VALIDATE.md).
 - **Test khói route GET phủ 61/62 route GET**: đủ 4 vai trò (khách, thu ngân, thủ
   kho, admin), mọi route không/ có tham số `{id}` dùng id thật đều trả 200/302/403
   hợp lệ, không 500. Route duy nhất chưa phủ là `storage/{path}` — route phục vụ
@@ -1248,8 +1283,8 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
 
 ## 18. Kết quả kiểm tra
 
-Cập nhật lần cuối: **2026-11-12**, trên nhánh `fix/ma-phieu-tra-hang` (từ
-`feat/anh-url-tong-quan`). Số liệu của các đợt trước được giữ lại để đối chiếu.
+Cập nhật lần cuối: **2026-11-12**, trên nhánh `fix/anh-url-validate` (từ
+`fix/ma-phieu-tra-hang`). Số liệu của các đợt trước được giữ lại để đối chiếu.
 
 | Kiểm tra | Kết quả | Ghi chú |
 |----------|---------|---------|
@@ -1355,6 +1390,26 @@ Chi tiết khảo sát, nguyên nhân dashboard sai định nghĩa và bằng ch
 
 Chi tiết khảo sát mọi nơi sinh mã (TH/KK/HN/PN/HD), nguyên nhân và thiết kế sửa:
 [docs/BAO_CAO_MA_PHIEU_TRA_HANG.md](docs/BAO_CAO_MA_PHIEU_TRA_HANG.md).
+
+### Đợt validate URL ảnh — hết 500 (2026-11-12, nhánh `fix/anh-url-validate`)
+
+| Kiểm tra | Kết quả | Ghi chú |
+|----------|---------|---------|
+| Đọc log production (chỉ đọc) | 2× `SQLSTATE[22001] Data too long for column 'hinh_anh'` (14:53:14 / 14:55:16, `products` id=68) | URL aclk đúng 255 ký tự; cột thật **VARCHAR(150)** utf8mb4 trên cả `doan_cnw` lẫn `doan_cnw_copy` (`information_schema`, chỉ đọc), `sql_mode` STRICT_TRANS_TABLES |
+| Test sweep mới chạy trước sửa (đỏ, SQLite) | **6 failed, 75 passed (360 assertions), 3.02s** | 151/200/255 ký tự × thêm/sửa lọt rule cũ (rule 255 theo migration chưa áp) |
+| Sweep trên bản sao MySQL strict (đỏ) | **4 failed, 33 passed (220 assertions), 5.67s** | 1406 Data too long thật → 500; không `RefreshDatabase` để giữ cột 150 của bản sao |
+| Test tệp + URL hỏng (đỏ) | **2 failed (4 assertions), 0.73s** | URL hỏng chặn cả khi có tệp — sai spec "tệp thắng" |
+| Sau sửa: 3 lớp ảnh URL (SQLite) | **142 passed (542 assertions), 4.52s** | `AnhUrlSweepTest` + `AnhSanPhamTest` + `SanPhamAnhUrlTest` |
+| Sau sửa: thêm `ThongBaoLoiTest` | **148 passed (560 assertions), 15.58s** | Gồm test mới: exception thật → trang 500 tiếng Việt khi `app.debug=false` |
+| Sau sửa: sweep trên bản sao MySQL | **37 passed (243 assertions), 2.33s** | 150 ký tự lưu được / 151 bị từ chối bằng validate; multibyte 150 ký tự legacy vẫn hiển thị; tự dọn, xác nhận 0 bản ghi SWEEP |
+| Kiểm chứng trình duyệt (`artisan serve` trỏ copy) | ✅ 10 ca UX | Debounce/blur, 3 trạng thái aria-live, chặn/mở nút Lưu, tệp thắng, lỗi server tiếng Việt + `old()`, golden path thêm sản phẩm; user/sản phẩm tạm đã dọn khỏi copy |
+| `npm run build` | ✅ Thành công (2.25s) | JS form là inline Blade, không đổi bundle Vite |
+| `XDEBUG_MODE=off php artisan test` (full suite cuối) | **338 passed, 38 skipped (1714 assertions), 250.41s**, exit 0 | 376 ca: 44 Unit + 332 Feature; 38 skip = `KhoaDongMysqlTest` (1) + `AnhUrlMysqlCopyTest` (37) |
+| `.env` / migrate/seed/demo:reset / schema | **Không đọc/ghi; không chạy; không thêm migration** | MySQL chỉ qua bản sao bằng env tiến trình; server không gọi HTTP tới URL người dùng; không merge/push |
+
+Chi tiết nguyên nhân (rule 255 vs cột thật 150), bằng chứng log, thiết kế JS,
+checklist thủ công và các mục chờ xác nhận:
+[docs/BAO_CAO_ANH_URL_VALIDATE.md](docs/BAO_CAO_ANH_URL_VALIDATE.md).
 
 
 Kết quả `he-thong:kiem-tra` trên CSDL thật ngày 2026-11-10 (trước triển khai, đợt ban đầu):
