@@ -156,7 +156,17 @@ class DatHangP1Test extends TestCase
         $this->dat($cart, ['ten' => ''])->assertSessionHasErrors('ten');
         $this->dat($cart, ['so_dienthoai' => '123'])->assertSessionHasErrors('so_dienthoai');
         $this->dat($cart, ['ghi_chu' => str_repeat('a', 501)])->assertSessionHasErrors('ghi_chu');
-        $this->dat($cart, ['phuong_thuc' => 'qr'])->assertSessionHasErrors('phuong_thuc');
+        // P2: tai_cua_hang cho cả QR và trả tại quầy, nên qr tạo đơn thành công
+        $this->dat($cart, ['phuong_thuc' => 'qr'])->assertSessionDoesntHaveErrors('phuong_thuc');
+
+        // Xóa đơn vừa tạo và hoàn kho để kiểm tra các case lỗi không tạo đơn
+        $don = DonHang::where('kenh', 'online')->first();
+        if ($don) {
+            foreach ($don->chiTietDonHangs as $ct) {
+                $ct->sanPham->increment('soluong', $ct->soluong);
+            }
+            $don->delete();
+        }
 
         $this->assertDatabaseCount('invoices', 0);
         $this->assertDatabaseHas('products', ['id' => $sp->id, 'soluong' => 10]);
