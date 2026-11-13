@@ -44,6 +44,8 @@ class DatHangOnlineController extends Controller
             'token' => $token,
             'tong' => collect($cart)->sum(fn (array $i): float => (float) $i['gia_ban'] * (int) $i['soluong']),
             'pickupGio' => (int) config('pos.online_pickup_gio', 4),
+            'phiGiaoHang' => (int) config('pos.phi_giao_hang', 30000),
+            'mienPhiGiaoTu' => (int) config('pos.mien_phi_giao_tu', 0),
         ]);
     }
 
@@ -53,14 +55,53 @@ class DatHangOnlineController extends Controller
             'ten' => ['required', 'string', 'max:100'],
             'so_dienthoai' => ['required', 'string', 'regex:/^0\d{9,10}$/'],
             'ghi_chu' => ['nullable', 'string', 'max:500'],
-            'phuong_thuc' => ['required', 'in:pickup'],
+            'hinh_thuc_nhan' => ['nullable', 'in:tai_cua_hang,giao_tan_noi'],
+            'phuong_thuc' => ['required', 'in:pickup,qr'],
             'checkout_token' => ['required', 'string'],
+            // Chỉ validate khi giao_tan_noi
+            'ten_nguoi_nhan' => ['nullable', 'required_if:hinh_thuc_nhan,giao_tan_noi', 'string', 'max:100'],
+            'sdt_nguoi_nhan' => ['nullable', 'required_if:hinh_thuc_nhan,giao_tan_noi', 'string', 'regex:/^0\d{9,10}$/'],
+            'dia_chi_giao' => ['nullable', 'required_if:hinh_thuc_nhan,giao_tan_noi', 'string', 'max:255'],
         ], [
             'ten.required' => 'Vui lòng nhập họ tên.',
             'so_dienthoai.regex' => 'Số điện thoại phải bắt đầu bằng 0 và gồm 10-11 chữ số.',
             'ghi_chu.max' => 'Ghi chú tối đa 500 ký tự.',
+            'hinh_thuc_nhan.in' => 'Hình thức nhận không hợp lệ.',
             'phuong_thuc.in' => 'Phương thức đặt hàng không hợp lệ.',
+            'ten_nguoi_nhan.required_if' => 'Vui lòng nhập tên người nhận.',
+            'sdt_nguoi_nhan.required_if' => 'Vui lòng nhập SĐT người nhận.',
+            'sdt_nguoi_nhan.regex' => 'SĐT người nhận phải bắt đầu bằng 0 và gồm 10-11 chữ số.',
+            'dia_chi_giao.required_if' => 'Vui lòng nhập địa chỉ giao.',
         ]);
+
+        // Mặc định tai_cua_hang nếu không gửi hinh_thuc_nhan (tương thích P1)
+        $validated['hinh_thuc_nhan'] = $validated['hinh_thuc_nhan'] ?? 'tai_cua_hang';
+
+        // P2: tai_cua_hang cho cả QR và trả tại quầy (không còn chặn như P1)
+
+        // Kiểm tra giao_tan_noi phải dùng QR
+        if ($validated['hinh_thuc_nhan'] === 'giao_tan_noi' && $validated['phuong_thuc'] !== 'qr') {
+            return back()->withErrors(['phuong_thuc' => 'Giao tận nơi bắt buộc thanh toán QR trả trước.']);
+        }
+
+        // Kiểm tra vùng giao (nếu có cấu hình)
+        if ($validated['hinh_thuc_nhan'] === 'giao_tan_noi' && !empty($validated['dia_chi_giao'])) {
+            $tinhGiao = config('pos.giao_hang_tinh', '');
+            if (!empty($tinhGiao)) {
+                $danhSachTinh = array_map('trim', explode(',', $tinhGiao));
+                $diaChi = mb_strtolower($validated['dia_chi_giao']);
+                $trongVung = false;
+                foreach ($danhSachTinh as $tinh) {
+                    if (!empty($tinh) && mb_strpos($diaChi, mb_strtolower($tinh)) !== false) {
+                        $trongVung = true;
+                        break;
+                    }
+                }
+                if (!$trongVung) {
+                    return back()->withErrors(['dia_chi_giao' => 'Địa chỉ giao nằm ngoài vùng phục vụ. Vui lòng chọn tỉnh/thành trong danh sách được giao.']);
+                }
+            }
+        }
 
         // Token chỉ dùng một lần: pull rồi so khớp; lệch thì cấp lại để form thử lại.
         $token = $request->session()->pull('checkout_token');
@@ -83,14 +124,30 @@ class DatHangOnlineController extends Controller
             'soluong' => (int) $item['soluong'],
         ])->values()->all();
 
+        // Tính phi giao hang theo config
+        $tongTien = collect($cart)->sum(fn (array $i): float => (float) $i['gia_ban'] * (int) $i['soluong']);
+        $phiGiaoHang = 0;
+        if ($validated['hinh_thuc_nhan'] === 'giao_tan_noi') {
+            $phiGiaoHang = (int) config('pos.phi_giao_hang', 30000);
+            $mienPhiGiaoTu = (int) config('pos.mien_phi_giao_tu', 0);
+            if ($mienPhiGiaoTu > 0 && $tongTien >= $mienPhiGiaoTu) {
+                $phiGiaoHang = 0;
+            }
+        }
+
         $online = [
             'kenh' => 'online',
-            'phuong_thuc' => 'tienmat',
+            'phuong_thuc' => $validated['phuong_thuc'] === 'qr' ? 'chuyenkhoan' : 'tienmat',
             'ma_tra_cuu' => $this->taoMaTraCuu(),
             'ten_khach_dat' => $validated['ten'],
             'so_dienthoai_dat' => $validated['so_dienthoai'],
             'ghi_chu_khach' => $validated['ghi_chu'] ?? null,
-            'han_giu' => now()->addHours((int) config('pos.online_pickup_gio', 4)),
+            'han_giu' => $validated['phuong_thuc'] === 'qr' ? now()->addMinutes((int) config('pos.online_qr_phut', 30)) : now()->addHours((int) config('pos.online_pickup_gio', 4)),
+            'hinh_thuc_nhan' => $validated['hinh_thuc_nhan'],
+            'ten_nguoi_nhan' => $validated['ten_nguoi_nhan'] ?? null,
+            'sdt_nguoi_nhan' => $validated['sdt_nguoi_nhan'] ?? null,
+            'dia_chi_giao' => $validated['dia_chi_giao'] ?? null,
+            'phi_giao_hang' => $phiGiaoHang,
         ];
 
         try {

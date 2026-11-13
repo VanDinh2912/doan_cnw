@@ -84,6 +84,13 @@ class ThanhToanChuyenKhoanService
             $tongThanhToan = $tongTien - $tienGiam - $tienGiamDiem;
             $diemTichLuyNhan = $khachHang ? (int) floor($tongThanhToan / config('pos.diem_moi_dong')) : 0;
 
+            // Tính phi giao hang cho don giao_tan_noi
+            $phiGiaoHang = 0;
+            if (($online['hinh_thuc_nhan'] ?? null) === 'giao_tan_noi') {
+                $phiGiaoHang = (int) ($online['phi_giao_hang'] ?? 0);
+            }
+            $tongThanhToan += $phiGiaoHang;
+
             // 3. Sinh mã hóa đơn S7
             $maHoaDon = $this->taoMaHoaDon();
 
@@ -110,6 +117,12 @@ class ThanhToanChuyenKhoanService
                 'so_dienthoai_dat' => $online['so_dienthoai_dat'] ?? null,
                 'ghi_chu_khach' => $online['ghi_chu_khach'] ?? null,
                 'han_giu' => $online['han_giu'] ?? null,
+                'hinh_thuc_nhan' => $online['hinh_thuc_nhan'] ?? 'tai_cua_hang',
+                'ten_nguoi_nhan' => $online['ten_nguoi_nhan'] ?? null,
+                'sdt_nguoi_nhan' => $online['sdt_nguoi_nhan'] ?? null,
+                'dia_chi_giao' => $online['dia_chi_giao'] ?? null,
+                'phi_giao_hang' => $phiGiaoHang,
+                'trang_thai_giao' => null, // D15: null cho tới khi thanh toán
             ]);
 
             // 5. Trừ tồn kho và ghi movement loại ban ngay lập tức (giữ hàng)
