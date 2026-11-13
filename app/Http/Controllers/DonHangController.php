@@ -97,8 +97,7 @@ class DonHangController extends Controller
      */
     public function getTrangThai(DonHang $donHang, ThanhToanChuyenKhoanService $service): JsonResponse
     {
-        $phut = (int) config('pos.cho_thanh_toan_phut', 15);
-        if ($donHang->trang_thai === 'cho_thanh_toan' && $donHang->created_at->addMinutes($phut)->isPast()) {
+        if (DonHang::whereKey($donHang->id)->quaHanCho()->exists()) {
             $service->huyChoThanhToan($donHang, 'Quá hạn chờ thanh toán (hủy lười)');
             $donHang->refresh();
         }

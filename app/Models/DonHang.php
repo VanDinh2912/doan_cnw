@@ -59,4 +59,34 @@ class DonHang extends Model
     {
         return $this->hasMany(PaymentWebhook::class, 'invoice_id');
     }
+
+    /**
+     * Đơn chờ thanh toán đã quá hạn cần hủy.
+     * Pickup online (kenh=online + phuong_thuc=tienmat + han_giu có giá trị):
+     * hủy theo han_giu, không áp hạn 15 phút. Mọi đơn còn lại (POS, QR, đơn cũ
+     * han_giu null): created_at + cho_thanh_toan_phut.
+     */
+    public function scopeQuaHanCho($query)
+    {
+        $phut = (int) config('pos.cho_thanh_toan_phut', 15);
+        $now = now();
+        $hanChot = $now->copy()->subMinutes($phut);
+
+        return $query->where('trang_thai', 'cho_thanh_toan')
+            ->where(function ($q) use ($now, $hanChot): void {
+                $q->where(function ($pickup) use ($now): void {
+                    $pickup->where('kenh', 'online')
+                        ->where('phuong_thuc', 'tienmat')
+                        ->whereNotNull('han_giu')
+                        ->where('han_giu', '<', $now);
+                })->orWhere(function ($khac) use ($hanChot): void {
+                    $khac->where('created_at', '<', $hanChot)
+                        ->where(function ($q2): void {
+                            $q2->whereNull('han_giu')
+                                ->orWhere('kenh', '!=', 'online')
+                                ->orWhere('phuong_thuc', '!=', 'tienmat');
+                        });
+                });
+            });
+    }
 }
