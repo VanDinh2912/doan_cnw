@@ -38,10 +38,32 @@
 </div>
 
 <div class="row g-3 mb-4">
-    <div class="col-sm-6 col-lg-4">
+    <div class="col-sm-6 col-lg-3">
         <div class="stat-card">
-            <div class="stat-label">Mặt hàng đang kinh doanh</div>
+            <div class="stat-label">Số mặt hàng đang kinh doanh</div>
             <div class="stat-value" data-chi-so="so_mat_hang_dang_kinh_doanh">{{ number_format($chiSo['so_mat_hang_dang_kinh_doanh'], 0, ',', '.') }}</div>
+            <small class="text-muted">Chủng loại sản phẩm đang bán</small>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="stat-card">
+            <div class="stat-label">Tồn khả dụng (sản phẩm)</div>
+            <div class="stat-value text-success" data-chi-so="ton_kha_dung">{{ number_format($chiSo['ton_kha_dung'] ?? $chiSo['tong_ton_tot'], 0, ',', '.') }}</div>
+            <small class="text-muted">Sẵn sàng bán (đã trừ hàng giữ)</small>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="stat-card">
+            <div class="stat-label">Đang giữ chờ thanh toán</div>
+            <div class="stat-value text-warning" data-chi-so="dang_giu">{{ number_format($chiSo['dang_giu'] ?? 0, 0, ',', '.') }}</div>
+            <small class="text-muted">Đơn QR/pickup chưa hoàn tất</small>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="stat-card">
+            <div class="stat-label">Tổng hàng thực tế trong kho</div>
+            <div class="stat-value text-primary" data-chi-so="tong_thuc_te">{{ number_format($chiSo['tong_thuc_te'] ?? $chiSo['tong_ton_tot'], 0, ',', '.') }}</div>
+            <small class="text-muted">= Khả dụng + Đang giữ</small>
         </div>
     </div>
     <div class="col-sm-6 col-lg-4">
@@ -58,23 +80,17 @@
     </div>
     <div class="col-sm-6 col-lg-4">
         <div class="stat-card">
-            <div class="stat-label">Tổng tồn tốt (sản phẩm)</div>
-            <div class="stat-value" data-chi-so="tong_ton_tot">{{ number_format($chiSo['tong_ton_tot'], 0, ',', '.') }}</div>
-        </div>
-    </div>
-    <div class="col-sm-6 col-lg-4">
-        <div class="stat-card">
             <div class="stat-label">Tổng hàng hỏng (sản phẩm)</div>
             <div class="stat-value" data-chi-so="tong_ton_hong">{{ number_format($chiSo['tong_ton_hong'], 0, ',', '.') }}</div>
         </div>
     </div>
-    <div class="col-sm-6 col-lg-4">
+    <div class="col-sm-6 col-lg-6">
         <div class="stat-card">
             <div class="stat-label">Giá trị tồn theo giá nhập (đ)</div>
             <div class="stat-value" data-chi-so="gia_tri_ton">{{ number_format($chiSo['gia_tri_ton'], 0, ',', '.') }}</div>
         </div>
     </div>
-    <div class="col-sm-6 col-lg-4">
+    <div class="col-sm-6 col-lg-6">
         <div class="stat-card">
             <div class="stat-label">Hóa đơn</div>
             <div class="stat-value" data-chi-so="so_hoa_don">{{ number_format($chiSo['so_hoa_don'], 0, ',', '.') }}</div>
@@ -83,10 +99,11 @@
 </div>
 
 <p class="text-muted small">
-    Cách tính: số mặt hàng chỉ đếm sản phẩm <strong>đang kinh doanh</strong>; tổng tồn tốt/hỏng và giá trị tồn
-    tính <strong>mọi sản phẩm</strong> kể cả tạm dừng (hàng vẫn trong kho).
-    Giá trị tồn = Σ(số lượng tồn tốt × giá nhập), không gồm hàng hỏng.
-    Đơn chuyển khoản chờ thanh toán đã trừ kho ngay khi tạo; hủy quá hạn sẽ hoàn kho.
+    <strong>Chú thích chỉ số kho:</strong>
+    <br>• <strong>Số mặt hàng đang kinh doanh</strong>: Số chủng loại sản phẩm đang bật kinh doanh.
+    <br>• <strong>Tồn khả dụng</strong>: Tổng số lượng hàng sẵn sàng bán (đã trừ hàng giữ cho đơn QR/pickup chờ thanh toán).
+    <br>• <strong>Đang giữ chờ thanh toán</strong>: Số lượng hàng tạm giữ cho các đơn chưa thanh toán (hàng vẫn còn trong kho).
+    <br>• <strong>Tổng hàng thực tế trong kho</strong>: Tổng hàng vật lý trong kho (= Tồn khả dụng + Đang giữ). Hủy đơn sẽ hoàn về khả dụng.
 </p>
 
 @if ($sanPhamTonThap->isNotEmpty())
@@ -144,8 +161,11 @@
             if (spanCapNhat && data.cap_nhat_luc) spanCapNhat.textContent = data.cap_nhat_luc;
             if (canhBao) canhBao.classList.add('d-none');
         } catch (e) {
-            // Giữ số cũ, chỉ hiện cảnh báo nhỏ — không xóa số đang hiển thị.
-            if (canhBao) canhBao.classList.remove('d-none');
+            // Giữ số cũ, hiện cảnh báo lỗi mạng rõ ràng thay vì im lặng
+            if (canhBao) {
+                canhBao.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Lỗi kết nối máy chủ (${e.message || 'Lỗi mạng'}). Số liệu có thể chưa cập nhật.`;
+                canhBao.classList.remove('d-none');
+            }
         }
     }
 

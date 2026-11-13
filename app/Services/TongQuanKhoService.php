@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Models\ChiTietDonHang;
 use App\Models\DonHang;
 use App\Models\SanPham;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Nguồn số liệu duy nhất cho dashboard tổng quan — đọc thẳng COUNT/SUM,
@@ -26,11 +28,23 @@ class TongQuanKhoService
             COALESCE(SUM(soluong * gia_nhap), 0) AS gia_tri_ton
         ")->first();
 
+        $tonKhaDung = (int) $row->tong_ton_tot;
+
+        $dangGiu = (int) DB::table('invoice_details')
+            ->join('invoices', 'invoices.id', '=', 'invoice_details.invoice_id')
+            ->where('invoices.trang_thai', 'cho_thanh_toan')
+            ->sum('invoice_details.soluong');
+
+        $tongThucTe = $tonKhaDung + $dangGiu;
+
         return [
             'so_mat_hang_dang_kinh_doanh' => (int) $row->so_mat_hang_dang_kinh_doanh,
             'so_con_hang' => (int) $row->so_con_hang,
             'so_het_hang' => (int) $row->so_het_hang,
-            'tong_ton_tot' => (int) $row->tong_ton_tot,
+            'tong_ton_tot' => $tonKhaDung,
+            'ton_kha_dung' => $tonKhaDung,
+            'dang_giu' => $dangGiu,
+            'tong_thuc_te' => $tongThucTe,
             'tong_ton_hong' => (int) $row->tong_ton_hong,
             'gia_tri_ton' => (int) $row->gia_tri_ton,
             'so_hoa_don' => DonHang::count(),
