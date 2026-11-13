@@ -180,7 +180,8 @@ Lệnh kiểm tra số lượng bản ghi, tổng hóa đơn, tồn kho và move
 | `POS_HAN_TRA_NGAY` | Không | 7 | Hạn trả hàng (ngày) | Trả hàng |
 | `POS_NGUONG_TRA_KHONG_DUYET` | Không | 500000 | Ngưỡng tự duyệt trả hàng (VNĐ) | Trả hàng |
 | `POS_ONLINE_QR_PHUT` | Không | 30 | Hạn giữ đơn QR online (phút) | Đặt hàng online |
-| `POS_ONLINE_PICKUP_GIO` | Không | 4 | Hạn giữ đơn pickup (giờ) | Đặt hàng online |
+| `POS_ONLINE_PICKUP_GIO` | Không | 4 | Hạn giữ đơn pickup (giờ); mỗi lần gia hạn cộng ngần này | Đặt hàng online |
+| `POS_ONLINE_GIA_HAN_TOI_DA_GIO` | Không | 24 | Trần hạn giữ pickup tối đa (giờ, tính từ lúc tạo đơn) | Đặt hàng online |
 | `POS_ONLINE_MAX_DON_MO` | Không | 3 | Số đơn `cho_thanh_toan` tối đa mỗi SĐT | Đặt hàng online |
 | `POS_ONLINE_MAX_SOLUONG` | Không | 10 | Số lượng tối đa mỗi dòng hàng online | Đặt hàng online |
 | `POS_ONLINE_GIU_TOI_DA_PHAN_TRAM` | Không | 50 | Trần giữ pickup: % tồn gốc mỗi sản phẩm | Đặt hàng online |
@@ -680,7 +681,7 @@ php artisan test --compact
 Remove-Item Env:XDEBUG_MODE
 ```
 
-Các test nghiệp vụ hiện có (**394 test**: 355 pass, 39 skip; 1790 assertions — xem
+Các test nghiệp vụ hiện có (**423 test**: 382 pass, 41 skip; 1898 assertions — xem
 kết quả chạy thực tế ở mục 18):
 
 **Unit (44 test)**
@@ -694,7 +695,7 @@ kết quả chạy thực tế ở mục 18):
   sạch nội dung, template dự phòng.
 - `ExampleTest` Unit (1).
 
-**Feature (350 test, trong đó 39 skip)**
+**Feature (379 test, trong đó 41 skip)**
 
 - `AnhUrlMysqlCopyTest` (37, **skip trên SQLite**): sweep 35 URL lạ qua thêm+sửa trên
   bản sao MySQL strict mode (không `RefreshDatabase` để giữ cột VARCHAR(150) thật,
@@ -715,6 +716,27 @@ kết quả chạy thực tế ở mục 18):
 - `DatHangP0Test` (9): T-DH01 — cột mới đúng kiểu/nullable/index, user_id nhận null,
   kenh mặc định pos, ma_tra_cuu unique (nhiều NULL), enum giữ nguyên, down có điều kiện,
   config online, fallback "Đơn online" ở view in/danh sách/export.
+- `DatHangP1BaoVeTest` (10): P1 bảo vệ — lịch sử kho null-safe với movement `user_id`
+  null ("Đơn online"); nhật ký đặt hàng che SĐT; `ghi_chu_khach` escape khi render;
+  Telegram đơn online escape ghi chú + che SĐT; thu ngân xác nhận pickup dùng lại R2;
+  thu ngân hủy pickup dùng lại R3 hoàn kho; gia hạn cộng giờ trong trần config + ghi
+  nhật ký; gia hạn vượt trần bị từ chối; gia hạn chỉ cho đơn pickup online đang chờ;
+  config có `online_gia_han_toi_da_gio`.
+- `DatHangP1MysqlCopyTest` (2, **skip trên SQLite**): T-DH02b — M2 up/down trên bản sao
+  MySQL (`user_id` nullable, enum/FK giữ nguyên, down chặn khi còn movement `user_id`
+  NULL); T-DH13 — khóa dòng sản phẩm THẬT bằng hai kết nối MySQL chặn tạo đơn online
+  đồng thời (`innodb_lock_wait_timeout=1`, bên tạo đơn chờ rồi timeout thay vì cùng
+  vượt trần). Chỉ chạy khi trỏ vào bản sao `*_copy`.
+- `DatHangP1Test` (10): T-DH03..07 — checkout guest pickup tạo đơn giữ kho + movement
+  `user_id` null; giá tính lại từ DB không tin giá session; vượt tồn không tạo đơn;
+  double-submit cùng token chỉ một đơn; token lệch bị từ chối; validate thiếu tên/SĐT
+  sai/ghi chú quá dài; SP ẩn/hết hàng/xóa trong giỏ bị từ chối toàn bộ; trần pickup áp
+  dụng trong đường tạo đơn; nhiều sản phẩm trừ kho đúng từng dòng; M2 `user_id`
+  nullable trên SQLite.
+- `DatHangP1TraCuuTest` (7): T-DH08/12 — tra cứu sai mã + sai SĐT cùng thông báo chung;
+  tra cứu đúng redirect không lộ SĐT trên URL; polling chỉ trả trạng thái không PII;
+  polling/trang thái yêu cầu bằng chứng session; khách tự hủy đơn chờ hoàn kho; hủy
+  đơn đã thanh toán bị từ chối; polling hủy lười khi quá hạn giữ.
 - `DoiSoatTest` (8): hàng chờ đối soát, phân quyền admin, đánh dấu đã xử lý, chặn
   xử lý lặp, webhook thành công không vào hàng chờ.
 - `ExampleTest` Feature (1).
@@ -1255,12 +1277,25 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
 - **`db:wipe` đã có chốt chặn production** như `migrate:fresh`: cần
   `--force-dangerous` và đúng tên database đích; `--force` đơn lẻ không đủ.
   Test chốt chặn dùng mock DB/schema/migrator, không xóa hay migrate CSDL thật.
-- **Kiểm thử hiện tại: 355 pass, 39 skip, 1790 assertions** (348.76s,
-  `XDEBUG_MODE=off`, nhánh `feat/dat-hang-p0-schema`). 39 skip = `KhoaDongMysqlTest`
-  (1) + `AnhUrlMysqlCopyTest` (37) + `DatHangP0MysqlCopyTest` (1) — SQLite không có
-  khóa dòng/InnoDB, không cưỡng chế độ dài VARCHAR và không phải MySQL strict để thử
-  migration; cần trỏ vào bản sao MySQL để chạy (mục 9). Cả 3 đã chạy thật trên
-  `doan_cnw_copy` (7 + 243 + 33 assertions). Số pass không thay thế kiểm tra đó.
+- **Kiểm thử hiện tại: 382 pass, 41 skip, 1898 assertions** (200.94s,
+  `XDEBUG_MODE=off`, nhánh `feat/dat-hang-p1-checkout`). 41 skip = `KhoaDongMysqlTest`
+  (1) + `AnhUrlMysqlCopyTest` (37) + `DatHangP0MysqlCopyTest` (1) + `DatHangP1MysqlCopyTest`
+  (2) — SQLite không có khóa dòng/InnoDB, không cưỡng chế độ dài VARCHAR và không phải
+  MySQL strict để thử migration; cần trỏ vào bản sao MySQL để chạy (mục 9). Cả 4 nhóm
+  đã chạy thật trên `doan_cnw_copy` (41 pass, 306 assertions). Số pass không thay thế
+  kiểm tra đó. **Cẩn thận filter:** chạy test MySQL-copy phải dùng filter chính xác
+  (`--filter='MysqlCopyTest|KhoaDongMysqlTest'`); filter rộng `--filter=Mysql` bắt nhầm
+  method `...mysqldump` của `SaoLuuCsdlTest` (dùng `RefreshDatabase`) → `migrate:fresh`
+  xóa sạch bản sao khi đặt env MySQL.
+- **Đặt hàng online P1 — chỉ guest PICKUP:** checkout giữ hàng qua R1 (khóa dòng sản
+  phẩm id tăng dần + `GiuHangOnlineService::kiemTra` trong transaction), tra cứu bằng
+  mã + SĐT (SĐT chỉ trong thân POST, bằng chứng xác thực lưu session), polling chỉ trả
+  trạng thái, khách tự hủy, thu ngân xác nhận/hủy/gia hạn (trần `online_gia_han_toi_da_gio`).
+  QR online để P2. Test đồng thời T-DH13 là tranh chấp khóa dòng InnoDB THẬT qua hai
+  kết nối (không phải đa luồng). **Chặn triển khai:** scheduler nền `donhang:huy-qua-han`
+  hiện hủy mọi đơn `cho_thanh_toan` quá 15 phút (không lọc `han_giu`) → sẽ hủy nhầm đơn
+  pickup giữ 4h; cần duyệt hướng sửa trước khi bật P1 (báo cáo mục 6.1). Chi tiết:
+  `docs/BAO_CAO_DAT_HANG_P1.md`.
 - **Mã phiếu trả chống trùng trong cùng giây (đã sửa 2026-11-12)**: `sinhMaPhieuTra`
   (`TraHangController.php:152-171`) dò hậu tố đã dùng của giây hiện tại rồi quét tiến
   từ điểm ngẫu nhiên, kèm vòng thử lại tối đa 5 lần khi vi phạm unique do giao dịch
