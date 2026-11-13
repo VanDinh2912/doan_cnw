@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Schema;
 
 class DonHang extends Model
 {
@@ -82,6 +83,11 @@ class DonHang extends Model
         $phut = (int) config('pos.cho_thanh_toan_phut', 15);
         $now = now();
         $hanChot = $now->copy()->subMinutes($phut);
+
+        if (! Schema::hasColumn('invoices', 'kenh')) {
+            return $query->where('trang_thai', 'cho_thanh_toan')
+                ->where('created_at', '<', $hanChot);
+        }
 
         return $query->where('trang_thai', 'cho_thanh_toan')
             ->where(function ($q) use ($now, $hanChot): void {

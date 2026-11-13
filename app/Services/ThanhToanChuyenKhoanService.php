@@ -9,6 +9,7 @@ use App\Models\KhachHang;
 use App\Models\SanPham;
 use App\Support\SoDienThoai;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 
 class ThanhToanChuyenKhoanService
@@ -117,7 +118,7 @@ class ThanhToanChuyenKhoanService
             $maHoaDon = $this->taoMaHoaDon();
 
             // 4. Tạo hóa đơn trạng thái cho_thanh_toan
-            $donHang = DonHang::create([
+            $duLieuDonHang = [
                 'ma_hoadon' => $maHoaDon,
                 'user_id' => $user?->id,
                 'customer_id' => $khachHang?->id,
@@ -133,19 +134,31 @@ class ThanhToanChuyenKhoanService
                 'phuong_thuc' => $online['phuong_thuc'] ?? 'chuyenkhoan',
                 'trang_thai' => 'cho_thanh_toan',
                 'thoi_gian_thanh_toan' => null,
-                'kenh' => $online['kenh'] ?? 'pos',
-                'ma_tra_cuu' => $online['ma_tra_cuu'] ?? null,
-                'ten_khach_dat' => $online['ten_khach_dat'] ?? null,
-                'so_dienthoai_dat' => $online['so_dienthoai_dat'] ?? null,
-                'ghi_chu_khach' => $online['ghi_chu_khach'] ?? null,
-                'han_giu' => $online['han_giu'] ?? null,
-                'hinh_thuc_nhan' => $online['hinh_thuc_nhan'] ?? 'tai_cua_hang',
-                'ten_nguoi_nhan' => $online['ten_nguoi_nhan'] ?? null,
-                'sdt_nguoi_nhan' => $online['sdt_nguoi_nhan'] ?? null,
-                'dia_chi_giao' => $online['dia_chi_giao'] ?? null,
-                'phi_giao_hang' => $phiGiaoHang,
-                'trang_thai_giao' => null, // D15: null cho tới khi thanh toán
-            ]);
+            ];
+
+            // Cột online M1: chỉ ghi khi là đơn online VÀ DB đã có cột kenh.
+            // Guard code-đi-trước-schema: POS ($online rỗng) không ghi cột online;
+            // TODO: gỡ guard hasColumn sau khi M1-M3 đã áp lên DB thật doan_cnw.
+            if (! empty($online) && Schema::hasColumn('invoices', 'kenh')) {
+                if (isset($online['kenh'])) $duLieuDonHang['kenh'] = $online['kenh'];
+                if (isset($online['ma_tra_cuu'])) $duLieuDonHang['ma_tra_cuu'] = $online['ma_tra_cuu'];
+                if (isset($online['ten_khach_dat'])) $duLieuDonHang['ten_khach_dat'] = $online['ten_khach_dat'];
+                if (isset($online['so_dienthoai_dat'])) $duLieuDonHang['so_dienthoai_dat'] = $online['so_dienthoai_dat'];
+                if (isset($online['ghi_chu_khach'])) $duLieuDonHang['ghi_chu_khach'] = $online['ghi_chu_khach'];
+                if (isset($online['han_giu'])) $duLieuDonHang['han_giu'] = $online['han_giu'];
+            }
+
+            // Cột giao hàng M3: chỉ ghi khi DB đã có cột (POS vẫn tạo QR trước khi áp M3).
+            if (Schema::hasColumn('invoices', 'hinh_thuc_nhan')) {
+                $duLieuDonHang['hinh_thuc_nhan'] = $online['hinh_thuc_nhan'] ?? 'tai_cua_hang';
+                $duLieuDonHang['ten_nguoi_nhan'] = $online['ten_nguoi_nhan'] ?? null;
+                $duLieuDonHang['sdt_nguoi_nhan'] = $online['sdt_nguoi_nhan'] ?? null;
+                $duLieuDonHang['dia_chi_giao'] = $online['dia_chi_giao'] ?? null;
+                $duLieuDonHang['phi_giao_hang'] = $phiGiaoHang;
+                $duLieuDonHang['trang_thai_giao'] = null; // D15: null cho tới khi thanh toán
+            }
+
+            $donHang = DonHang::create($duLieuDonHang);
 
             // 5. Trừ tồn kho và ghi movement loại ban ngay lập tức (giữ hàng)
             foreach ($sanPhams as [$sanPham, $soLuong, $thanhTien]) {

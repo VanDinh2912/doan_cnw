@@ -16,6 +16,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Throwable;
 
@@ -64,6 +65,36 @@ class DonHangController extends Controller
         $gioHang = $request->session()->get('gio_hang', []);
         if (empty($gioHang)) {
             return response()->json(['error' => 'Giỏ hàng đang trống.'], 422);
+        }
+
+        if (! $vietQr->enabled()) {
+            $bankCode = trim((string) config('pos.bank_code'));
+            $bankAccount = trim((string) config('pos.bank_account'));
+
+            $thongBao = 'Chưa cấu hình tài khoản ngân hàng nhận QR.';
+            if ($bankCode === '' && $bankAccount === '') {
+                $thongBao = 'Chưa cấu hình tài khoản ngân hàng nhận QR.';
+            } elseif ($bankCode === '') {
+                $thongBao = 'Chưa cấu hình mã ngân hàng nhận QR.';
+            } elseif ($bankAccount === '') {
+                $thongBao = 'Chưa cấu hình số tài khoản ngân hàng nhận QR.';
+            } else {
+                $thongBao = 'Thông tin tài khoản ngân hàng nhận QR không hợp lệ.';
+            }
+
+            $maskedAccount = $bankAccount !== ''
+                ? Str::mask($bankAccount, '*', 0, max(0, strlen($bankAccount) - 4))
+                : '(trống)';
+
+            Log::warning('Tạo QR thất bại do cấu hình ngân hàng không hợp lệ.', [
+                'bank_code' => $bankCode ?: '(trống)',
+                'bank_account' => $maskedAccount,
+            ]);
+
+            return response()->json([
+                'error' => $thongBao,
+                'message' => $thongBao,
+            ], 422);
         }
 
         try {
