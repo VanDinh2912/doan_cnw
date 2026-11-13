@@ -179,6 +179,12 @@ Lệnh kiểm tra số lượng bản ghi, tổng hóa đơn, tồn kho và move
 | `POS_GIA_TRI_DIEM` | Không | 1000 | Giá trị 1 điểm (VNĐ) | Tích điểm |
 | `POS_HAN_TRA_NGAY` | Không | 7 | Hạn trả hàng (ngày) | Trả hàng |
 | `POS_NGUONG_TRA_KHONG_DUYET` | Không | 500000 | Ngưỡng tự duyệt trả hàng (VNĐ) | Trả hàng |
+| `POS_ONLINE_QR_PHUT` | Không | 30 | Hạn giữ đơn QR online (phút) | Đặt hàng online |
+| `POS_ONLINE_PICKUP_GIO` | Không | 4 | Hạn giữ đơn pickup (giờ) | Đặt hàng online |
+| `POS_ONLINE_MAX_DON_MO` | Không | 3 | Số đơn `cho_thanh_toan` tối đa mỗi SĐT | Đặt hàng online |
+| `POS_ONLINE_MAX_SOLUONG` | Không | 10 | Số lượng tối đa mỗi dòng hàng online | Đặt hàng online |
+| `POS_ONLINE_GIU_TOI_DA_PHAN_TRAM` | Không | 50 | Trần giữ pickup: % tồn gốc mỗi sản phẩm | Đặt hàng online |
+| `POS_ONLINE_THROTTLE_DAT` | Không | 5,1 | Rate limit checkout mỗi IP (số đơn,phút) | Đặt hàng online |
 | `LOG_STACK` | Không | daily | Kênh trong stack log; đặt `daily` để log xoay vòng | Ghi log |
 | `LOG_DAILY_DAYS` | Không | 14 | Số ngày giữ log daily | Ghi log |
 | `BACKUP_DISK` | Không | backups | Đĩa lưu bản sao lưu (khai báo trong `config/filesystems.php`) | Sao lưu |
@@ -674,7 +680,7 @@ php artisan test --compact
 Remove-Item Env:XDEBUG_MODE
 ```
 
-Các test nghiệp vụ hiện có (**376 test**: 338 pass, 38 skip; 1714 assertions — xem
+Các test nghiệp vụ hiện có (**394 test**: 355 pass, 39 skip; 1790 assertions — xem
 kết quả chạy thực tế ở mục 18):
 
 **Unit (44 test)**
@@ -688,7 +694,7 @@ kết quả chạy thực tế ở mục 18):
   sạch nội dung, template dự phòng.
 - `ExampleTest` Unit (1).
 
-**Feature (332 test, trong đó 38 skip)**
+**Feature (350 test, trong đó 39 skip)**
 
 - `AnhUrlMysqlCopyTest` (37, **skip trên SQLite**): sweep 35 URL lạ qua thêm+sửa trên
   bản sao MySQL strict mode (không `RefreshDatabase` để giữ cột VARCHAR(150) thật,
@@ -703,9 +709,18 @@ kết quả chạy thực tế ở mục 18):
   điện thoại, chuyển hướng theo vai trò, chặn khách hàng vào trang nhân viên.
 - `BaoMatDangNhapTest` (6): throttle 10 lần/phút, cảnh báo mật khẩu mặc định trên
   trang đăng nhập/dashboard, chỉ admin thấy danh sách tài khoản chưa đổi mật khẩu.
+- `DatHangP0MysqlCopyTest` (1, **skip trên SQLite**): T-DH02 — migration M1 up/down trên
+  bản sao MySQL strict (enum/FK giữ nguyên, dữ liệu POS nguyên vẹn, down chặn khi còn
+  đơn user_id NULL); tự dọn, chạy lại được. Chỉ chạy khi trỏ vào bản sao `*_copy`.
+- `DatHangP0Test` (9): T-DH01 — cột mới đúng kiểu/nullable/index, user_id nhận null,
+  kenh mặc định pos, ma_tra_cuu unique (nhiều NULL), enum giữ nguyên, down có điều kiện,
+  config online, fallback "Đơn online" ở view in/danh sách/export.
 - `DoiSoatTest` (8): hàng chờ đối soát, phân quyền admin, đánh dấu đã xử lý, chặn
   xử lý lặp, webhook thành công không vào hàng chờ.
 - `ExampleTest` Feature (1).
+- `GiuHangOnlineServiceTest` (8): trần giữ hàng pickup — tồn 10→trần 5, trần không co
+  lại khi đã giữ, vượt trần từ chối kèm số còn lại, tồn 1→trần 1, không đếm
+  QR/POS/đã trả/đã hủy, nhiều sản phẩm độc lập, đổi config %, số lượng 0/âm từ chối.
 - `KhoaDongMysqlTest` (1, **skip trên SQLite**): khóa dòng `SELECT ... FOR UPDATE`
   thật trên MySQL/InnoDB — chỉ chạy khi trỏ vào bản sao MySQL (xem bên dưới).
 - `KiemTraHeThongTest` (13): từng mục của `he-thong:kiem-tra`, gồm scheduler,
@@ -1240,11 +1255,12 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
 - **`db:wipe` đã có chốt chặn production** như `migrate:fresh`: cần
   `--force-dangerous` và đúng tên database đích; `--force` đơn lẻ không đủ.
   Test chốt chặn dùng mock DB/schema/migrator, không xóa hay migrate CSDL thật.
-- **Kiểm thử hiện tại: 338 pass, 38 skip, 1714 assertions** (250.41s,
-  `XDEBUG_MODE=off`, nhánh `fix/anh-url-validate`). 38 skip = `KhoaDongMysqlTest`
-  (1) + `AnhUrlMysqlCopyTest` (37) — SQLite không có khóa dòng/InnoDB và không
-  cưỡng chế độ dài VARCHAR; cần trỏ vào bản sao MySQL để chạy (mục 9). Số pass
-  không thay thế kiểm tra đó.
+- **Kiểm thử hiện tại: 355 pass, 39 skip, 1790 assertions** (348.76s,
+  `XDEBUG_MODE=off`, nhánh `feat/dat-hang-p0-schema`). 39 skip = `KhoaDongMysqlTest`
+  (1) + `AnhUrlMysqlCopyTest` (37) + `DatHangP0MysqlCopyTest` (1) — SQLite không có
+  khóa dòng/InnoDB, không cưỡng chế độ dài VARCHAR và không phải MySQL strict để thử
+  migration; cần trỏ vào bản sao MySQL để chạy (mục 9). Cả 3 đã chạy thật trên
+  `doan_cnw_copy` (7 + 243 + 33 assertions). Số pass không thay thế kiểm tra đó.
 - **Mã phiếu trả chống trùng trong cùng giây (đã sửa 2026-11-12)**: `sinhMaPhieuTra`
   (`TraHangController.php:152-171`) dò hậu tố đã dùng của giây hiện tại rồi quét tiến
   từ điểm ngẫu nhiên, kèm vòng thử lại tối đa 5 lần khi vi phạm unique do giao dịch

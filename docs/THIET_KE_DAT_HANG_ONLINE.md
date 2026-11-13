@@ -42,7 +42,7 @@
                               |
                               v
                     +------------------+   giữ kho NGAY (trừ tồn + movement 'ban')
-                    |  cho_thanh_toan  |   QR: hạn 15-30 phút | Pickup: hạn 24 giờ (cấu hình)
+                    |  cho_thanh_toan  |   QR: hạn 15-30 phút | Pickup: hạn 4 giờ (cấu hình)
                     +------------------+
                      |        |        |
    webhook đủ tiền   |        |        |  quá hạn (scheduler/lazy)
@@ -114,7 +114,7 @@ Khác biệt duy nhất so với POS QR: nguồn giỏ là `storefront_cart`, đ
 
 ### 4.b Trả tiền khi nhận tại cửa hàng (pickup)
 
-1. Checkout chọn pickup → R1 tạo đơn `tienmat` + **giữ kho**, `han_giu = now + pos.online_pickup_gio` (đề xuất 24 giờ, D4). Không QR.
+1. Checkout chọn pickup → R1 tạo đơn `tienmat` + **giữ kho**, `han_giu = now + pos.online_pickup_gio` (đề xuất 4 giờ, D4). Không QR.
 2. Trang xác nhận hiện mã HD + mã tra cứu + địa chỉ cửa hàng (config `pos.bank_name`/thông tin cửa hàng sẵn có) + hạn giữ.
 3. Khách tới quầy trong hạn → thu ngân mở `/donhang?kenh=online`, đối chiếu mã + SĐT, thu tiền mặt, bấm **"Đã thu tiền"** → R2 (idempotent) với ghi chú thu ngân.
 4. Khách không tới trong hạn → scheduler hủy, hoàn kho (R7). Khách tự hủy được qua trang tra cứu khi còn chờ.
@@ -182,9 +182,10 @@ Schema::table('invoices'):
 | Khóa | Đề xuất | Ý nghĩa |
 |---|---|---|
 | `online_qr_phut` | 30 | Hạn giữ đơn QR online |
-| `online_pickup_gio` | 24 | Hạn giữ đơn pickup |
+| `online_pickup_gio` | 4 | Hạn giữ đơn pickup (giờ) |
 | `online_max_don_mo` | 3 | Số đơn `cho_thanh_toan` tối đa mỗi SĐT |
 | `online_max_soluong` | 10 | Số lượng tối đa mỗi dòng hàng online |
+| `online_giu_toi_da_phan_tram` | 50 | Trần tổng SL mỗi SP bị giữ bởi đơn pickup chưa thanh toán (% tồn gốc) |
 | `online_throttle_dat` | 5,1 | Rate limit checkout mỗi IP |
 
 ### 6.3 Rủi ro khi áp lên MySQL thật (`doan_cnw`, MySQL 8.4.7)
@@ -198,13 +199,27 @@ Schema::table('invoices'):
 7. **Lệch migration/DB thật** đã có tiền lệ (`hinh_anh` 150 vs 255, `dia_chi` 150 vs 255 — L8): sau khi chạy, đối chiếu lại `information_schema` như đợt này; thử trước trên `doan_cnw_copy` bằng biến môi trường tiến trình (không sửa `.env`).
 8. **Rollback**: `down()` có điều kiện (mục 6.1); kịch bản xấu nhất là restore backup — phải diễn tập trên copy trước.
 
+### 6.4 Trần giữ hàng pickup (PA1 — đã triển khai ở P0)
+
+Quy tắc miền chống ôm hàng riêng cho pickup, bổ sung cho hạn giữ ngắn (D4):
+
+- **Đơn pickup đang giữ** = `invoices.kenh='online'` + `phuong_thuc='tienmat'` (trả tại quầy) + `trang_thai='cho_thanh_toan'`. Không đếm QR (`chuyenkhoan`), đơn POS (`kenh='pos'`), `da_thanh_toan`, `da_huy`.
+- `dangGiuPickup(sp)` = SUM(`invoice_details.soluong`) của các đơn trên theo `product_id`.
+- `tonGoc(sp)` = `products.soluong` hiện tại + `dangGiuPickup` (kho trừ ngay khi tạo đơn chờ — R1 — nên cộng lại để trần không co lại theo mỗi đơn).
+- `tran(sp)` = `max(1, floor(online_giu_toi_da_phan_tram/100 × tonGoc))` (mặc định 50%).
+- `kiemTra(sp, soLuongMoi)`: cho phép nếu `dangGiuPickup + soLuongMoi ≤ tran`; từ chối (lỗi tiếng Việt, kèm số còn có thể giữ) nếu vượt hoặc `soLuongMoi ≤ 0`.
+
+Hiện thực: [GiuHangOnlineService.php](../app/Services/GiuHangOnlineService.php) — **chỉ đọc + tính, không ghi**, không route/UI/guest input ở P0. Test: `GiuHangOnlineServiceTest` (SQLite `:memory:`, 8 ca, tạo dữ liệu bằng model).
+
+**Rủi ro race còn lại (P1 phải xử lý):** service không tự khóa. P1 BẮT BUỘC gọi `kiemTra()` trong cùng `DB::transaction` với `lockForUpdate` sản phẩm (khóa theo id tăng dần, đúng mẫu R1/`ThanhToanChuyenKhoanService`) trước khi trừ kho; nếu không, hai khách đặt đồng thời có thể cùng vượt trần. Chưa có test đồng thời thật.
+
 ## 7. Mô hình đe dọa + giảm thiểu
 
 | # | Đe dọa | Giảm thiểu | Vị trí thiết kế |
 |---|---|---|---|
 | T1 | **Tamper giá/tồn/trạng thái** từ client (sửa giá giỏ, gửi `tong_thanh_toan`, `customer_id` người khác) | Checkout bỏ qua mọi trường tiền từ request; tính lại từ DB trong `DB::transaction(...,2)` với `lockForUpdate` SP theo id tăng dần (đúng mẫu R1 :38-44); `customer_id` chỉ lấy từ user đăng nhập, không từ form guest | R1, mục 3.2 bước 4 |
 | T2 | **Double-submit / đặt trùng** (double click, replay, hết giỏ rồi gửi lại) | Token checkout một lần trong session (`session()->pull`), xóa giỏ ngay sau tạo đơn thành công; nút disable phía client; `ma_tra_cuu` unique; transaction đảm bảo không tạo 2 đơn từ 1 token | P1, test T-DH05 |
-| T3 | **Giữ kho ảo / ôm hàng** (đặt hàng loạt không trả) | Hạn giữ ngắn (QR 30p, pickup 24h, cấu hình); scheduler mỗi phút + hủy lười; tối đa 3 đơn mở/SĐT; tối đa 10 SP/dòng; throttle checkout 5/phút/IP; thu ngân hủy tay; (tùy chọn D10: honeypot/captcha) | R7, mục 6.2 |
+| T3 | **Giữ kho ảo / ôm hàng** (đặt hàng loạt không trả) | Hạn giữ ngắn (QR 30p, pickup 4h, cấu hình); trần giữ pickup 50% tồn gốc mỗi SP (mục 6.4); scheduler mỗi phút + hủy lười; tối đa 3 đơn mở/SĐT; tối đa 10 SP/dòng; throttle checkout 5/phút/IP; thu ngân hủy tay; (tùy chọn D10: honeypot/captcha) | R7, mục 6.2/6.4 |
 | T4 | **Dò mã đơn** (enumeration mã HD tuần tự, đoán mã tra cứu) | Tra cứu công khai dùng `ma_tra_cuu` ngẫu nhiên ≥10 ký tự (bảng chữ cái bỏ ký tự dễ nhầm) **+ đúng SĐT**; không dùng `ma_hoadon` tuần tự làm khóa tra cứu; throttle 10/phút/IP; thông báo lỗi chung "Không tìm thấy đơn hàng" (không phân biệt sai mã / sai SĐT); endpoint trạng thái chỉ trả `{trang_thai}` | P1/P2, test T-DH12 |
 | T5 | **Lộ PII** (SĐT, tên, địa chỉ trong log/URL/response) | Thu thập tối thiểu: tên + SĐT + ghi chú (pickup không cần địa chỉ); che SĐT trong log/nhật ký (`090****567`); không log payload đầy đủ; Blade `{{ }}` escape mọi đầu ra; trang tra cứu không trả tên/SĐT/ngoài trạng thái; đơn đăng nhập chỉ truy vấn theo `customer_id` của chính user | R9, P4 |
 | T6 | **XSS ghi chú/địa chỉ** (khách nhập `<script>` vào ghi chú) | Validate `ghi_chu_khach max:500`, lưu thô nhưng **escape khi render** (Blade mặc định); **escape trước khi ghép tin Telegram HTML** (R8 — L9); không dùng `{!! !!}` cho dữ liệu khách | R8, P1 |
@@ -245,7 +260,7 @@ Thứ tự phụ thuộc: P0 → P1 → {P2, P3} → P4 → P5. Mỗi pha merge 
 | T-DH10 | Webhook đủ tiền hoàn tất đơn online QR, cộng điểm nếu có hồ sơ, idempotent khi gửi lại | P2 |
 | T-DH11 | Webhook thiếu tiền → giữ chờ + bản ghi đối soát; đơn hủy → đối soát | P2 |
 | T-DH12 | Tra cứu sai mã / sai SĐT → cùng thông báo chung, throttle; đúng → chỉ trả trạng thái | P1/P2 |
-| T-DH13 | Quá `han_giu`: scheduler hủy hoàn kho; polling hủy lười; QR 30p vs pickup 24h độc lập | P2 |
+| T-DH13 | Quá `han_giu`: scheduler hủy hoàn kho; polling hủy lười; QR 30p vs pickup 4h độc lập | P2 |
 | T-DH14 | Tiền về đơn đã hủy/trễ hạn: hoàn tất trễ hạn có ghi chú hoặc vào đối soát (đúng R6) | P2 |
 | T-DH15 | Thu ngân xác nhận pickup → `da_thanh_toan` đúng 1 lần, ghi chú tên thu ngân | P3 |
 | T-DH16 | `khachhang`/thukho/guest gọi route quản trị đơn online → 302/403 | P3 |
@@ -284,7 +299,7 @@ Việc FE: thay nút "Thanh toán" disabled ([cart.blade.php:74-77](../resources
 | D1 | Chỉ **pickup tại cửa hàng**, có làm giao hàng không? | Đợt này chỉ pickup (giao hàng ngoài phạm vi đã chốt) |
 | D2 | Chấp nhận **cả hai** hướng thanh toán QR + trả tại quầy? | Có — QR tái dùng webhook, pickup tái dùng xác nhận thủ công |
 | D3 | **Cho guest đặt hàng** hay bắt đăng nhập? | Cho guest đặt (tên + SĐT), đăng nhập là tùy chọn để tích điểm/xem lịch sử |
-| D4 | **Hạn giữ kho**: QR bao nhiêu phút, pickup bao nhiêu giờ? | QR 30 phút, pickup 24 giờ (config được) |
+| D4 | **Hạn giữ kho**: QR bao nhiêu phút, pickup bao nhiêu giờ? | QR 30 phút, pickup 4 giờ (config được). Trần giữ pickup: tổng SL mỗi SP bị giữ bởi đơn chưa thanh toán ≤ 50% tồn gốc (config `online_giu_toi_da_phan_tram`, mục 6.4) |
 | D5 | **Ai xác nhận** đơn pickup / xử lý đối soát? | Thu ngân xác nhận; admin xử lý đối soát (đúng phân quyền hiện tại) |
 | D6 | **Điểm online**: cho dùng điểm khi liên kết SĐT chưa xác minh? | v1 chỉ cộng điểm nhận, KHÔNG cho dùng điểm; xác minh SĐT (OTP/email) làm pha sau — chặn L1 |
 | D7 | Đơn online hoàn tất có ghi `user_id` thu ngân xác nhận? | Có (tùy chọn) — giúp audit; lúc tạo vẫn null |
