@@ -12,14 +12,19 @@ use RuntimeException;
 
 class ThanhToanChuyenKhoanService
 {
+    public function __construct(private GiuHangOnlineService $giuHangOnline)
+    {
+    }
+
     /**
      * Tạo hóa đơn ở trạng thái cho_thanh_toan và giữ hàng ngay lập tức.
      *
      * @param array $gioHang Danh sách sản phẩm trong giỏ [['id' => 1, 'soluong' => 2], ...]
      * @param array $thongTinKhach Thông tin giảm giá, customer_id, diem_su_dung
-     * @param mixed $user Người thực hiện (thu ngân / admin)
+     * @param mixed $user Người thực hiện (thu ngân / admin); null với đơn online guest
+     * @param array $online Thông tin đơn online (kenh, phuong_thuc, ma_tra_cuu, han_giu...); rỗng = POS
      */
-    public function taoHoaDonChoThanhToan(array $gioHang, array $thongTinKhach, $user): DonHang
+    public function taoHoaDonChoThanhToan(array $gioHang, array $thongTinKhach, $user, array $online = []): DonHang
     {
         $gioHangSorted = collect($gioHang)
             ->sortBy(fn (array $item, string|int $key): int => (int) ($item['id'] ?? $key))
@@ -29,7 +34,9 @@ class ThanhToanChuyenKhoanService
             throw new RuntimeException('Giỏ hàng đang trống.');
         }
 
-        return DB::transaction(function () use ($gioHangSorted, $thongTinKhach, $user): DonHang {
+        $laOnlinePickup = ($online['kenh'] ?? null) === 'online' && ($online['phuong_thuc'] ?? null) === 'tienmat';
+
+        return DB::transaction(function () use ($gioHangSorted, $thongTinKhach, $user, $online, $laOnlinePickup): DonHang {
             $tongTien = 0;
             $sanPhams = [];
 
@@ -41,6 +48,13 @@ class ThanhToanChuyenKhoanService
                 }
 
                 $soLuong = (int) $item['soluong'];
+
+                // Trần giữ pickup phải kiểm tra SAU khi đã khóa dòng sản phẩm để hai đơn
+                // đồng thời không cùng vượt trần (SUM thấy phần giữ đã commit của đơn trước).
+                if ($laOnlinePickup) {
+                    $this->giuHangOnline->kiemTra($sanPham->id, $soLuong);
+                }
+
                 $thanhTien = (float) $sanPham->gia_ban * $soLuong;
                 $tongTien += $thanhTien;
                 $sanPhams[] = [$sanPham, $soLuong, $thanhTien];
@@ -76,7 +90,7 @@ class ThanhToanChuyenKhoanService
             // 4. Tạo hóa đơn trạng thái cho_thanh_toan
             $donHang = DonHang::create([
                 'ma_hoadon' => $maHoaDon,
-                'user_id' => $user->id,
+                'user_id' => $user?->id,
                 'customer_id' => $khachHang?->id,
                 'tong_tien' => $tongTien,
                 'giam_gia_phantram' => $giamGiaPhanTram,
@@ -87,9 +101,15 @@ class ThanhToanChuyenKhoanService
                 'tong_thanh_toan' => $tongThanhToan,
                 'tien_khach_dua' => 0,
                 'tien_thua' => 0,
-                'phuong_thuc' => 'chuyenkhoan',
+                'phuong_thuc' => $online['phuong_thuc'] ?? 'chuyenkhoan',
                 'trang_thai' => 'cho_thanh_toan',
                 'thoi_gian_thanh_toan' => null,
+                'kenh' => $online['kenh'] ?? 'pos',
+                'ma_tra_cuu' => $online['ma_tra_cuu'] ?? null,
+                'ten_khach_dat' => $online['ten_khach_dat'] ?? null,
+                'so_dienthoai_dat' => $online['so_dienthoai_dat'] ?? null,
+                'ghi_chu_khach' => $online['ghi_chu_khach'] ?? null,
+                'han_giu' => $online['han_giu'] ?? null,
             ]);
 
             // 5. Trừ tồn kho và ghi movement loại ban ngay lập tức (giữ hàng)
@@ -107,7 +127,7 @@ class ThanhToanChuyenKhoanService
 
                 BienDongKho::create([
                     'product_id' => $sanPham->id,
-                    'user_id' => $user->id,
+                    'user_id' => $user?->id,
                     'invoice_id' => $donHang->id,
                     'loai' => 'ban',
                     'soluong' => -$soLuong,

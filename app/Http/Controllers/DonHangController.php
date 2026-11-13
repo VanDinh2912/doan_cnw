@@ -8,6 +8,7 @@ use App\Models\DonHang;
 use App\Models\LoaiSanPham;
 use App\Models\KhachHang;
 use App\Models\SanPham;
+use App\Services\NhatKyService;
 use App\Services\ThanhToanChuyenKhoanService;
 use App\Services\VietQrService;
 use Illuminate\Http\JsonResponse;
@@ -147,6 +148,53 @@ class DonHangController extends Controller
             'success' => true,
             'message' => 'Đã hủy chờ thanh toán và hoàn trả tồn kho.',
         ]);
+    }
+
+    // Gia hạn đơn pickup online: cộng giờ giữ, chặn ở trần created_at + online_gia_han_toi_da_gio.
+    public function postGiaHan(Request $request, DonHang $donHang): JsonResponse
+    {
+        if ($donHang->kenh !== 'online' || $donHang->phuong_thuc !== 'tienmat' || $donHang->trang_thai !== 'cho_thanh_toan') {
+            return response()->json(['error' => 'Chỉ gia hạn được đơn pickup online đang chờ thanh toán.'], 422);
+        }
+
+        $gioGiaHan = (int) config('pos.online_pickup_gio', 4);
+        $tranToiDa = (int) config('pos.online_gia_han_toi_da_gio', 24);
+
+        $ketQua = DB::transaction(function () use ($donHang, $gioGiaHan, $tranToiDa, $request): array {
+            $locked = DonHang::where('id', $donHang->id)->lockForUpdate()->first();
+            if (! $locked || $locked->trang_thai !== 'cho_thanh_toan') {
+                return ['success' => false, 'message' => 'Đơn không còn ở trạng thái chờ thanh toán.'];
+            }
+
+            $tran = $locked->created_at->copy()->addHours($tranToiDa);
+            if ($locked->han_giu !== null && $locked->han_giu->greaterThanOrEqualTo($tran)) {
+                return ['success' => false, 'message' => 'Đơn đã đạt hạn giữ tối đa, không thể gia hạn.'];
+            }
+
+            $base = ($locked->han_giu !== null && $locked->han_giu->isFuture()) ? $locked->han_giu : now();
+            $moi = $base->copy()->addHours($gioGiaHan);
+            if ($moi->greaterThan($tran)) {
+                $moi = $tran->copy();
+            }
+
+            $locked->update(['han_giu' => $moi]);
+
+            NhatKyService::ghi(
+                $request,
+                'gia_han_don_online',
+                'invoices',
+                $locked->id,
+                'Gia hạn đơn pickup '.$locked->ma_hoadon.' đến '.$moi->format('d/m/Y H:i')
+            );
+
+            return ['success' => true, 'message' => 'Đã gia hạn hạn giữ hàng.', 'han_giu' => $moi->toIso8601String()];
+        }, 2);
+
+        if (! $ketQua['success']) {
+            return response()->json(['error' => $ketQua['message']], 422);
+        }
+
+        return response()->json(['success' => true, 'message' => $ketQua['message'], 'han_giu' => $ketQua['han_giu']]);
     }
 
     public function getDanhSach(Request $request): View

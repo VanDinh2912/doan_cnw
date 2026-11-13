@@ -36,6 +36,26 @@ Route::post('/api/webhook/thanhtoan', [\App\Http\Controllers\WebhookController::
     ->middleware('throttle:60,1')
     ->name('webhook.thanhtoan');
 
+// Đặt hàng online guest pickup (P1) — công khai, không bắt buộc đăng nhập.
+Route::prefix('dat-hang')->name('dat-hang.')->group(function (): void {
+    Route::get('/', [\App\Http\Controllers\DatHangOnlineController::class, 'getForm'])->name('form');
+    Route::post('/', [\App\Http\Controllers\DatHangOnlineController::class, 'postDat'])
+        ->middleware('throttle:'.config('pos.online_throttle_dat', '5,1'))
+        ->name('dat');
+    Route::get('/thanh-cong/{ma_tra_cuu}', [\App\Http\Controllers\DatHangOnlineController::class, 'getThanhCong'])->name('thanhcong');
+});
+
+Route::prefix('don-hang')->name('don-hang.')->group(function (): void {
+    Route::get('/tra-cuu', [\App\Http\Controllers\DatHangOnlineController::class, 'getTraCuu'])->name('tracuu');
+    Route::post('/tra-cuu', [\App\Http\Controllers\DatHangOnlineController::class, 'postTraCuu'])
+        ->middleware('throttle:'.config('pos.online_throttle_dat', '5,1'))
+        ->name('posttracuu');
+    // {ma_tra_cuu} phải đăng ký SAU /tra-cuu để không nuốt mất đường tra cứu.
+    Route::get('/{ma_tra_cuu}', [\App\Http\Controllers\DatHangOnlineController::class, 'getTrangThai'])->name('trangthai');
+    Route::post('/{ma_tra_cuu}/trang-thai', [\App\Http\Controllers\DatHangOnlineController::class, 'postPoll'])->name('poll');
+    Route::post('/{ma_tra_cuu}/huy', [\App\Http\Controllers\DatHangOnlineController::class, 'postHuy'])->name('huy');
+});
+
 Route::middleware(['auth', 'staff.only'])->group(function (): void {
     Route::get('/tongquan', [\App\Http\Controllers\ThongKeController::class, 'getTongQuan'])->name('tongquan');
 
@@ -54,6 +74,7 @@ Route::middleware(['auth', 'staff.only'])->group(function (): void {
         Route::get('/donhang/trangthai/{donHang}', [\App\Http\Controllers\DonHangController::class, 'getTrangThai'])->name('donhang.trangthai');
         Route::post('/donhang/xacnhan/{donHang}', [\App\Http\Controllers\DonHangController::class, 'postXacNhanThanhToan'])->name('donhang.xacnhan');
         Route::post('/donhang/huycho/{donHang}', [\App\Http\Controllers\DonHangController::class, 'postHuyCho'])->name('donhang.huycho');
+        Route::post('/donhang/giahan/{donHang}', [\App\Http\Controllers\DonHangController::class, 'postGiaHan'])->name('donhang.giahan');
         Route::post('/hold', [\App\Http\Controllers\HoldController::class, 'giu'])->name('hold.giu');
         Route::get('/hold', [\App\Http\Controllers\HoldController::class, 'danhSach'])->name('hold.danhsach');
         Route::get('/hold/{gioTam}/khoiphuc', [\App\Http\Controllers\HoldController::class, 'khoiPhuc'])->name('hold.khoiphuc');

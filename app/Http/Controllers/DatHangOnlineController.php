@@ -1,0 +1,256 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\DonHang;
+use App\Services\NhatKyService;
+use App\Services\ThanhToanChuyenKhoanService;
+use App\Services\ThongBaoService;
+use App\Support\CheThongTin;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+use Illuminate\View\View;
+use RuntimeException;
+use Throwable;
+
+/**
+ * Đặt hàng online guest PICKUP (P1): checkout giữ hàng qua R1, tra cứu bằng
+ * mã + SĐT (SĐT chỉ đi trong thân POST, không lên URL), xem trạng thái / polling
+ * và tự hủy. Bằng chứng đã xác thực lưu trong session don_hang_xac_thuc[ma_tra_cuu].
+ * Giá / tồn / trạng thái / user_id / customer_id đều tính lại từ DB trong R1.
+ */
+class DatHangOnlineController extends Controller
+{
+    private const CART_KEY = 'storefront_cart';
+    private const EVIDENCE_KEY = 'don_hang_xac_thuc';
+
+    public function getForm(Request $request): View|RedirectResponse
+    {
+        $cart = $request->session()->get(self::CART_KEY, []);
+        if (empty($cart)) {
+            return redirect()->route('storefront.cart.index')->with('error', 'Giỏ hàng đang trống.');
+        }
+
+        $token = $request->session()->get('checkout_token');
+        if (! $token) {
+            $token = Str::random(40);
+            $request->session()->put('checkout_token', $token);
+        }
+
+        return view('dathang.form', [
+            'cart' => $cart,
+            'token' => $token,
+            'tong' => collect($cart)->sum(fn (array $i): float => (float) $i['gia_ban'] * (int) $i['soluong']),
+            'pickupGio' => (int) config('pos.online_pickup_gio', 4),
+        ]);
+    }
+
+    public function postDat(Request $request, ThanhToanChuyenKhoanService $service): RedirectResponse
+    {
+        $validated = $request->validate([
+            'ten' => ['required', 'string', 'max:100'],
+            'so_dienthoai' => ['required', 'string', 'regex:/^0\d{9,10}$/'],
+            'ghi_chu' => ['nullable', 'string', 'max:500'],
+            'phuong_thuc' => ['required', 'in:pickup'],
+            'checkout_token' => ['required', 'string'],
+        ], [
+            'ten.required' => 'Vui lòng nhập họ tên.',
+            'so_dienthoai.regex' => 'Số điện thoại phải bắt đầu bằng 0 và gồm 10-11 chữ số.',
+            'ghi_chu.max' => 'Ghi chú tối đa 500 ký tự.',
+            'phuong_thuc.in' => 'Phương thức đặt hàng không hợp lệ.',
+        ]);
+
+        // Token chỉ dùng một lần: pull rồi so khớp; lệch thì cấp lại để form thử lại.
+        $token = $request->session()->pull('checkout_token');
+        if (! $token || ! hash_equals((string) $token, $validated['checkout_token'])) {
+            $this->capLaiToken($request);
+
+            return back()->with('error', 'Phiên đặt hàng đã hết hạn hoặc không hợp lệ, vui lòng thử lại.');
+        }
+
+        $cart = $request->session()->get(self::CART_KEY, []);
+        if (empty($cart)) {
+            $this->capLaiToken($request);
+
+            return back()->with('error', 'Giỏ hàng đang trống.');
+        }
+
+        // Chỉ gửi id + số lượng; R1 tính lại giá / tồn / trạng thái từ DB trong transaction.
+        $gioHang = collect($cart)->map(fn (array $item): array => [
+            'id' => (int) $item['id'],
+            'soluong' => (int) $item['soluong'],
+        ])->values()->all();
+
+        $online = [
+            'kenh' => 'online',
+            'phuong_thuc' => 'tienmat',
+            'ma_tra_cuu' => $this->taoMaTraCuu(),
+            'ten_khach_dat' => $validated['ten'],
+            'so_dienthoai_dat' => $validated['so_dienthoai'],
+            'ghi_chu_khach' => $validated['ghi_chu'] ?? null,
+            'han_giu' => now()->addHours((int) config('pos.online_pickup_gio', 4)),
+        ];
+
+        try {
+            $don = $service->taoHoaDonChoThanhToan($gioHang, [], null, $online);
+        } catch (Throwable $e) {
+            $this->capLaiToken($request);
+            $message = $e instanceof RuntimeException ? $e->getMessage() : 'Không thể tạo đơn hàng. Vui lòng thử lại.';
+
+            return back()->with('error', $message);
+        }
+
+        $request->session()->forget(self::CART_KEY);
+        $this->ghiBangChung($request, $don->ma_tra_cuu);
+
+        NhatKyService::ghi(
+            $request,
+            'dat_hang_online',
+            'invoices',
+            $don->id,
+            'Đơn pickup online '.$don->ma_hoadon.', khách '.$validated['ten']
+                .', SĐT '.CheThongTin::soDienThoai($validated['so_dienthoai'])
+                .', tổng '.number_format((float) $don->tong_thanh_toan, 0, ',', '.').'đ'
+        );
+
+        app(ThongBaoService::class)->thongBaoDonOnlineMoi($don);
+
+        return redirect()->route('dat-hang.thanhcong', $don->ma_tra_cuu);
+    }
+
+    public function getThanhCong(string $ma_tra_cuu, ThanhToanChuyenKhoanService $service): View
+    {
+        $don = DonHang::where('ma_tra_cuu', $ma_tra_cuu)->firstOrFail();
+        $don = $this->huyNeuQuaHan($don, $service);
+
+        return view('dathang.thanhcong', ['don' => $don]);
+    }
+
+    public function getTraCuu(): View
+    {
+        return view('dathang.tracuu');
+    }
+
+    public function postTraCuu(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'ma_tra_cuu' => ['required', 'string', 'max:20'],
+            'so_dienthoai' => ['required', 'string', 'regex:/^0\d{9,10}$/'],
+        ], [
+            'so_dienthoai.regex' => 'Số điện thoại phải bắt đầu bằng 0 và gồm 10-11 chữ số.',
+        ]);
+
+        $don = DonHang::where('ma_tra_cuu', $validated['ma_tra_cuu'])
+            ->where('so_dienthoai_dat', $validated['so_dienthoai'])
+            ->where('kenh', 'online')
+            ->first();
+
+        // Thông báo chung cho cả sai mã lẫn sai SĐT để không dò được đơn tồn tại.
+        if (! $don) {
+            return back()->with('error', 'Không tìm thấy đơn hàng');
+        }
+
+        $this->ghiBangChung($request, $don->ma_tra_cuu);
+
+        return redirect()->route('don-hang.trangthai', $don->ma_tra_cuu);
+    }
+
+    public function getTrangThai(Request $request, string $ma_tra_cuu, ThanhToanChuyenKhoanService $service): View|RedirectResponse
+    {
+        if (! $this->coBangChung($request, $ma_tra_cuu)) {
+            return redirect()->route('don-hang.tracuu');
+        }
+
+        $don = DonHang::where('ma_tra_cuu', $ma_tra_cuu)->first();
+        if (! $don) {
+            return redirect()->route('don-hang.tracuu')->with('error', 'Không tìm thấy đơn hàng');
+        }
+
+        $don = $this->huyNeuQuaHan($don, $service);
+
+        return view('dathang.trangthai', ['don' => $don]);
+    }
+
+    public function postPoll(Request $request, string $ma_tra_cuu, ThanhToanChuyenKhoanService $service): JsonResponse
+    {
+        if (! $this->coBangChung($request, $ma_tra_cuu)) {
+            abort(403);
+        }
+
+        $don = DonHang::where('ma_tra_cuu', $ma_tra_cuu)->firstOrFail();
+        $don = $this->huyNeuQuaHan($don, $service);
+
+        // Polling chỉ trả trạng thái, không kèm SĐT / thông tin khách (T5).
+        return response()->json(['trang_thai' => $don->trang_thai]);
+    }
+
+    public function postHuy(Request $request, string $ma_tra_cuu, ThanhToanChuyenKhoanService $service): RedirectResponse
+    {
+        if (! $this->coBangChung($request, $ma_tra_cuu)) {
+            return redirect()->route('don-hang.tracuu');
+        }
+
+        $don = DonHang::where('ma_tra_cuu', $ma_tra_cuu)->first();
+        if (! $don) {
+            return redirect()->route('don-hang.tracuu')->with('error', 'Không tìm thấy đơn hàng');
+        }
+
+        if ($don->trang_thai !== 'cho_thanh_toan') {
+            return back()->with('error', 'Chỉ có thể hủy đơn đang chờ thanh toán.');
+        }
+
+        $res = $service->huyChoThanhToan($don, 'Khách tự hủy đơn pickup online');
+        if (! $res['success']) {
+            return back()->with('error', $res['message']);
+        }
+
+        return redirect()->route('don-hang.trangthai', $don->ma_tra_cuu)->with('success', 'Đã hủy đơn và hoàn trả tồn kho.');
+    }
+
+    private function huyNeuQuaHan(DonHang $don, ThanhToanChuyenKhoanService $service): DonHang
+    {
+        if ($don->trang_thai === 'cho_thanh_toan' && $don->han_giu !== null && $don->han_giu->isPast()) {
+            $service->huyChoThanhToan($don, 'Quá hạn giữ hàng pickup (hủy lười)');
+            $don->refresh();
+        }
+
+        return $don;
+    }
+
+    private function capLaiToken(Request $request): void
+    {
+        $request->session()->put('checkout_token', Str::random(40));
+    }
+
+    private function ghiBangChung(Request $request, string $ma): void
+    {
+        $evidence = $request->session()->get(self::EVIDENCE_KEY, []);
+        $evidence[$ma] = true;
+        $request->session()->put(self::EVIDENCE_KEY, $evidence);
+    }
+
+    private function coBangChung(Request $request, string $ma): bool
+    {
+        $evidence = $request->session()->get(self::EVIDENCE_KEY, []);
+
+        return ! empty($evidence[$ma]);
+    }
+
+    private function taoMaTraCuu(): string
+    {
+        // Bỏ ký tự dễ nhầm (I, O, 0, 1); 12 ký tự ≈ 32^12, không đoán được.
+        $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        $doDai = strlen($alphabet);
+
+        do {
+            $ma = '';
+            for ($i = 0; $i < 12; $i++) {
+                $ma .= $alphabet[random_int(0, $doDai - 1)];
+            }
+        } while (DonHang::where('ma_tra_cuu', $ma)->exists());
+
+        return $ma;
+    }
+}

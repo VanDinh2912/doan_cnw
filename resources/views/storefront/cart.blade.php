@@ -71,10 +71,9 @@
                         <button type="submit" class="sf-icon-btn" style="height:44px;">
                             <i class="fa-solid fa-rotate"></i> Cập nhật
                         </button>
-                        <button type="button" class="sf-icon-btn is-primary" style="height:44px;padding:0 24px;" disabled
-                                title="Thanh toán — sắp ra mắt">
-                            <i class="fa-solid fa-credit-card"></i> Thanh toán
-                        </button>
+                        <a href="{{ route('dat-hang.form') }}" class="sf-icon-btn is-primary" style="height:44px;padding:0 24px;">
+                            <i class="fa-solid fa-credit-card"></i> Đặt hàng
+                        </a>
                     </div>
                 </div>
             </form>
