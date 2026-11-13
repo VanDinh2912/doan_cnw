@@ -89,14 +89,20 @@ class ThanhToanChuyenKhoanService
             if (! empty($customerId)) {
                 $khachHang = KhachHang::query()->lockForUpdate()->findOrFail($customerId);
                 if ($diemSuDung > $khachHang->diem_tichluy) {
-                    throw new RuntimeException('Số điểm sử dụng vượt quá điểm hiện có.');
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'diem_su_dung' => ['Số điểm sử dụng vượt quá điểm hiện có.'],
+                    ]);
                 }
                 $tienGiamDiem = $diemSuDung * config('pos.gia_tri_diem');
                 if ($tienGiam + $tienGiamDiem > $tongTien) {
-                    throw new RuntimeException('Số điểm sử dụng vượt quá giá trị hóa đơn.');
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'diem_su_dung' => ['Số điểm sử dụng vượt quá giá trị hóa đơn.'],
+                    ]);
                 }
             } elseif ($diemSuDung > 0) {
-                throw new RuntimeException('Cần chọn khách hàng trước khi dùng điểm.');
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'diem_su_dung' => ['Cần chọn khách hàng trước khi dùng điểm.'],
+                ]);
             }
 
             $tongThanhToan = $tongTien - $tienGiam - $tienGiamDiem;

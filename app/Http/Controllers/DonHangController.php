@@ -60,7 +60,17 @@ class DonHangController extends Controller
             'giam_gia_phantram' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'customer_id'       => ['nullable', 'integer', 'exists:customers,id'],
             'diem_su_dung'      => ['nullable', 'integer', 'min:0'],
+        ], [
+            'diem_su_dung.integer' => 'Số điểm sử dụng phải là số nguyên dương.',
+            'diem_su_dung.min' => 'Số điểm sử dụng không được âm.',
+            'customer_id.exists' => 'Khách hàng không tồn tại trong hệ thống.',
         ]);
+
+        if (! empty($validated['diem_su_dung']) && empty($validated['customer_id'])) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'diem_su_dung' => ['Cần chọn khách hàng trước khi dùng điểm.'],
+            ]);
+        }
 
         $gioHang = $request->session()->get('gio_hang', []);
         if (empty($gioHang)) {
@@ -116,8 +126,15 @@ class DonHangController extends Controller
                 'url_qr'          => $urlQr,
                 'het_han_luc'     => $hetHanLuc,
             ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $msg = $e->validator->errors()->first() ?: $e->getMessage();
+            return response()->json([
+                'error' => $msg,
+                'message' => $msg,
+                'errors' => $e->errors(),
+            ], 422);
         } catch (Throwable $e) {
-            return response()->json(['error' => $e->getMessage()], 422);
+            return response()->json(['error' => $e->getMessage(), 'message' => $e->getMessage()], 422);
         }
     }
 
@@ -269,7 +286,7 @@ class DonHangController extends Controller
         return view('donhang.hoadon', ['donHang' => $donHang, 'kho' => $kho]);
     }
 
-    public function postThanhToan(Request $request): RedirectResponse
+    public function postThanhToan(Request $request): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
             'giam_gia_phantram' => ['required', 'numeric', 'min:0', 'max:100'],
@@ -282,7 +299,16 @@ class DonHangController extends Controller
             'giam_gia_phantram.max' => 'Giảm giá không được vượt quá 100%.',
             'tien_khach_dua.min' => 'Tiền khách đưa không được âm.',
             'phuong_thuc.in' => 'Phương thức thanh toán không hợp lệ.',
+            'diem_su_dung.integer' => 'Số điểm sử dụng phải là số nguyên dương.',
+            'diem_su_dung.min' => 'Số điểm sử dụng không được âm.',
+            'customer_id.exists' => 'Khách hàng không tồn tại trong hệ thống.',
         ]);
+
+        if (! empty($validated['diem_su_dung']) && empty($validated['customer_id'])) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'diem_su_dung' => ['Cần chọn khách hàng trước khi dùng điểm.'],
+            ]);
+        }
 
         $gioHang = collect($request->session()->get('gio_hang', []))
             ->sortBy(fn (array $item, string|int $key): int => (int) ($item['id'] ?? $key))
@@ -316,14 +342,20 @@ class DonHangController extends Controller
                 if (! empty($validated['customer_id'])) {
                     $khachHang = KhachHang::query()->lockForUpdate()->findOrFail($validated['customer_id']);
                     if ($diemSuDung > $khachHang->diem_tichluy) {
-                        throw new \RuntimeException('Số điểm sử dụng vượt quá điểm hiện có.');
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            'diem_su_dung' => ['Số điểm sử dụng vượt quá điểm hiện có.'],
+                        ]);
                     }
                     $tienGiamDiem = $diemSuDung * config('pos.gia_tri_diem');
                     if ($tienGiam + $tienGiamDiem > $tongTien) {
-                        throw new \RuntimeException('Số điểm sử dụng vượt quá giá trị hóa đơn.');
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            'diem_su_dung' => ['Số điểm sử dụng vượt quá giá trị hóa đơn.'],
+                        ]);
                     }
                 } elseif ($diemSuDung > 0) {
-                    throw new \RuntimeException('Cần chọn khách hàng trước khi dùng điểm.');
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'diem_su_dung' => ['Cần chọn khách hàng trước khi dùng điểm.'],
+                    ]);
                 }
                 $tongThanhToan = $tongTien - $tienGiam - $tienGiamDiem;
                 $diemTichLuyNhan = $khachHang ? (int) floor($tongThanhToan / config('pos.diem_moi_dong')) : 0;
@@ -386,12 +418,18 @@ class DonHangController extends Controller
             $request->session()->forget('gio_hang');
 
             return redirect()->route('donhang.inhoadon', $donHang)->with('success', 'Thanh toán thành công.');
+        } catch (\Illuminate\Validation\ValidationException $exception) {
+            throw $exception;
         } catch (Throwable $exception) {
             Log::error('Thanh toán thất bại.', ['message' => $exception->getMessage()]);
 
             $message = $exception instanceof \RuntimeException
                 ? $exception->getMessage()
                 : 'Không thể hoàn tất thanh toán. Vui lòng thử lại.';
+
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json(['error' => $message, 'message' => $message], 422);
+            }
 
             return back()->with('error', $message);
         }

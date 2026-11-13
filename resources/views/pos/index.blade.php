@@ -82,7 +82,7 @@
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label" for="diem_su_dung">Dùng điểm</label>
-                                <input class="form-control" id="diem_su_dung" name="diem_su_dung" type="number" min="0" value="{{ old('diem_su_dung', 0) }}">
+                                <input class="form-control" id="diem_su_dung" name="diem_su_dung" type="number" min="0" value="{{ old('diem_su_dung', 0) }}" disabled>
                                 <small class="text-muted" id="diem-hien-co">Chưa chọn khách</small>
                             </div>
                         </div>
@@ -560,6 +560,9 @@ customerPhone.addEventListener('input', () => {
 customerPhone.addEventListener('input', async () => {
     customerId.value = '';
     pointsHint.textContent = 'Chưa chọn khách';
+    pointsInput.disabled = true;
+    pointsInput.value = 0;
+    pointsInput.removeAttribute('max');
     const phone = customerPhone.value.trim();
     customerResults.innerHTML = '';
     if (!phone) return;
@@ -584,11 +587,32 @@ customerPhone.addEventListener('input', async () => {
         button.addEventListener('click', () => {
             customerId.value = customer.id;
             customerPhone.value = customer.so_dienthoai;
-            pointsHint.textContent = `Điểm hiện có: ${customer.diem_tichluy}`;
+            const diemHienCo = Number(customer.diem_tichluy) || 0;
+            pointsHint.textContent = `Điểm hiện có: ${diemHienCo}`;
+            pointsInput.max = diemHienCo;
+            if (diemHienCo > 0) {
+                pointsInput.disabled = false;
+                pointsInput.value = Math.min(Number(pointsInput.value) || 0, diemHienCo);
+            } else {
+                pointsInput.disabled = true;
+                pointsInput.value = 0;
+            }
             customerResults.innerHTML = '';
         });
         customerResults.appendChild(button);
     });
+});
+
+pointsInput.addEventListener('input', () => {
+    if (!pointsInput.disabled) {
+        const max = Number(pointsInput.max) || 0;
+        const val = Number(pointsInput.value);
+        if (isNaN(val) || val < 0) {
+            pointsInput.value = 0;
+        } else if (val > max) {
+            pointsInput.value = max;
+        }
+    }
 });
 </script>
 @endpush
