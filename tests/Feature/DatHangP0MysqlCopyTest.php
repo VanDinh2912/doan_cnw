@@ -143,7 +143,7 @@ class DatHangP0MysqlCopyTest extends TestCase
             "SELECT COLUMN_NAME, COLUMN_TYPE, DATA_TYPE, IS_NULLABLE, COLUMN_DEFAULT
              FROM information_schema.COLUMNS
              WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'invoices'"
-        ))->keyBy('COLUMN_NAME')->all();
+        ))->map(fn ($c) => (array) $c)->keyBy('COLUMN_NAME')->all();
     }
 
     private function dinhNghiaEnum(): array

@@ -28,7 +28,7 @@
             @forelse ($donHangs as $donHang)
                 <tr>
                     <td>{{ $donHang->ma_hoadon }}</td>
-                    <td>{{ $donHang->user->name }}</td>
+                    <td>{{ $donHang->user?->name ?? 'Đơn online' }}</td>
                     <td>{{ $donHang->created_at->format('d/m/Y H:i') }}</td>
                     <td>{{ number_format($donHang->tong_thanh_toan, 0, ',', '.') }} đ</td>
                     <td>

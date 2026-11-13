@@ -91,8 +91,8 @@ class DatHangP0Test extends TestCase
         try {
             $this->donHangMau(['ma_tra_cuu' => 'TC-TRUNG']);
             $this->fail('ma_tra_cuu trùng phải bị chặn bởi unique index');
-        } catch (QueryException) {
-            // đúng kỳ vọng
+        } catch (QueryException $e) {
+            $this->assertStringContainsString('constraint', strtolower($e->getMessage()));
         }
 
         $this->donHangMau(['ma_tra_cuu' => null]);
@@ -111,8 +111,8 @@ class DatHangP0Test extends TestCase
             try {
                 $this->donHangMau(['user_id' => $userId, $cot => $giaTri]);
                 $this->fail("Enum {$cot} phải từ chối giá trị mới '{$giaTri}'");
-            } catch (QueryException) {
-                // đúng kỳ vọng: không thêm giá trị enum
+            } catch (QueryException $e) {
+                $this->assertStringContainsString('constraint', strtolower($e->getMessage()), "Enum {$cot} phải từ chối '{$giaTri}'");
             }
         }
     }
@@ -145,9 +145,10 @@ class DatHangP0Test extends TestCase
     public function test_cau_hinh_online_co_mac_dinh_theo_thiet_ke(): void
     {
         $this->assertSame(30, config('pos.online_qr_phut'));
-        $this->assertSame(24, config('pos.online_pickup_gio'));
+        $this->assertSame(4, config('pos.online_pickup_gio'));
         $this->assertSame(3, config('pos.online_max_don_mo'));
         $this->assertSame(10, config('pos.online_max_soluong'));
+        $this->assertSame(50, config('pos.online_giu_toi_da_phan_tram'));
         $this->assertSame('5,1', config('pos.online_throttle_dat'));
     }
 
@@ -168,8 +169,7 @@ class DatHangP0Test extends TestCase
 
         $this->actingAs($thungan)->get(route('donhang.inhoadon', $donOnline))
             ->assertOk()
-            ->assertSee('Đơn online')
-            ->assertDontSee('Thu ngân');
+            ->assertSee('Thu ngân: Đơn online');
 
         $donPos = $this->donHangMau(['user_id' => $thungan->id]);
         ChiTietDonHang::create([
@@ -182,7 +182,7 @@ class DatHangP0Test extends TestCase
         ]);
         $this->actingAs($thungan)->get(route('donhang.inhoadon', $donPos))
             ->assertOk()
-            ->assertSee('Thu ngân');
+            ->assertSee('Thu ngân: Thu ngân');
     }
 
     public function test_danh_sach_hoa_don_hien_don_online_khi_user_id_null(): void

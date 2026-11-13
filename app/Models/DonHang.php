@@ -19,12 +19,14 @@ class DonHang extends Model
         'tien_thua', 'phuong_thuc', 'ma_giao_dich', 'ma_giaodich', 'customer_id', 'diem_su_dung',
         'tien_giam_diem', 'diem_tichluy_nhan', 'trang_thai',
         'thoi_gian_thanh_toan', 'ghi_chu',
+        'kenh', 'ma_tra_cuu', 'ten_khach_dat', 'so_dienthoai_dat', 'ghi_chu_khach', 'han_giu',
     ];
 
     protected function casts(): array
     {
         return [
             'thoi_gian_thanh_toan' => 'datetime',
+            'han_giu' => 'datetime',
         ];
     }
 

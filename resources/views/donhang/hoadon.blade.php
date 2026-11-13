@@ -31,7 +31,7 @@
     <div>{{ $donHang->ma_hoadon }}</div>
     <div>{{ $donHang->created_at->format('d/m/Y H:i') }}</div>
 </div>
-<p>Thu ngân: {{ $donHang->user->name }}</p>
+<p>Thu ngân: {{ $donHang->user?->name ?? 'Đơn online' }}</p>
 <table>
     <thead><tr><th>Sản phẩm</th><th>SL</th><th class="right">T.Tiền</th></tr></thead>
     <tbody>
