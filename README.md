@@ -681,7 +681,7 @@ php artisan test --compact
 Remove-Item Env:XDEBUG_MODE
 ```
 
-Các test nghiệp vụ hiện có (**423 test**: 382 pass, 41 skip; 1898 assertions — xem
+Các test nghiệp vụ hiện có (**466 test**: 418 pass, 48 skip; 2042 assertions — xem
 kết quả chạy thực tế ở mục 18):
 
 **Unit (44 test)**
@@ -695,7 +695,14 @@ kết quả chạy thực tế ở mục 18):
   sạch nội dung, template dự phòng.
 - `ExampleTest` Unit (1).
 
-**Feature (379 test, trong đó 41 skip)**
+**Feature (426 test, trong đó 41 skip)**
+
+**Feature (bổ sung lỗi vận hành 1 — 5 bộ test mới)**
+- `LoiADungDiemTest` (10): Lỗi A — dùng điểm sai quy định, lockForUpdate, hủy hoàn điểm, 2 đơn tuần tự
+- `LoiBTaoQrTest` (6): Lỗi B — đủ/thiếu cấu hình QR, log che STK, fallback cột online
+- `LoiCSoDienThoaiKhachTest` (4): Lỗi C — chữ/SĐT rỗng báo định dạng, trùng thật báo tồn tại, Rule chung
+- `LoiDDashboardTonKhoTest` (1): Lỗi D — 4 bước tồn kho/đang giữ/tổng thực tế với số cụ thể
+- `SanPhamAnhUrlTest` (26): Lỗi E — sweep URL thực tế, validate 500 ký tự, JS cảnh báo không khóa
 
 - `AnhUrlMysqlCopyTest` (37, **skip trên SQLite**): sweep 35 URL lạ qua thêm+sửa trên
   bản sao MySQL strict mode (không `RefreshDatabase` để giữ cột VARCHAR(150) thật,
@@ -737,6 +744,18 @@ kết quả chạy thực tế ở mục 18):
   tra cứu đúng redirect không lộ SĐT trên URL; polling chỉ trả trạng thái không PII;
   polling/trang thái yêu cầu bằng chứng session; khách tự hủy đơn chờ hoàn kho; hủy
   đơn đã thanh toán bị từ chối; polling hủy lười khi quá hạn giữ.
+- `DatHangP2FormCheckoutTest` (10): P2 Form + Checkout — form hiển thị lựa chọn hình
+  thức nhận; giao_tan_noi thiếu người nhận/SĐT/địa chỉ bị từ chối; giao_tan_noi trả
+  tại quầy bị từ chối (phải QR); tính phí giao hàng đúng theo config; miễn phí khi
+  đạt ngưỡng; request cố sửa phí/tổng/trạng thái bị bỏ qua; ngoài vùng giao bị từ
+  chối; tai_cua_hang không đổi hành vi P1.
+- `DatHangP2MigrationTest` (7): T-DH-M3 — migration M3 trên SQLite (cột mới đúng
+  kiểu/nullable/index, tạo đơn giao_tan_noi, tạo đơn tai_cua_hang mặc định, down chặn
+  khi còn đơn giao_tan_noi, down sạch khi không còn, config đúng mặc định).
+- `DatHangP2MysqlCopyTest` (1, **skip trên SQLite**): T-DH-M3 — migration M3 up/down
+  trên bản sao MySQL (kiểm tra cột, enum/FK giữ nguyên, dữ liệu POS nguyên vẹn, down
+  chặn khi còn đơn giao_tan_noi); tự dọn, chạy lại được. Chỉ chạy khi trỏ vào bản sao
+  `*_copy`.
 - `DoiSoatTest` (8): hàng chờ đối soát, phân quyền admin, đánh dấu đã xử lý, chặn
   xử lý lặp, webhook thành công không vào hàng chờ.
 - `ExampleTest` Feature (1).
@@ -1277,12 +1296,18 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
 - **`db:wipe` đã có chốt chặn production** như `migrate:fresh`: cần
   `--force-dangerous` và đúng tên database đích; `--force` đơn lẻ không đủ.
   Test chốt chặn dùng mock DB/schema/migrator, không xóa hay migrate CSDL thật.
-- **Kiểm thử hiện tại: 382 pass, 41 skip, 1898 assertions** (200.94s,
-  `XDEBUG_MODE=off`, nhánh `feat/dat-hang-p1-checkout`). 41 skip = `KhoaDongMysqlTest`
+- **Đặt hàng online P2 (giao tận nơi) chưa hoàn chỉnh**: Form + Checkout đã hỗ trợ
+  `giao_tan_noi` với phí giao hàng cố định, nhưng trang QR online, webhook hoàn tất
+  (đặt `trang_thai_giao`), tra cứu đơn (hiển thị trạng thái giao), báo cáo/dashboard
+  (tách phí ship khỏi doanh thu) chưa implement. Đơn giao_tan_noi tạo xong chuyển
+  sang trang QR hiện có/placeholder. Hủy đơn đã thanh toán + hoàn tiền là thủ công
+  (P3). Chi tiết: `docs/BAO_CAO_DAT_HANG_P2.md`.
+- **Kiểm thử hiện tại: 418 pass, 48 skip, 2042 assertions** (511.76s,
+  `XDEBUG_MODE=off`, nhánh `feat/dat-hang-p2-giao-tan-noi`). 48 skip = `KhoaDongMysqlTest`
   (1) + `AnhUrlMysqlCopyTest` (37) + `DatHangP0MysqlCopyTest` (1) + `DatHangP1MysqlCopyTest`
-  (2) — SQLite không có khóa dòng/InnoDB, không cưỡng chế độ dài VARCHAR và không phải
-  MySQL strict để thử migration; cần trỏ vào bản sao MySQL để chạy (mục 9). Cả 4 nhóm
-  đã chạy thật trên `doan_cnw_copy` (41 pass, 306 assertions). Số pass không thay thế
+  (2) + `DatHangP2MysqlCopyTest` (1) + các test khác phụ thuộc môi trường (6) — SQLite
+  không có khóa dòng/InnoDB, không cưỡng chế độ dài VARCHAR và không phải MySQL strict
+  để thử migration; cần trỏ vào bản sao MySQL để chạy (mục 9). Số pass không thay thế
   kiểm tra đó. **Cẩn thận filter:** chạy test MySQL-copy phải dùng filter chính xác
   (`--filter='MysqlCopyTest|KhoaDongMysqlTest'`); filter rộng `--filter=Mysql` bắt nhầm
   method `...mysqldump` của `SaoLuuCsdlTest` (dùng `RefreshDatabase`) → `migrate:fresh`

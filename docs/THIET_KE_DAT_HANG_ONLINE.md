@@ -309,6 +309,22 @@ Việc FE: thay nút "Thanh toán" disabled ([cart.blade.php:74-77](../resources
 | D11 | **Email xác nhận đơn** cho khách? | Chưa — không có hạ tầng mail (README mục 15 "Email thông báo"); thay bằng trang tra cứu + Telegram nội bộ. Làm khi có `MAIL_*` |
 | D12 | Giới hạn **3 đơn mở/SĐT, 10 SP/dòng, 5 đơn/phút/IP**? | Chấp nhận các ngưỡng đề xuất, chỉnh qua config |
 
+## 11.5 QUYẾT ĐỊNH MỚI (P2 - Giao tận nơi + QR trả trước)
+
+Các quyết định dưới đây GHI ĐÈ các quyết định cũ từ P0/P1:
+
+| Mã | Câu hỏi | Quyết định mới (GHI ĐÈ) | Bị ghi đè |
+|---|---|---|---|
+| D1' | **Hình thức nhận hàng** | Hai hình thức: `tai_cua_hang` (pickup tại cửa hàng) và `giao_tan_noi` (giao tận nơi). Mặc định `tai_cua_hang`. | GHI ĐÈ D1 (chỉ pickup) |
+| D2' | **Phương thức thanh toán theo hình thức** | `giao_tan_noi`: BẮT BUỘC thanh toán QR trả trước (VietQR/SePay). Không COD. `tai_cua_hang`: Cho cả QR và trả tại quầy. | GHI ĐÈ D2 (cả hai cho mọi đơn) |
+| D13 | **Phí giao hàng** | Phí CỐ ĐỊNH do server tính từ config `POS_PHI_GIAO_HANG` (mặc định 30000, giá trị giữ chỗ chờ chủ cửa hàng xác nhận) và `POS_MIEN_PHI_GIAO_TU` (miễn phí khi tiền hàng >= ngưỡng, 0 = tắt). Không nhận phí từ request. | MỚI |
+| D14 | **Trạng thái giao hàng** | Tách khỏi trạng thái thanh toán: thêm cột `invoices.trang_thai_giao` (varchar nullable, có index) với các giá trị: `cho_xac_nhan`, `da_xac_nhan`, `dang_giao`, `da_giao`, `da_huy_giao`. KHÔNG thêm giá trị vào enum `invoices.trang_thai` (vẫn chỉ `cho_thanh_toan/da_thanh_toan/da_huy`). | MỚI |
+| D15 | **Tự động xác nhận đơn giao** | Config `POS_ONLINE_TU_DONG_XAC_NHAN` mặc định `false`. Khi `true` và webhook hoàn tất đơn `giao_tan_noi` thì đặt `trang_thai_giao = da_xac_nhan`; khi `false` đặt `cho_xac_nhan`. | MỚI |
+| D16 | **Hủy đơn đã thanh toán và hoàn tiền** | THỦ CÔNG (thuộc P3). P2 không làm. | MỚI |
+| D17 | **Hạn QR online** | Lấy từ `han_giu` (sử dụng `online_qr_phut = 30`), không dùng hạn POS 15 phút. | MỚI |
+
+**Giữ nguyên các quyết định cũ:** D3, D4, D5, D6, D7, D8, D9, D10, D11, D12.
+
 ## 12. Ghi chú phạm vi
 
 - Tài liệu này không tạo migration, không sửa code/test; mọi mô tả schema là **đề xuất** chờ duyệt.
