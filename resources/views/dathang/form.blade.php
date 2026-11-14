@@ -28,22 +28,22 @@
                 @error('hinh_thuc_nhan')<div style="color:var(--sf-stock-out);font-size:var(--sf-text-sm);">{{ $message }}</div>@enderror
             </div>
 
-            {{-- Honeypot D12: ẩn với người thật, bot điền vào sẽ bị từ chối (không hiện lỗi riêng). --}}
+            {{-- Honeypot D12/P2: tên trung tính, ẩn với người thật; bot điền vào sẽ bị từ chối (không hiện lỗi riêng). --}}
             <div aria-hidden="true" style="position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden;">
-                <label for="trang_web">Website</label>
-                <input id="trang_web" name="trang_web" type="text" value="" tabindex="-1" autocomplete="off">
+                <label for="truong_phu">Trường phụ</label>
+                <input id="truong_phu" name="truong_phu" type="text" value="" tabindex="-1" autocomplete="off">
             </div>
 
             <div style="margin-bottom:12px;">
                 <label for="ten" style="display:block;margin-bottom:4px;">Họ tên</label>
-                <input id="ten" name="ten" type="text" value="{{ old('ten') }}" required maxlength="100"
+                <input id="ten" name="ten" type="text" value="{{ old('ten', $khachHang?->ho_ten) }}" required maxlength="100"
                        style="width:100%;height:40px;border:1px solid var(--sf-border-strong);border-radius:8px;padding:0 10px;">
                 @error('ten')<div style="color:var(--sf-stock-out);font-size:var(--sf-text-sm);">{{ $message }}</div>@enderror
             </div>
 
             <div style="margin-bottom:12px;">
                 <label for="so_dienthoai" style="display:block;margin-bottom:4px;">Số điện thoại</label>
-                <input id="so_dienthoai" name="so_dienthoai" type="text" value="{{ old('so_dienthoai') }}" required
+                <input id="so_dienthoai" name="so_dienthoai" type="text" value="{{ old('so_dienthoai', $khachHang?->so_dienthoai) }}" required
                        style="width:100%;height:40px;border:1px solid var(--sf-border-strong);border-radius:8px;padding:0 10px;">
                 @error('so_dienthoai')<div style="color:var(--sf-stock-out);font-size:var(--sf-text-sm);">{{ $message }}</div>@enderror
             </div>
@@ -59,9 +59,19 @@
                        style="width:100%;height:40px;border:1px solid var(--sf-border-strong);border-radius:8px;padding:0 10px;">
                 @error('sdt_nguoi_nhan')<div style="color:var(--sf-stock-out);font-size:var(--sf-text-sm);">{{ $message }}</div>@enderror
 
-                <label for="dia_chi_giao" style="display:block;margin-top:12px;margin-bottom:4px;">Địa chỉ giao</label>
-                <textarea id="dia_chi_giao" name="dia_chi_giao" rows="3" maxlength="255"
-                          style="width:100%;border:1px solid var(--sf-border-strong);border-radius:8px;padding:8px 10px;">{{ old('dia_chi_giao') }}</textarea>
+                <label style="display:block;margin-top:12px;margin-bottom:4px;">Địa chỉ giao</label>
+                <input name="dia_chi_so_nha" type="text" value="{{ old('dia_chi_so_nha') }}" maxlength="100" placeholder="Số nhà / đường"
+                       style="width:100%;height:40px;border:1px solid var(--sf-border-strong);border-radius:8px;padding:0 10px;margin-bottom:8px;">
+                @error('dia_chi_so_nha')<div style="color:var(--sf-stock-out);font-size:var(--sf-text-sm);">{{ $message }}</div>@enderror
+                <input name="dia_chi_phuong_xa" type="text" value="{{ old('dia_chi_phuong_xa') }}" maxlength="100" placeholder="Phường / xã"
+                       style="width:100%;height:40px;border:1px solid var(--sf-border-strong);border-radius:8px;padding:0 10px;margin-bottom:8px;">
+                @error('dia_chi_phuong_xa')<div style="color:var(--sf-stock-out);font-size:var(--sf-text-sm);">{{ $message }}</div>@enderror
+                <input name="dia_chi_quan_huyen" type="text" value="{{ old('dia_chi_quan_huyen') }}" maxlength="100" placeholder="Quận / huyện"
+                       style="width:100%;height:40px;border:1px solid var(--sf-border-strong);border-radius:8px;padding:0 10px;margin-bottom:8px;">
+                @error('dia_chi_quan_huyen')<div style="color:var(--sf-stock-out);font-size:var(--sf-text-sm);">{{ $message }}</div>@enderror
+                <input name="dia_chi_tinh_thanh" type="text" value="{{ old('dia_chi_tinh_thanh') }}" maxlength="100" placeholder="Tỉnh / thành"
+                       style="width:100%;height:40px;border:1px solid var(--sf-border-strong);border-radius:8px;padding:0 10px;">
+                @error('dia_chi_tinh_thanh')<div style="color:var(--sf-stock-out);font-size:var(--sf-text-sm);">{{ $message }}</div>@enderror
                 @error('dia_chi_giao')<div style="color:var(--sf-stock-out);font-size:var(--sf-text-sm);">{{ $message }}</div>@enderror
             </div>
 
@@ -95,7 +105,12 @@
                 Giao tận nơi, thanh toán QR trả trước. Phí giao hàng: {{ number_format($phiGiaoHang, 0, ',', '.') }} ₫{{ $mienPhiGiaoTu > 0 ? ' (miễn phí khi tiền hàng ≥ '.number_format($mienPhiGiaoTu, 0, ',', '.').' ₫)' : '' }}.
             </p>
 
-            <div style="margin:12px 0;font-weight:700;">Tạm tính: {{ number_format($tong, 0, ',', '.') }} ₫</div>
+            <div style="margin:12px 0;">
+                <div>Tạm tính: {{ number_format($tong, 0, ',', '.') }} ₫</div>
+                <div id="dong_phi_giao" style="display:none;">Phí giao hàng: <span id="phi_giao_display">{{ number_format($phiGiaoHang, 0, ',', '.') }}</span> ₫</div>
+                <div style="font-weight:700;margin-top:4px;">Tổng cộng: <span id="tong_cong_display">{{ number_format($tong, 0, ',', '.') }}</span> ₫</div>
+                <div style="color:var(--sf-fg-muted);font-size:var(--sf-text-sm);">Tổng hiển thị để tham khảo; server tính lại từ giá DB khi đặt.</div>
+            </div>
 
             <button type="submit" class="sf-icon-btn is-primary" style="height:44px;padding:0 24px;">
                 <i class="fa-solid fa-bag-shopping"></i> Đặt hàng
@@ -111,6 +126,14 @@
             const thongTinNhanHang = document.getElementById('thong_tin_nhan_hang');
             const thongTinGiaoHang = document.getElementById('thong_tin_giao_hang');
             const optionTraTaiQuay = document.getElementById('option_trata_quay');
+            const dongPhiGiao = document.getElementById('dong_phi_giao');
+            const phiGiaoDisplay = document.getElementById('phi_giao_display');
+            const tongCongDisplay = document.getElementById('tong_cong_display');
+
+            const tamTinh = @json((float) $tong);
+            const phiGiaoConfig = @json((int) $phiGiaoHang);
+            const mienPhiGiaoTu = @json((int) $mienPhiGiaoTu);
+            const dinhDang = new Intl.NumberFormat('vi-VN');
 
             function capNhatGiaoDien() {
                 const hinhThucNhan = document.querySelector('input[name="hinh_thuc_nhan"]:checked')?.value;
@@ -125,12 +148,24 @@
                     // Bắt buộc QR
                     const qrRadio = document.querySelector('input[name="phuong_thuc"][value="qr"]');
                     if (qrRadio) qrRadio.checked = true;
+
+                    // Mặc định người nhận = người đặt khi còn trống.
+                    const tenNhan = document.getElementById('ten_nguoi_nhan');
+                    const sdtNhan = document.getElementById('sdt_nguoi_nhan');
+                    if (tenNhan && tenNhan.value === '') tenNhan.value = document.getElementById('ten').value;
+                    if (sdtNhan && sdtNhan.value === '') sdtNhan.value = document.getElementById('so_dienthoai').value;
                 } else {
                     thongTinNguoiNhan.style.display = 'none';
                     thongTinNhanHang.style.display = 'block';
                     thongTinGiaoHang.style.display = 'none';
                     optionTraTaiQuay.style.display = 'flex';
                 }
+
+                // Phí + tổng chỉ hiển thị; server tính lại khi đặt.
+                const phi = laGiaoTanNoi && !(mienPhiGiaoTu > 0 && tamTinh >= mienPhiGiaoTu) ? phiGiaoConfig : 0;
+                dongPhiGiao.style.display = laGiaoTanNoi ? 'block' : 'none';
+                phiGiaoDisplay.textContent = dinhDang.format(phi);
+                tongCongDisplay.textContent = dinhDang.format(tamTinh + phi);
             }
 
             hinhThucNhanRadios.forEach(radio => {

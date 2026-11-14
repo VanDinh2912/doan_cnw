@@ -73,9 +73,9 @@ class DonHang extends Model
 
     /**
      * Đơn chờ thanh toán đã quá hạn cần hủy.
-     * Pickup online (kenh=online + phuong_thuc=tienmat + han_giu có giá trị):
-     * hủy theo han_giu, không áp hạn 15 phút. Mọi đơn còn lại (POS, QR, đơn cũ
-     * han_giu null): created_at + cho_thanh_toan_phut.
+     * Đơn online (kenh=online, mọi phương thức) có han_giu: hủy theo han_giu
+     * (D17: QR online 30 phút, pickup 4 giờ), không áp hạn 15 phút. Mọi đơn
+     * còn lại (POS, đơn cũ han_giu null): created_at + cho_thanh_toan_phut.
      */
     public function scopeQuaHanCho($query)
     {
@@ -85,17 +85,15 @@ class DonHang extends Model
 
         return $query->where('trang_thai', 'cho_thanh_toan')
             ->where(function ($q) use ($now, $hanChot): void {
-                $q->where(function ($pickup) use ($now): void {
-                    $pickup->where('kenh', 'online')
-                        ->where('phuong_thuc', 'tienmat')
+                $q->where(function ($online) use ($now): void {
+                    $online->where('kenh', 'online')
                         ->whereNotNull('han_giu')
                         ->where('han_giu', '<', $now);
                 })->orWhere(function ($khac) use ($hanChot): void {
                     $khac->where('created_at', '<', $hanChot)
                         ->where(function ($q2): void {
                             $q2->whereNull('han_giu')
-                                ->orWhere('kenh', '!=', 'online')
-                                ->orWhere('phuong_thuc', '!=', 'tienmat');
+                                ->orWhere('kenh', '!=', 'online');
                         });
                 });
             });

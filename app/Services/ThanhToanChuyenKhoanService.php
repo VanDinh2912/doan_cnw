@@ -36,9 +36,10 @@ class ThanhToanChuyenKhoanService
             throw new RuntimeException('Giỏ hàng đang trống.');
         }
 
-        $laOnlinePickup = ($online['kenh'] ?? null) === 'online' && ($online['phuong_thuc'] ?? null) === 'tienmat';
+        $laOnline = ($online['kenh'] ?? null) === 'online';
+        $laOnlinePickup = $laOnline && ($online['phuong_thuc'] ?? null) === 'tienmat';
 
-        return DB::transaction(function () use ($gioHangSorted, $thongTinKhach, $user, $online, $laOnlinePickup, $onlineCustomerId): DonHang {
+        return DB::transaction(function () use ($gioHangSorted, $thongTinKhach, $user, $online, $laOnline, $laOnlinePickup, $onlineCustomerId): DonHang {
             $tongTien = 0;
             $sanPhams = [];
 
@@ -62,11 +63,15 @@ class ThanhToanChuyenKhoanService
                 $sanPhams[] = [$sanPham, $soLuong, $thanhTien];
             }
 
-            // D12: tối đa online_max_don_mo đơn pickup mở trên mỗi SĐT chuẩn hóa.
+            // D12: tối đa online_max_don_mo đơn mở trên mỗi SĐT chuẩn hóa, áp cho
+            // cả pickup lẫn QR/giao tận nơi (đếm theo phương thức của đơn mới).
             // Kiểm tra TRONG transaction sau khi khóa sản phẩm để hai đơn đồng thời
             // không cùng vượt giới hạn; thông báo chung, không lộ dữ liệu đơn khác.
-            if ($laOnlinePickup && ! empty($online['so_dienthoai_dat'])) {
-                $this->kiemTraGioiHanDonMo((string) $online['so_dienthoai_dat']);
+            if ($laOnline && ! empty($online['so_dienthoai_dat'])) {
+                $this->kiemTraGioiHanDonMo(
+                    (string) $online['so_dienthoai_dat'],
+                    (string) ($online['phuong_thuc'] ?? 'chuyenkhoan')
+                );
             }
 
             // 2. Tính giảm giá & khóa khách hàng
@@ -96,10 +101,15 @@ class ThanhToanChuyenKhoanService
             $tongThanhToan = $tongTien - $tienGiam - $tienGiamDiem;
             $diemTichLuyNhan = $khachHang ? (int) floor($tongThanhToan / config('pos.diem_moi_dong')) : 0;
 
-            // Tính phi giao hang cho don giao_tan_noi
+            // Phí giao hàng (D13): tính từ tiền hàng DB ở trên + config, không nhận
+            // phí từ client/session. Miễn phí khi tiền hàng >= ngưỡng (nếu > 0).
             $phiGiaoHang = 0;
             if (($online['hinh_thuc_nhan'] ?? null) === 'giao_tan_noi') {
-                $phiGiaoHang = (int) ($online['phi_giao_hang'] ?? 0);
+                $phiGiaoHang = (int) config('pos.phi_giao_hang', 30000);
+                $mienPhiGiaoTu = (int) config('pos.mien_phi_giao_tu', 0);
+                if ($mienPhiGiaoTu > 0 && $tongTien >= $mienPhiGiaoTu) {
+                    $phiGiaoHang = 0;
+                }
             }
             $tongThanhToan += $phiGiaoHang;
 
@@ -349,19 +359,19 @@ class ThanhToanChuyenKhoanService
     }
 
     /**
-     * D12 — chặn ôm hàng: đếm đơn pickup online đang mở (cho_thanh_toan) của cùng
-     * SĐT chuẩn hóa; đủ online_max_don_mo thì từ chối bằng thông báo chung.
-     * Gọi trong transaction sau lockForUpdate sản phẩm. Đơn da_huy/da_thanh_toan,
-     * đơn POS và QR không tính.
+     * D12 — chặn ôm hàng: đếm đơn online đang mở (cho_thanh_toan) cùng phương
+     * thức với đơn mới, của cùng SĐT chuẩn hóa; đủ online_max_don_mo thì từ chối
+     * bằng thông báo chung. Gọi trong transaction sau lockForUpdate sản phẩm.
+     * Đơn da_huy/da_thanh_toan và đơn POS không tính.
      */
-    private function kiemTraGioiHanDonMo(string $sdt): void
+    private function kiemTraGioiHanDonMo(string $sdt, string $phuongThuc): void
     {
         $gioiHan = (int) config('pos.online_max_don_mo', 3);
         $sdtChuanHoa = SoDienThoai::chuanHoa($sdt);
 
         $dangMo = DonHang::query()
             ->where('kenh', 'online')
-            ->where('phuong_thuc', 'tienmat')
+            ->where('phuong_thuc', $phuongThuc)
             ->where('trang_thai', 'cho_thanh_toan')
             ->pluck('so_dienthoai_dat')
             ->filter(fn (?string $s): bool => SoDienThoai::chuanHoa($s) === $sdtChuanHoa)

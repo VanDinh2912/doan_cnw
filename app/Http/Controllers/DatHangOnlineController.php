@@ -13,6 +13,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use RuntimeException;
 use Throwable;
@@ -52,13 +53,15 @@ class DatHangOnlineController extends Controller
             'pickupGio' => (int) config('pos.online_pickup_gio', 4),
             'phiGiaoHang' => (int) config('pos.phi_giao_hang', 30000),
             'mienPhiGiaoTu' => (int) config('pos.mien_phi_giao_tu', 0),
+            'khachHang' => auth()->user()?->khachHang,
         ]);
     }
 
     public function postDat(Request $request, ThanhToanChuyenKhoanService $service): RedirectResponse
     {
         // Honeypot: người thật không thấy ô này; bot điền vào → từ chối chung, không tạo đơn.
-        if (trim((string) $request->input('trang_web', '')) !== '') {
+        // Tên trung tính (P2): không gợi email/phone/website/address để trình duyệt không tự điền.
+        if (trim((string) $request->input('truong_phu', '')) !== '') {
             $this->capLaiToken($request);
 
             return back()->with('error', self::LOI_CHUNG);
@@ -74,7 +77,14 @@ class DatHangOnlineController extends Controller
             // Chỉ validate khi giao_tan_noi
             'ten_nguoi_nhan' => ['nullable', 'required_if:hinh_thuc_nhan,giao_tan_noi', 'string', 'max:100'],
             'sdt_nguoi_nhan' => ['nullable', 'required_if:hinh_thuc_nhan,giao_tan_noi', 'string', 'regex:/^0\d{9,10}$/'],
-            'dia_chi_giao' => ['nullable', 'required_if:hinh_thuc_nhan,giao_tan_noi', 'string', 'max:255'],
+            'dia_chi_giao' => ['nullable', 'string', 'max:255',
+                Rule::requiredIf(fn (): bool => $request->input('hinh_thuc_nhan') === 'giao_tan_noi'
+                    && ! $this->coBonPhanDiaChi($request)), ],
+            // Địa chỉ 4 phần (P2 Bước C): ghép thành dia_chi_giao khi gửi đủ.
+            'dia_chi_so_nha' => ['nullable', 'string', 'max:100'],
+            'dia_chi_phuong_xa' => ['nullable', 'string', 'max:100'],
+            'dia_chi_quan_huyen' => ['nullable', 'string', 'max:100'],
+            'dia_chi_tinh_thanh' => ['nullable', 'string', 'max:100'],
         ], [
             'ten.required' => 'Vui lòng nhập họ tên.',
             'so_dienthoai.regex' => 'Số điện thoại phải bắt đầu bằng 0 và gồm 10-11 chữ số.',
@@ -97,21 +107,58 @@ class DatHangOnlineController extends Controller
             return back()->withErrors(['phuong_thuc' => 'Giao tận nơi bắt buộc thanh toán QR trả trước.']);
         }
 
-        // Kiểm tra vùng giao (nếu có cấu hình)
-        if ($validated['hinh_thuc_nhan'] === 'giao_tan_noi' && !empty($validated['dia_chi_giao'])) {
-            $tinhGiao = config('pos.giao_hang_tinh', '');
-            if (!empty($tinhGiao)) {
-                $danhSachTinh = array_map('trim', explode(',', $tinhGiao));
-                $diaChi = mb_strtolower($validated['dia_chi_giao']);
-                $trongVung = false;
-                foreach ($danhSachTinh as $tinh) {
-                    if (!empty($tinh) && mb_strpos($diaChi, mb_strtolower($tinh)) !== false) {
-                        $trongVung = true;
-                        break;
+        // Địa chỉ giao + vùng giao (P2 Bước C). Hai đường:
+        // - 4 phần (form mới): bắt buộc đủ, ghép ', ' thành 1 cột <=255, vùng
+        //   kiểm theo tỉnh/thành;
+        // - dia_chi_giao legacy (client cũ): giữ nguyên, vùng kiểm chuỗi con.
+        if ($validated['hinh_thuc_nhan'] === 'giao_tan_noi') {
+            if ($this->coBonPhanDiaChi($request)) {
+                $request->validate([
+                    'dia_chi_so_nha' => ['required', 'string', 'max:100'],
+                    'dia_chi_phuong_xa' => ['required', 'string', 'max:100'],
+                    'dia_chi_quan_huyen' => ['required', 'string', 'max:100'],
+                    'dia_chi_tinh_thanh' => ['required', 'string', 'max:100'],
+                ], [
+                    'dia_chi_so_nha.required' => 'Vui lòng nhập số nhà / đường.',
+                    'dia_chi_phuong_xa.required' => 'Vui lòng nhập phường / xã.',
+                    'dia_chi_quan_huyen.required' => 'Vui lòng nhập quận / huyện.',
+                    'dia_chi_tinh_thanh.required' => 'Vui lòng nhập tỉnh / thành.',
+                ]);
+
+                $diaChiGhep = implode(', ', [
+                    trim((string) $request->input('dia_chi_so_nha')),
+                    trim((string) $request->input('dia_chi_phuong_xa')),
+                    trim((string) $request->input('dia_chi_quan_huyen')),
+                    trim((string) $request->input('dia_chi_tinh_thanh')),
+                ]);
+                if (mb_strlen($diaChiGhep) > 255) {
+                    return back()->withErrors(['dia_chi_giao' => 'Địa chỉ giao tối đa 255 ký tự.'])->withInput();
+                }
+
+                $tinhGiao = (string) config('pos.giao_hang_tinh', '');
+                if ($tinhGiao !== '') {
+                    $danhSachTinh = array_map(fn (string $t): string => mb_strtolower(trim($t)), explode(',', $tinhGiao));
+                    $tinhKhach = mb_strtolower(trim((string) $request->input('dia_chi_tinh_thanh')));
+                    if (! in_array($tinhKhach, $danhSachTinh, true)) {
+                        return back()->withErrors(['dia_chi_tinh_thanh' => 'Tỉnh/thành nằm ngoài vùng phục vụ. Vui lòng chọn tỉnh/thành trong danh sách được giao.'])->withInput();
                     }
                 }
-                if (!$trongVung) {
-                    return back()->withErrors(['dia_chi_giao' => 'Địa chỉ giao nằm ngoài vùng phục vụ. Vui lòng chọn tỉnh/thành trong danh sách được giao.']);
+
+                $validated['dia_chi_giao'] = $diaChiGhep;
+            } elseif (! empty($validated['dia_chi_giao'])) {
+                $tinhGiao = (string) config('pos.giao_hang_tinh', '');
+                if ($tinhGiao !== '') {
+                    $diaChi = mb_strtolower($validated['dia_chi_giao']);
+                    $trongVung = false;
+                    foreach (array_map('trim', explode(',', $tinhGiao)) as $tinh) {
+                        if ($tinh !== '' && mb_strpos($diaChi, mb_strtolower($tinh)) !== false) {
+                            $trongVung = true;
+                            break;
+                        }
+                    }
+                    if (! $trongVung) {
+                        return back()->withErrors(['dia_chi_giao' => 'Địa chỉ giao nằm ngoài vùng phục vụ. Vui lòng chọn tỉnh/thành trong danh sách được giao.'])->withInput();
+                    }
                 }
             }
         }
@@ -154,16 +201,8 @@ class DatHangOnlineController extends Controller
             }
         }
 
-        // Tính phi giao hang theo config
-        $tongTien = collect($cart)->sum(fn (array $i): float => (float) $i['gia_ban'] * (int) $i['soluong']);
-        $phiGiaoHang = 0;
-        if ($validated['hinh_thuc_nhan'] === 'giao_tan_noi') {
-            $phiGiaoHang = (int) config('pos.phi_giao_hang', 30000);
-            $mienPhiGiaoTu = (int) config('pos.mien_phi_giao_tu', 0);
-            if ($mienPhiGiaoTu > 0 && $tongTien >= $mienPhiGiaoTu) {
-                $phiGiaoHang = 0;
-            }
-        }
+        // Phí giao hàng do R1 tính lại từ tiền hàng DB + config trong transaction;
+        // controller không truyền phí để không tin giá session hay request.
 
         $online = [
             'kenh' => 'online',
@@ -177,38 +216,13 @@ class DatHangOnlineController extends Controller
             'ten_nguoi_nhan' => $validated['ten_nguoi_nhan'] ?? null,
             'sdt_nguoi_nhan' => $validated['sdt_nguoi_nhan'] ?? null,
             'dia_chi_giao' => $validated['dia_chi_giao'] ?? null,
-            'phi_giao_hang' => $phiGiaoHang,
         ];
 
         try {
-            // Nếu khách đã đăng nhập, liên kết đơn với hồ sơ khách hàng
-            $khachHang = null;
-            if (auth()->check()) {
-                $khachHang = auth()->user()->khachHang;
-                if (! $khachHang) {
-                    // Kiểm tra SĐT đã tồn tại chưa
-                    $khachHangTheoSdt = \App\Models\KhachHang::where('so_dienthoai', $validated['so_dienthoai'])->first();
-                    if ($khachHangTheoSdt) {
-                        // SĐT đã tồn tại, gán hồ sơ đó cho user
-                        $khachHangTheoSdt->update(['user_id' => auth()->id()]);
-                        // Reload user để load relationship mới
-                        auth()->user()->load('khachHang');
-                        $khachHang = auth()->user()->khachHang;
-                    } else {
-                        // Tạo hồ sơ khách hàng mới
-                        $khachHang = \App\Models\KhachHang::create([
-                            'user_id' => auth()->id(),
-                            'ho_ten' => $validated['ten'],
-                            'so_dienthoai' => $validated['so_dienthoai'],
-                            'dia_chi' => null,
-                            'diem_tichluy' => 0,
-                        ]);
-                        // Reload user để load relationship mới
-                        auth()->user()->load('khachHang');
-                        $khachHang = auth()->user()->khachHang;
-                    }
-                }
-            }
+            // D8/L1: chỉ dùng hồ sơ ĐÃ liên kết với tài khoản (users.id →
+            // customers.user_id). Không tạo hồ sơ, không gán hồ sơ người khác
+            // theo SĐT, không ghi ngược dữ liệu checkout vào hồ sơ.
+            $khachHang = auth()->user()?->khachHang;
 
             $don = $service->taoHoaDonChoThanhToan($gioHang, [], null, $online, $khachHang?->id);
         } catch (Throwable $e) {
@@ -226,7 +240,7 @@ class DatHangOnlineController extends Controller
             'dat_hang_online',
             'invoices',
             $don->id,
-            'Đơn pickup online '.$don->ma_hoadon.', khách '.$validated['ten']
+            'Đơn online '.$don->ma_hoadon.', khách '.$validated['ten']
                 .', SĐT '.CheThongTin::soDienThoai($validated['so_dienthoai'])
                 .', tổng '.number_format((float) $don->tong_thanh_toan, 0, ',', '.').'đ'
         );
@@ -357,6 +371,17 @@ class DatHangOnlineController extends Controller
         }
 
         return $don;
+    }
+
+    private function coBonPhanDiaChi(Request $request): bool
+    {
+        foreach (['dia_chi_so_nha', 'dia_chi_phuong_xa', 'dia_chi_quan_huyen', 'dia_chi_tinh_thanh'] as $truong) {
+            if ($request->filled($truong)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function capLaiToken(Request $request): void
