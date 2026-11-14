@@ -15,6 +15,7 @@ return [
     'online_gia_han_toi_da_gio' => (int) env('POS_ONLINE_GIA_HAN_TOI_DA_GIO', 24),
     'online_max_don_mo' => (int) env('POS_ONLINE_MAX_DON_MO', 3),
     'online_max_soluong' => (int) env('POS_ONLINE_MAX_SOLUONG', 10),
+    'online_max_sanpham' => (int) env('POS_ONLINE_MAX_SANPHAM', 10),
     'online_giu_toi_da_phan_tram' => (int) env('POS_ONLINE_GIU_TOI_DA_PHAN_TRAM', 50),
     'online_throttle_dat' => env('POS_ONLINE_THROTTLE_DAT', '5,1'),
     'sepay_webhook_api_key' => env('SEPAY_WEBHOOK_API_KEY', ''),

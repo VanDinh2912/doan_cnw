@@ -7,6 +7,7 @@ use App\Services\NhatKyService;
 use App\Services\ThanhToanChuyenKhoanService;
 use App\Services\ThongBaoService;
 use App\Support\CheThongTin;
+use App\Support\SoDienThoai;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -25,6 +26,10 @@ class DatHangOnlineController extends Controller
 {
     private const CART_KEY = 'storefront_cart';
     private const EVIDENCE_KEY = 'don_hang_xac_thuc';
+
+    // Thông báo chung cho mọi từ chối chống ôm hàng (D12): không lộ lý do chi tiết
+    // hay dữ liệu của đơn khác.
+    private const LOI_CHUNG = 'Không thể tạo đơn hàng. Vui lòng thử lại.';
 
     public function getForm(Request $request): View|RedirectResponse
     {
@@ -49,6 +54,13 @@ class DatHangOnlineController extends Controller
 
     public function postDat(Request $request, ThanhToanChuyenKhoanService $service): RedirectResponse
     {
+        // Honeypot: người thật không thấy ô này; bot điền vào → từ chối chung, không tạo đơn.
+        if (trim((string) $request->input('trang_web', '')) !== '') {
+            $this->capLaiToken($request);
+
+            return back()->with('error', self::LOI_CHUNG);
+        }
+
         $validated = $request->validate([
             'ten' => ['required', 'string', 'max:100'],
             'so_dienthoai' => ['required', 'string', 'regex:/^0\d{9,10}$/'],
@@ -83,12 +95,29 @@ class DatHangOnlineController extends Controller
             'soluong' => (int) $item['soluong'],
         ])->values()->all();
 
+        // D12: trần số sản phẩm khác nhau và số lượng mỗi dòng theo config;
+        // từ chối chung trước khi vào transaction để không trừ kho.
+        $maxSanPham = (int) config('pos.online_max_sanpham', 10);
+        $maxSoLuong = (int) config('pos.online_max_soluong', 10);
+        if (count($gioHang) > $maxSanPham) {
+            $this->capLaiToken($request);
+
+            return back()->with('error', self::LOI_CHUNG);
+        }
+        foreach ($gioHang as $item) {
+            if ($item['soluong'] < 1 || $item['soluong'] > $maxSoLuong) {
+                $this->capLaiToken($request);
+
+                return back()->with('error', self::LOI_CHUNG);
+            }
+        }
+
         $online = [
             'kenh' => 'online',
             'phuong_thuc' => 'tienmat',
             'ma_tra_cuu' => $this->taoMaTraCuu(),
             'ten_khach_dat' => $validated['ten'],
-            'so_dienthoai_dat' => $validated['so_dienthoai'],
+            'so_dienthoai_dat' => SoDienThoai::chuanHoa($validated['so_dienthoai']),
             'ghi_chu_khach' => $validated['ghi_chu'] ?? null,
             'han_giu' => now()->addHours((int) config('pos.online_pickup_gio', 4)),
         ];
@@ -97,7 +126,7 @@ class DatHangOnlineController extends Controller
             $don = $service->taoHoaDonChoThanhToan($gioHang, [], null, $online);
         } catch (Throwable $e) {
             $this->capLaiToken($request);
-            $message = $e instanceof RuntimeException ? $e->getMessage() : 'Không thể tạo đơn hàng. Vui lòng thử lại.';
+            $message = $e instanceof RuntimeException ? $e->getMessage() : self::LOI_CHUNG;
 
             return back()->with('error', $message);
         }
