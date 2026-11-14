@@ -31,6 +31,16 @@ class DonHang extends Model
         ];
     }
 
+    public function getTrangThaiTiengVietAttribute(): string
+    {
+        return match ($this->trang_thai) {
+            'cho_thanh_toan' => 'Chờ thanh toán',
+            'da_thanh_toan' => 'Đã thanh toán',
+            'da_huy' => 'Đã hủy',
+            default => str_replace('_', ' ', $this->trang_thai),
+        };
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

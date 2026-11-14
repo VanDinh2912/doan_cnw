@@ -14,7 +14,7 @@
             <table style="width:100%;border-collapse:collapse;">
                 <tr><td style="padding:6px 0;color:var(--sf-fg-muted);">Mã tra cứu</td><td style="padding:6px 0;font-weight:700;">{{ $don->ma_tra_cuu }}</td></tr>
                 <tr><td style="padding:6px 0;color:var(--sf-fg-muted);">Mã đơn</td><td style="padding:6px 0;">{{ $don->ma_hoadon }}</td></tr>
-                <tr><td style="padding:6px 0;color:var(--sf-fg-muted);">Trạng thái</td><td style="padding:6px 0;">{{ $don->trang_thai }}</td></tr>
+                <tr><td style="padding:6px 0;color:var(--sf-fg-muted);">Trạng thái</td><td style="padding:6px 0;">{{ $don->trang_thai_tieng_viet }}</td></tr>
                 <tr><td style="padding:6px 0;color:var(--sf-fg-muted);">Hạn giữ hàng</td><td style="padding:6px 0;">{{ $don->han_giu?->format('d/m/Y H:i') ?? '—' }}</td></tr>
                 <tr><td style="padding:6px 0;color:var(--sf-fg-muted);">Tổng thanh toán</td><td style="padding:6px 0;font-weight:700;color:var(--sf-accent);">{{ number_format((float) $don->tong_thanh_toan, 0, ',', '.') }} ₫</td></tr>
             </table>
