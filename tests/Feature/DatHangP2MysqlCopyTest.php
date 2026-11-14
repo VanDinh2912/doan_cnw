@@ -22,6 +22,7 @@ use Tests\TestCase;
 class DatHangP2MysqlCopyTest extends TestCase
 {
     private const MIGRATION = 'database/migrations/2026_11_14_000003_add_delivery_fields_to_invoices_table.php';
+    private const M1 = 'database/migrations/2026_11_12_000001_add_online_order_fields_to_invoices_table.php';
 
     protected function setUp(): void
     {
@@ -50,6 +51,12 @@ class DatHangP2MysqlCopyTest extends TestCase
         $enumTruoc = $this->dinhNghiaEnum();
         $fkTruoc = $this->soForeignKey('invoices');
         $maDonTest = 'P2-'.uniqid();
+        // M3 đặt cột after('han_giu') và đơn test cần user_id nullable → phải có
+        // M1 trước. Bản sao đang ở snapshot trước M1 thì test tự áp và tự gỡ.
+        $tuApDungM1 = ! Schema::hasColumn('invoices', 'kenh');
+        if ($tuApDungM1) {
+            $this->assertSame(0, Artisan::call('migrate', ['--path' => self::M1, '--force' => true]));
+        }
 
         try {
             // Dọn tàn dư lần chạy trước (nếu có) để test chạy lại được
@@ -138,6 +145,10 @@ class DatHangP2MysqlCopyTest extends TestCase
             if (Schema::hasColumn('invoices', 'hinh_thuc_nhan')) {
                 (require base_path(self::MIGRATION))->down();
                 DB::table('migrations')->where('migration', $tenMigration)->delete();
+            }
+            if ($tuApDungM1 && Schema::hasColumn('invoices', 'kenh')) {
+                (require base_path(self::M1))->down();
+                DB::table('migrations')->where('migration', basename(self::M1, '.php'))->delete();
             }
         }
     }

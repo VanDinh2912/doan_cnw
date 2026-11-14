@@ -35,6 +35,7 @@ class DatHangP1MysqlCopyTest extends TestCase
 {
     private const M1 = 'database/migrations/2026_11_12_000001_add_online_order_fields_to_invoices_table.php';
     private const M2 = 'database/migrations/2026_11_13_000001_make_stock_movements_user_id_nullable.php';
+    private const M3 = 'database/migrations/2026_11_14_000003_add_delivery_fields_to_invoices_table.php';
 
     protected function setUp(): void
     {
@@ -137,7 +138,7 @@ class DatHangP1MysqlCopyTest extends TestCase
         $phienKhac = null;
 
         try {
-            $this->apDungM1M2();
+            $this->apDungM1M2M3();
             SanPham::whereKey($sp->id)->update(['soluong' => 10, 'trang_thai' => true]);
 
             config(['database.connections.khoa_phu' => config('database.connections.'.config('database.default'))]);
@@ -187,18 +188,20 @@ class DatHangP1MysqlCopyTest extends TestCase
                 DonHang::whereIn('id', $ids)->delete();
             }
             SanPham::whereKey($sp->id)->update(['soluong' => $tonGoc, 'trang_thai' => $activeGoc]);
-            $this->goM1M2();
+            $this->goM1M2M3();
         }
     }
 
-    private function apDungM1M2(): void
+    private function apDungM1M2M3(): void
     {
-        $this->goM1M2();
+        $this->goM1M2M3();
         $this->assertSame(0, Artisan::call('migrate', ['--path' => self::M1, '--force' => true]));
         $this->assertSame(0, Artisan::call('migrate', ['--path' => self::M2, '--force' => true]));
+        // Sau merge P2, R1 ghi cả 6 cột M3 khi tạo đơn online nên bản sao phải có M3.
+        $this->assertSame(0, Artisan::call('migrate', ['--path' => self::M3, '--force' => true]));
     }
 
-    private function goM1M2(): void
+    private function goM1M2M3(): void
     {
         // Dọn bản ghi test trước vì down() chặn khi còn user_id NULL. Chỉ truy vấn
         // ma_tra_cuu khi M1 đã áp (cột tồn tại) để chạy lại được lúc bản sao đang
@@ -213,6 +216,10 @@ class DatHangP1MysqlCopyTest extends TestCase
         }
         BienDongKho::where('ghi_chu', 'P1-M2-TEST')->delete();
 
+        if ($this->m3DaApDung()) {
+            (require base_path(self::M3))->down();
+            DB::table('migrations')->where('migration', basename(self::M3, '.php'))->delete();
+        }
         if ($this->m2DaApDung()) {
             (require base_path(self::M2))->down();
             DB::table('migrations')->where('migration', basename(self::M2, '.php'))->delete();
@@ -221,6 +228,11 @@ class DatHangP1MysqlCopyTest extends TestCase
             (require base_path(self::M1))->down();
             DB::table('migrations')->where('migration', basename(self::M1, '.php'))->delete();
         }
+    }
+
+    private function m3DaApDung(): bool
+    {
+        return Schema::hasColumn('invoices', 'hinh_thuc_nhan');
     }
 
     private function m1DaApDung(): bool
