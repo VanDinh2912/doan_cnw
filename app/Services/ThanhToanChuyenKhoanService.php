@@ -23,8 +23,9 @@ class ThanhToanChuyenKhoanService
      * @param array $thongTinKhach Thông tin giảm giá, customer_id, diem_su_dung
      * @param mixed $user Người thực hiện (thu ngân / admin); null với đơn online guest
      * @param array $online Thông tin đơn online (kenh, phuong_thuc, ma_tra_cuu, han_giu...); rỗng = POS
+     * @param int|null $onlineCustomerId ID khách hàng cho đơn online (khách đã đăng nhập)
      */
-    public function taoHoaDonChoThanhToan(array $gioHang, array $thongTinKhach, $user, array $online = []): DonHang
+    public function taoHoaDonChoThanhToan(array $gioHang, array $thongTinKhach, $user, array $online = [], ?int $onlineCustomerId = null): DonHang
     {
         $gioHangSorted = collect($gioHang)
             ->sortBy(fn (array $item, string|int $key): int => (int) ($item['id'] ?? $key))
@@ -36,7 +37,7 @@ class ThanhToanChuyenKhoanService
 
         $laOnlinePickup = ($online['kenh'] ?? null) === 'online' && ($online['phuong_thuc'] ?? null) === 'tienmat';
 
-        return DB::transaction(function () use ($gioHangSorted, $thongTinKhach, $user, $online, $laOnlinePickup): DonHang {
+        return DB::transaction(function () use ($gioHangSorted, $thongTinKhach, $user, $online, $laOnlinePickup, $onlineCustomerId): DonHang {
             $tongTien = 0;
             $sanPhams = [];
 
@@ -68,8 +69,11 @@ class ThanhToanChuyenKhoanService
             $diemSuDung = (int) ($thongTinKhach['diem_su_dung'] ?? 0);
             $tienGiamDiem = 0;
 
-            if (! empty($thongTinKhach['customer_id'])) {
-                $khachHang = KhachHang::query()->lockForUpdate()->findOrFail($thongTinKhach['customer_id']);
+            // Ưu tiên customer_id từ online (khách đã đăng nhập)
+            $customerId = $onlineCustomerId ?? ($thongTinKhach['customer_id'] ?? null);
+
+            if (! empty($customerId)) {
+                $khachHang = KhachHang::query()->lockForUpdate()->findOrFail($customerId);
                 if ($diemSuDung > $khachHang->diem_tichluy) {
                     throw new RuntimeException('Số điểm sử dụng vượt quá điểm hiện có.');
                 }

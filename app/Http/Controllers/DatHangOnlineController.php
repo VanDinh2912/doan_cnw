@@ -6,6 +6,7 @@ use App\Models\DonHang;
 use App\Services\NhatKyService;
 use App\Services\ThanhToanChuyenKhoanService;
 use App\Services\ThongBaoService;
+use App\Services\VietQrService;
 use App\Support\CheThongTin;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -151,7 +152,36 @@ class DatHangOnlineController extends Controller
         ];
 
         try {
-            $don = $service->taoHoaDonChoThanhToan($gioHang, [], null, $online);
+            // Nếu khách đã đăng nhập, liên kết đơn với hồ sơ khách hàng
+            $khachHang = null;
+            if (auth()->check()) {
+                $khachHang = auth()->user()->khachHang;
+                if (! $khachHang) {
+                    // Kiểm tra SĐT đã tồn tại chưa
+                    $khachHangTheoSdt = \App\Models\KhachHang::where('so_dienthoai', $validated['so_dienthoai'])->first();
+                    if ($khachHangTheoSdt) {
+                        // SĐT đã tồn tại, gán hồ sơ đó cho user
+                        $khachHangTheoSdt->update(['user_id' => auth()->id()]);
+                        // Reload user để load relationship mới
+                        auth()->user()->load('khachHang');
+                        $khachHang = auth()->user()->khachHang;
+                    } else {
+                        // Tạo hồ sơ khách hàng mới
+                        $khachHang = \App\Models\KhachHang::create([
+                            'user_id' => auth()->id(),
+                            'ho_ten' => $validated['ten'],
+                            'so_dienthoai' => $validated['so_dienthoai'],
+                            'dia_chi' => null,
+                            'diem_tichluy' => 0,
+                        ]);
+                        // Reload user để load relationship mới
+                        auth()->user()->load('khachHang');
+                        $khachHang = auth()->user()->khachHang;
+                    }
+                }
+            }
+
+            $don = $service->taoHoaDonChoThanhToan($gioHang, [], null, $online, $khachHang?->id);
         } catch (Throwable $e) {
             $this->capLaiToken($request);
             $message = $e instanceof RuntimeException ? $e->getMessage() : 'Không thể tạo đơn hàng. Vui lòng thử lại.';
@@ -174,7 +204,27 @@ class DatHangOnlineController extends Controller
 
         app(ThongBaoService::class)->thongBaoDonOnlineMoi($don);
 
-        return redirect()->route('dat-hang.thanhcong', $don->ma_tra_cuu);
+        return redirect()->route('dat-hang.qr', $don->ma_tra_cuu);
+    }
+
+    public function getQr(string $ma_tra_cuu, ThanhToanChuyenKhoanService $service, VietQrService $vietQr): View
+    {
+        $don = DonHang::where('ma_tra_cuu', $ma_tra_cuu)->firstOrFail();
+        $don = $this->huyNeuQuaHan($don, $service);
+
+        if ($don->trang_thai !== 'cho_thanh_toan') {
+            return redirect()->route('dat-hang.thanhcong', $don->ma_tra_cuu);
+        }
+
+        $qrUrl = null;
+        if ($don->phuong_thuc === 'chuyenkhoan') {
+            $qrUrl = $vietQr->url((int) $don->tong_thanh_toan, $don->ma_hoadon);
+        }
+
+        return view('dathang.qr', [
+            'don' => $don,
+            'qrUrl' => $qrUrl,
+        ]);
     }
 
     public function getThanhCong(string $ma_tra_cuu, ThanhToanChuyenKhoanService $service): View
