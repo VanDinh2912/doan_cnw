@@ -22,8 +22,8 @@
   polling/trang thái bằng chứng session; khách tự hủy; thu ngân xác nhận/hủy (tái
   dùng R2/R3) + gia hạn có trần config; che SĐT nhật ký/Telegram; escape ghi chú;
   null-safe `stock_movements.user_id`; M2 nullable; test đồng thời khóa dòng thật.
-- **Không làm:** QR online checkout (P2); không đổi webhook/scheduler nền (xem rủi
-  ro **mục 6.1 — chặn triển khai**); không merge/push/áp migration production.
+- **Không làm:** QR online checkout (P2); không đổi webhook; không merge/push/áp
+  migration production. Scheduler nền đã sửa ở T1 (mục 6.1 — đã xử lý).
 
 ## 2. Kết quả test
 
@@ -294,37 +294,32 @@ Real **không** bị ghi/xóa ở bất kỳ bước nào. Từ đó luôn dùng
 
 ## 6. Việc chưa làm / rủi ro còn lại / câu hỏi
 
-### 6.1 RỦI RO CHẶN TRIỂN KHAI — scheduler nền hủy nhầm đơn pickup (cần quyết định)
+### 6.1 ĐÃ XỬ LÝ (T1, 2026-11-14) — scheduler nền từng hủy nhầm đơn pickup
 
 **Phát hiện khi rà cuối pha (chỉ đọc):** lệnh nền `donhang:huy-qua-han`
-(`HuyHoaDonQuaHan.php:21-24`, chạy `everyMinute()` theo `routes/console.php:9`) hủy
+(`HuyHoaDonQuaHan.php`, chạy `everyMinute()` theo `routes/console.php:9`) từng hủy
 **mọi** đơn `cho_thanh_toan` có `created_at < now - cho_thanh_toan_phut` (**15 phút**),
-**không** lọc `kenh`/`han_giu`. R3 (`huyChoThanhToan`) cũng chỉ kiểm tra
-`trang_thai === 'cho_thanh_toan'`, không guard `han_giu`.
+**không** lọc `kenh`/`han_giu` → đơn pickup online giữ 4h sẽ bị hủy sau 15 phút,
+phá vỡ cửa sổ giữ hàng + gia hạn.
 
-→ Đơn **pickup online** của P1 (giữ **4 giờ**, `han_giu = now+4h`) sẽ bị scheduler
-**hủy sau 15 phút** khi scheduler chạy, **phá vỡ cửa sổ giữ hàng + tính năng gia hạn**.
-P1 có hủy lười đúng `han_giu` khi khách xem/poll (`huyNeuQuaHan`), nhưng **không**
-thắng được scheduler nền chạy mỗi phút.
+**Đã sửa (được duyệt, commit `ab306fc`, test tái hiện `be2f287`):** thêm
+`DonHang::scopeQuaHanCho` làm **nguồn quy tắc quá hạn duy nhất**:
 
-- **Vì sao chưa sửa trong P1:** (a) P0 đã **hoãn** tương tác scheduler/`han_giu` sang
-  "pha sau" (báo cáo P0 mục 5.2); (b) 6 điểm bàn giao P1 **không** liệt kê scheduler;
-  (c) đổi lệnh nền là **thay đổi hành vi POS/background** thuộc cổng duyệt
-  (prompt §10/§3) — không tự ý sửa khi chưa được duyệt.
-- **Đề xuất sửa tối thiểu (chờ duyệt, để pha sau/P2):** scheduler chỉ hủy theo
-  `created_at+15ph` với đơn **QR/POS** (`kenh != 'online'` hoặc `phuong_thuc != 'tienmat'`);
-  đơn **pickup online** hủy theo **`han_giu`** (`han_giu < now`). Hoặc: thêm
-  `where(fn: kenh online pickup → han_giu < now; else created_at < hanChot)`.
-  Kèm test đặc trưng hành vi mới + cũ.
-- **Ảnh hưởng hiện tại:** trên nhánh cục bộ (chưa merge/chưa chạy production) nên
-  chưa gây hại; **phải quyết trước khi bật P1 cho cửa hàng thật**. Ghi rõ để người
-  dùng duyệt hướng xử lý.
+- Pickup online (`kenh=online` + `phuong_thuc=tienmat` + `han_giu` có giá trị):
+  hủy theo **`han_giu < now`**, không áp hạn 15 phút.
+- Mọi đơn còn lại (POS, QR, đơn cũ `han_giu` null): giữ nguyên
+  `created_at + cho_thanh_toan_phut`.
+
+Scope dùng chung ở **scheduler** `donhang:huy-qua-han`, **POS poll**
+(`DonHangController@getTrangThai` — hủy lười) và **health-check**
+`KiemTraHeThong::kiemTraDonQuaHan`. Webhook (T-CK18), `huyNeuQuaHan` guest và R3
+giữ nguyên. 13 ca test mới (`HuyDonPickupQuaHanTest`) + 71 ca liên quan xanh.
+**Không còn chặn triển khai ở mục này.**
 
 ### 6.2 Việc chưa làm (đúng phạm vi)
 
 - **QR online checkout (P2):** R1 đã có khung `$online` nhưng controller P1 chỉ nhận
   `phuong_thuc=pickup`; QR để pha sau.
-- **Chưa mở rộng scheduler nền cho pickup** (mục 6.1) — hủy lười chỉ chạy khi có truy cập.
 - **Không merge, không push, không áp migration M1/M2 lên `doan_cnw`** (đúng chỉ thị).
   Chờ lệnh riêng của người dùng.
 
@@ -335,8 +330,8 @@ thắng được scheduler nền chạy mỗi phút.
   PHPUnit một tiến trình; đây là bằng chứng gần nhất (mục 2.3).
 - **Cấu hình trần:** pickup 4h, gia hạn tối đa 24h, trần giữ 50% — operator chỉnh
   qua env/config trước production (không cần migration).
-- **Câu hỏi cần người dùng quyết:** hướng sửa scheduler mục 6.1 (để P2 hay vá nóng
-  trước khi bật P1); thời điểm merge/áp migration.
+- **Câu hỏi cần người dùng quyết:** thời điểm merge/áp migration (scheduler mục 6.1
+  đã sửa xong ở T1).
 
 ## 7. Checklist mục 7 (tự rà soát)
 
@@ -355,6 +350,143 @@ thắng được scheduler nền chạy mỗi phút.
 exit 0); copy xanh (**41 pass / 306 assertions**, 9.54s); cả 8 mục checklist đạt.
 41 skip đều "cần MySQL" và đã chạy thật trên `doan_cnw_copy`. Real `doan_cnw`
 không bị chạm; copy tự dọn về đúng clone real. **Dừng tại P1** — không merge, không
-push, không áp migration lên MySQL thật. **Lưu ý chặn triển khai:** scheduler nền
-`donhang:huy-qua-han` hiện hủy đơn pickup sau 15 phút (mục 6.1) — cần người dùng
-duyệt hướng sửa trước khi bật P1 cho cửa hàng thật.
+push, không áp migration lên MySQL thật. Rủi ro chặn triển khai ở mục 6.1 (scheduler
+hủy nhầm đơn pickup) **đã xử lý ở T1** — xem mục 8 cho đợt T2–T5 tiếp theo.
+## 8. Đợt T2–T5 (2026-11-14): D12 chống ôm hàng + chốt chặn RefreshDatabase + rà UI thu ngân
+
+> Nền: P1 pickup (`e52e235` + T1 `be2f287`/`ab306fc`). Phần P2 dở được bảo toàn
+> nguyên vẹn ở nhánh `wip/p2-giao-tan-noi` (commit `3105eaa`, tạo từ HEAD P2
+> `ed190b6` + toàn bộ thay đổi chưa commit); nhánh `feat/dat-hang-p2-giao-tan-noi`
+> không bị đụng. Không dựa vào controller/R1 của P2.
+
+### 8.1 T2 — D12 chống ôm hàng trên luồng pickup P1
+
+**Commit:** `52b40ab` (test: 9 ca chứng cứ chuẩn hóa SĐT) + `d14b96d` (feat: triển khai).
+
+| Hạng mục | Triển khai | Vị trí |
+|---|---|---|
+| Honeypot | Ô `trang_web` ẩn (`aria-hidden="true"`, ngoài màn hình, `tabindex=-1`); bị điền → từ chối thông báo chung, cấp lại token, không tạo đơn/không trừ kho | `resources/views/dathang/form.blade.php` (khối honeypot), `DatHangOnlineController@postDat` (đầu hàm) |
+| 3 đơn mở/SĐT chuẩn hóa | Đếm đơn `kenh=online + phuong_thuc=tienmat + cho_thanh_toan` có SĐT chuẩn hóa trùng; đủ `online_max_don_mo` (3) → `RuntimeException` thông báo chung. Kiểm tra **TRONG transaction R1, SAU `lockForUpdate` sản phẩm, TRƯỚC trừ kho**; đơn `da_huy`/`da_thanh_toan`/POS/QR không tính | `ThanhToanChuyenKhoanService::kiemTraGioiHanDonMo` (gọi trong `taoHoaDonChoThanhToan`) |
+| Chuẩn hóa SĐT | `SoDienThoai::chuanHoa`: bỏ khoảng trắng/chấm/gạch/ngoặc, `+84`/`84` đầu → `0`; đơn mới lưu SĐT chuẩn hóa | `app/Support/SoDienThoai.php` (mới) |
+| Trần sản phẩm + số lượng dòng | Tối đa `online_max_sanpham` (10, **config mới** `POS_ONLINE_MAX_SANPHAM`) sản phẩm khác nhau/đơn; mỗi dòng 1..`online_max_soluong` (10); kiểm tra trước transaction, từ chối chung | `DatHangOnlineController@postDat`; `config/pos.php`; `.env.example` (THÊM dòng mới) |
+| Thông báo chung | Mọi từ chối D12: `'Không thể tạo đơn hàng. Vui lòng thử lại.'` — không lộ lý do chi tiết/dữ liệu đơn khác | hằng `LOI_CHUNG` trong controller; service ném cùng chuỗi |
+| Throttle 5/phút/IP → 429 | **Đã có sẵn** ở route từ P1 (`throttle:online_throttle_dat`), giữ nguyên, test xác nhận | `routes/web.php:42-44` |
+
+**Rà 12 test đỏ `e52e235`: KHÔNG ca nào phải sửa.** Cả 12 đã viết cho nền P1
+(route `dat-hang.dat`, `phuong_thuc=pickup`, giỏ session, không tham số khách
+hàng/redirect QR của P2). Bằng chứng: `git diff e52e235 HEAD --
+tests/Feature/DatHangP1ChongOmHangTest.php` = rỗng. Baseline chạy thật trước khi
+sửa: **6 đỏ / 6 xanh** (30 assertions, 51.04s) — 6 đỏ: `honeypot_bi_dien...`,
+`form_hien_honeypot...`, `vuot_3_don_mo...`, `vuot_10_san_pham...`,
+`vuot_so_luong_moi_dong...`, `so_luong_dong_bang_0...` (đỏ vì thiếu triển khai,
+không phải lệch nền). Sau feat: **12/12 xanh** (39 assertions, 29.78s).
+
+**9 ca chứng cứ thêm** (không nằm trong 12 ca đăng ký): `SoDienThoaiTest` (6, unit)
++ `DatHangP1ChuanHoaSdtTest` (3, feature — đơn cũ lưu `+84`/`090.123 4567` vẫn tính
+vào giới hạn 3 của `0901234567`; SĐT khác không tính chéo). Lý do: 12 ca D12 chỉ
+thử SĐT cùng dạng, chưa chứng minh phần "chuẩn hóa".
+
+**Hồi quy:** nhóm 69 ca liên quan (`DatHangP1Test|DatHangP1TraCuuTest|DatHangP1BaoVeTest|
+ThanhToanChuyenKhoanTest|GiuHangOnlineServiceTest|HuyDonPickupQuaHanTest`) xanh
+308 assertions trước commit; POS không đổi hành vi (kiểm tra 3 đơn chỉ chạy khi
+`$laOnlinePickup`, trần SP/số lượng chỉ nằm trong controller online).
+
+### 8.2 T3 — chốt chặn RefreshDatabase
+
+**Commit:** `711fff0` (test:).
+
+- `tests/TestCase.php` chặn ở `setUpTraits()` — ngay trước
+  `RefreshDatabase::refreshDatabase()`: nếu kết nối mặc định không phải
+  `sqlite` + `:memory:` → `RuntimeException` tiếng Việt (nêu kết nối hiện tại +
+  cách chạy copy đúng), **trước khi kịp kết nối/migrate:fresh**.
+- **Vì sao không đặt vào chính hook `beforeRefreshingDatabase()`:** trait
+  `RefreshDatabase` use ở lớp con **ghi đè** method cùng tên của lớp cha (PHP
+  precedence: trait > inherited) — đặt guard ở lớp cha dưới tên hook sẽ bị vô
+  hiệu hóa thầm lặng. Đã kiểm chứng bằng fatal error tương thích chữ ký khi thử
+  phương án hook trực tiếp. `setUpTraits` không bị trait nào của lớp con ghi đè.
+- Test chứng minh `RefreshDatabaseGuardTest` (3 ca): mô phỏng cấu hình mysql
+  (`createApplication` override, port 9 + DB giả `doan_cnw_mo_phong` — **không
+  kết nối thật**, guard hỏng thì cũng refused ngay): (1) guard ném đúng
+  `RuntimeException` thuần trong setUp trước tầng kết nối (loại trừ
+  `QueryException`), thông báo tiếng Việt chứa `sqlite :memory:` + tên kết nối;
+  (2) sqlite `:memory:` đi qua; (3) sqlite file bị chặn.
+- 4 lớp MySQL-copy (`AnhUrlMysqlCopyTest`, `DatHangP0MysqlCopyTest`,
+  `DatHangP1MysqlCopyTest`, `KhoaDongMysqlTest`) **không** dùng trait
+  `RefreshDatabase` (kiểm chứng bằng grep `use RefreshDatabase;` = 0) → không bị
+  ảnh hưởng; vẫn chạy được với env MySQL + filter chính xác.
+
+### 8.3 T4 — rà chỉ đọc: thu ngân thấy đơn pickup online ở đâu (không làm UI)
+
+Đã kiểm chứng từng dòng bằng đọc trực tiếp file:
+
+- **Thấy đơn:** `GET /donhang` (`DonHangController@getDanhSach`,
+  `app/Http/Controllers/DonHangController.php:199`) query `DonHang::with('user')->latest()`,
+  chỉ lọc `tu_ngay/den_ngay`, **không lọc kenh/trang_thai** → đơn pickup online
+  hiện trong danh sách; cột Thu ngân hiện **"Đơn online"** khi `user` null
+  (`resources/views/donhang/danhsach.blade.php:31`), badge vàng "Chờ thanh toán"
+  (dòng 37-38). Không có cột/badge kenh, `ma_tra_cuu`, `han_giu`/countdown.
+- **POS không có panel đơn chờ:** `getPos` (`DonHangController.php:24`) chỉ truyền
+  `loais`; `resources/views/pos/index.blade.php` chỉ có tìm sản phẩm + giỏ session
+  + modal VietQR cho hóa đơn thu ngân vừa tự tạo (`currentInvoiceId`).
+- **Nút xác nhận/hủy:** chỉ trong modal VietQR POS — `#btn-modal-xac-nhan`
+  (`pos/index.blade.php:162-164`, fetch `donhang.xacnhan` dòng 487) và
+  `#btn-modal-huy-cho` (dòng 159-161, fetch `donhang.huycho` dòng 521); chỉ áp
+  dụng cho hóa đơn QR vừa tạo phiên này (`if (!currentInvoiceId) return;`),
+  **không với tới đơn pickup online**.
+- **Gia hạn:** route `donhang.giahan` + `postGiaHan`
+  (`DonHangController.php:153`, guard pickup online đang chờ) đã có nhưng
+  **không có nút/form/JS nào gọi** (grep toàn bộ `resources/views`, `resources/js`,
+  `public/js` = 0 caller; chỉ tests gọi).
+- **Danh sách hóa đơn:** đơn chưa thanh toán chỉ có nút **disabled** "Chưa thanh
+  toán" (`danhsach.blade.php:50`); nhánh `da_thanh_toan` mới có Xem/in + Đổi trả.
+
+**Kết luận T4 (báo cáo, không sửa UI):** đơn pickup online hiện ở `/donhang`
+nhưng thu ngân **không có nút xác nhận/hủy/gia hạn nào cho chúng trên giao diện**;
+API gia hạn "mồ côi UI". Khoảng trống này thuộc phạm vi UI (handoff FE), không
+làm trong đợt này.
+
+### 8.4 T5 — kết quả chạy thật (2026-11-14)
+
+**Full suite** (`XDEBUG_MODE=off php artisan test --compact`, SQLite `:memory:`,
+exit 0):
+
+```
+Tests:    41 skipped, 419 passed (2007 assertions)
+Duration: 656.56s
+```
+
+- Tổng **460 test** = 423 (báo cáo P1 gốc) + 13 (T1 `HuyDonPickupQuaHanTest`)
+  + 24 đợt này (12 D12 + 3 chuẩn hóa SĐT feature + 6 unit `SoDienThoaiTest`
+  + 3 `RefreshDatabaseGuardTest`). Pass 382 → **419** (+37, không giảm test nào).
+- Thời gian 656.56s dài hơn lượt 200.94s trước do máy chạy chậm hơn ở thời điểm
+  đo (có tiến trình MySQL + lượt copy chạy song song đầu phiên); giữ nguyên số
+  thật, không quy đổi.
+- **41 skip phân loại "cần MySQL"** (không skip cố ý/lý do khác), xác minh bằng
+  lượt chạy riêng `--filter='MysqlCopyTest|KhoaDongMysqlTest'` trên SQLite:
+  **41 skipped (0 assertions), 1.75s**:
+
+| Nhóm skip | Số ca | Lý do |
+|---|---|---|
+| `AnhUrlMysqlCopyTest` | 37 | VARCHAR(150) thật + MySQL strict |
+| `DatHangP0MysqlCopyTest` | 1 | M1 up/down cần MySQL strict |
+| `DatHangP1MysqlCopyTest` | 2 | M2 up/down + khóa dòng 2 kết nối cần InnoDB |
+| `KhoaDongMysqlTest` | 1 | Khóa dòng `SELECT ... FOR UPDATE` cần InnoDB |
+
+**MySQL-copy** (env tiến trình `DB_CONNECTION=mysql DB_DATABASE=doan_cnw_copy
+DB_USERNAME=root DB_PASSWORD=''`, **filter chính xác**
+`--filter='MysqlCopyTest|KhoaDongMysqlTest'`, `XDEBUG_MODE=off`, exit 0):
+
+```
+Tests:    41 passed (306 assertions)
+Duration: 11.05s
+```
+
+Cả 4 nhóm PASS (T-DH02b 0.47s, T-DH13 3.41s, khóa dòng 2.13s). **Vệ sinh sau
+chạy (chỉ đọc):** `doan_cnw_copy` về đúng clone real — invoices 5,
+stock_movements 306, `P1CONC` 0, `P1-M2-TEST` 0, M1/M2 rows 0. `doan_cnw` thật
+không bị chạm (không kết nối tới trong cả phiên).
+
+**Commit đợt này (tách bạch):** `52b40ab` test: (9 ca chuẩn hóa) → `d14b96d`
+feat: (D12) → `711fff0` test: (chốt chặn T3 + 3 ca) → commit docs: (báo cáo +
+README 9/17). Không merge/push; không migrate/seed MySQL thật; không đọc/ghi
+`.env` (env copy đặt bằng biến tiến trình).
