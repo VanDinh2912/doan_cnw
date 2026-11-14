@@ -2,6 +2,8 @@
 
 namespace Tests;
 
+use Illuminate\Foundation\Testing\DatabaseMigrations;
+use Illuminate\Foundation\Testing\DatabaseTruncation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use RuntimeException;
@@ -9,21 +11,24 @@ use RuntimeException;
 abstract class TestCase extends BaseTestCase
 {
     /**
-     * T3 — chốt chặn RefreshDatabase: chỉ được chạy trên sqlite :memory: như
-     * phpunit.xml; kết nối khác (MySQL thật/bản sao, sqlite file) bị ném ngoại lệ
-     * tiếng Việt TRƯỚC khi migrate:fresh. Các test MySQL-copy không dùng
-     * RefreshDatabase nên không bị ảnh hưởng.
+     * T3 (P1) + BƯỚC B (P2) — chốt chặn mọi trait tự migrate/truncate:
+     * RefreshDatabase, DatabaseMigrations, DatabaseTruncation chỉ được chạy
+     * trên sqlite :memory: như phpunit.xml; kết nối khác (MySQL thật/bản sao,
+     * sqlite file) bị ném ngoại lệ tiếng Việt TRƯỚC khi migrate/truncate.
+     * Các test MySQL-copy không dùng ba trait này nên không bị ảnh hưởng.
      *
      * Không đặt guard vào chính hook beforeRefreshingDatabase() của trait:
      * trait use ở lớp con ghi đè method cùng tên của lớp cha (PHP precedence)
      * nên guard ở lớp cha sẽ bị vô hiệu. Chặn ở setUpTraits — chạy ngay trước
-     * khi RefreshDatabase::refreshDatabase() được gọi.
+     * khi các trait database được khởi động.
      */
     protected function setUpTraits()
     {
         $uses = array_flip(class_uses_recursive(static::class));
 
-        if (isset($uses[RefreshDatabase::class])) {
+        if (isset($uses[RefreshDatabase::class])
+            || isset($uses[DatabaseMigrations::class])
+            || isset($uses[DatabaseTruncation::class])) {
             $this->chanRefreshDatabase();
         }
 
