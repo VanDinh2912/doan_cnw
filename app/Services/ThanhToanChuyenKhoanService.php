@@ -7,6 +7,7 @@ use App\Models\ChiTietDonHang;
 use App\Models\DonHang;
 use App\Models\KhachHang;
 use App\Models\SanPham;
+use App\Support\SoDienThoai;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -58,6 +59,13 @@ class ThanhToanChuyenKhoanService
                 $thanhTien = (float) $sanPham->gia_ban * $soLuong;
                 $tongTien += $thanhTien;
                 $sanPhams[] = [$sanPham, $soLuong, $thanhTien];
+            }
+
+            // D12: tối đa online_max_don_mo đơn pickup mở trên mỗi SĐT chuẩn hóa.
+            // Kiểm tra TRONG transaction sau khi khóa sản phẩm để hai đơn đồng thời
+            // không cùng vượt giới hạn; thông báo chung, không lộ dữ liệu đơn khác.
+            if ($laOnlinePickup && ! empty($online['so_dienthoai_dat'])) {
+                $this->kiemTraGioiHanDonMo((string) $online['so_dienthoai_dat']);
             }
 
             // 2. Tính giảm giá & khóa khách hàng
@@ -334,6 +342,30 @@ class ThanhToanChuyenKhoanService
                 'message' => 'Đã hủy hóa đơn chờ thanh toán và hoàn trả tồn kho, điểm.',
             ];
         }, 2);
+    }
+
+    /**
+     * D12 — chặn ôm hàng: đếm đơn pickup online đang mở (cho_thanh_toan) của cùng
+     * SĐT chuẩn hóa; đủ online_max_don_mo thì từ chối bằng thông báo chung.
+     * Gọi trong transaction sau lockForUpdate sản phẩm. Đơn da_huy/da_thanh_toan,
+     * đơn POS và QR không tính.
+     */
+    private function kiemTraGioiHanDonMo(string $sdt): void
+    {
+        $gioiHan = (int) config('pos.online_max_don_mo', 3);
+        $sdtChuanHoa = SoDienThoai::chuanHoa($sdt);
+
+        $dangMo = DonHang::query()
+            ->where('kenh', 'online')
+            ->where('phuong_thuc', 'tienmat')
+            ->where('trang_thai', 'cho_thanh_toan')
+            ->pluck('so_dienthoai_dat')
+            ->filter(fn (?string $s): bool => SoDienThoai::chuanHoa($s) === $sdtChuanHoa)
+            ->count();
+
+        if ($dangMo >= $gioiHan) {
+            throw new RuntimeException('Không thể tạo đơn hàng. Vui lòng thử lại.');
+        }
     }
 
     /**

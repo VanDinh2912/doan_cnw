@@ -28,6 +28,12 @@
                 @error('hinh_thuc_nhan')<div style="color:var(--sf-stock-out);font-size:var(--sf-text-sm);">{{ $message }}</div>@enderror
             </div>
 
+            {{-- Honeypot D12: ẩn với người thật, bot điền vào sẽ bị từ chối (không hiện lỗi riêng). --}}
+            <div aria-hidden="true" style="position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden;">
+                <label for="trang_web">Website</label>
+                <input id="trang_web" name="trang_web" type="text" value="" tabindex="-1" autocomplete="off">
+            </div>
+
             <div style="margin-bottom:12px;">
                 <label for="ten" style="display:block;margin-bottom:4px;">Họ tên</label>
                 <input id="ten" name="ten" type="text" value="{{ old('ten') }}" required maxlength="100"

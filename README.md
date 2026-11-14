@@ -681,28 +681,29 @@ php artisan test --compact
 Remove-Item Env:XDEBUG_MODE
 ```
 
-Các test nghiệp vụ hiện có (**466 test**: 418 pass, 48 skip; 2042 assertions — xem
-kết quả chạy thực tế ở mục 18):
+Các test nghiệp vụ hiện có (**478 test** sau merge P1+P2, trong đó 42 skip MySQL-copy;
+số chạy thật cập nhật ở mục 17/18):
 
-**Unit (44 test)**
+**Unit (50 test)**
 
 - `AnhSanPhamTest` (33): rule URL ảnh (6 hợp lệ gồm CDN không đuôi/đúng 150 ký tự, 13
   lỗi gồm javascript/data/http/userinfo/khoảng trắng/mảng/quá 150), accessor `anh_url`
   (https/tệp tải lên/legacy/rỗng), xóa tệp an toàn (chỉ thư mục ảnh, chặn
   traversal/backslash/URL, legacy `upload/` với tệp thật tạm).
 - `ChanLenhPhaHuyTest` (5): chốt chặn production cho lệnh phá hủy dữ liệu.
+- `SoDienThoaiTest` (6): chuẩn hóa SĐT (`SoDienThoai::chuanHoa`) — giữ dạng 0,
+  `+84`/`84` đầu → 0, bỏ khoảng trắng/chấm/gạch/ngoặc, null → rỗng, chuỗi ngắn
+  không phải 84 giữ nguyên.
 - `VietQrServiceTest` (5, t61..t65): URL VietQR, chưa cấu hình, số tiền âm, làm
   sạch nội dung, template dự phòng.
 - `ExampleTest` Unit (1).
 
-**Feature (426 test, trong đó 41 skip)**
+**Feature (428 test, trong đó 42 skip)**
 
-**Feature (bổ sung lỗi vận hành 1 — 5 bộ test mới)**
-- `LoiADungDiemTest` (10): Lỗi A — dùng điểm sai quy định, lockForUpdate, hủy hoàn điểm, 2 đơn tuần tự
-- `LoiBTaoQrTest` (6): Lỗi B — đủ/thiếu cấu hình QR, log che STK, fallback cột online
-- `LoiCSoDienThoaiKhachTest` (4): Lỗi C — chữ/SĐT rỗng báo định dạng, trùng thật báo tồn tại, Rule chung
-- `LoiDDashboardTonKhoTest` (1): Lỗi D — 4 bước tồn kho/đang giữ/tổng thực tế với số cụ thể
-- `SanPhamAnhUrlTest` (26): Lỗi E — sweep URL thực tế, validate 500 ký tự, JS cảnh báo không khóa
+Ghi chú: 5 bộ test lỗi vận hành 1 (`LoiADungDiemTest`, `LoiBTaoQrTest`,
+`LoiCSoDienThoaiKhachTest`, `LoiDDashboardTonKhoTest`, `SanPhamAnhUrlTest`) hiện chỉ
+nằm ở nhánh `fix/loi-van-hanh-1` (chưa merge vào nhánh này) — xem
+`docs/BAO_CAO_LOI_VAN_HANH_1.md` trên `wip/p2-giao-tan-noi`.
 
 - `AnhUrlMysqlCopyTest` (37, **skip trên SQLite**): sweep 35 URL lạ qua thêm+sửa trên
   bản sao MySQL strict mode (không `RefreshDatabase` để giữ cột VARCHAR(150) thật,
@@ -729,6 +730,15 @@ kết quả chạy thực tế ở mục 18):
   thu ngân hủy pickup dùng lại R3 hoàn kho; gia hạn cộng giờ trong trần config + ghi
   nhật ký; gia hạn vượt trần bị từ chối; gia hạn chỉ cho đơn pickup online đang chờ;
   config có `online_gia_han_toi_da_gio`.
+- `DatHangP1ChongOmHangTest` (12): D12 chống ôm hàng checkout pickup — honeypot
+  `trang_web` bị điền → từ chối thông báo chung, không tạo đơn/không trừ kho; form
+  hiện ô honeypot ẩn (`aria-hidden`); vượt 3 đơn mở cùng SĐT chuẩn hóa bị chặn
+  (kiểm tra trong transaction sau khóa; đơn `da_huy`/SĐT khác không tính chéo);
+  vượt `online_max_sanpham` (10) sản phẩm khác nhau hoặc số lượng dòng ngoài
+  1..`online_max_soluong` bị từ chối; throttle 5/phút/IP → 429.
+- `DatHangP1ChuanHoaSdtTest` (3): giới hạn 3 đơn mở tính trên SĐT chuẩn hóa — đơn
+  cũ lưu `+84` hoặc `090.123 4567` vẫn tính cùng `0901234567`; `+84` của SĐT khác
+  không tính chéo.
 - `DatHangP1MysqlCopyTest` (2, **skip trên SQLite**): T-DH02b — M2 up/down trên bản sao
   MySQL (`user_id` nullable, enum/FK giữ nguyên, down chặn khi còn movement `user_id`
   NULL); T-DH13 — khóa dòng sản phẩm THẬT bằng hai kết nối MySQL chặn tạo đơn online
@@ -762,6 +772,13 @@ kết quả chạy thực tế ở mục 18):
 - `GiuHangOnlineServiceTest` (8): trần giữ hàng pickup — tồn 10→trần 5, trần không co
   lại khi đã giữ, vượt trần từ chối kèm số còn lại, tồn 1→trần 1, không đếm
   QR/POS/đã trả/đã hủy, nhiều sản phẩm độc lập, đổi config %, số lượng 0/âm từ chối.
+- `HuyDonPickupQuaHanTest` (13): T1 — `DonHang::scopeQuaHanCho` là nguồn quy tắc quá
+  hạn duy nhất: pickup còn hạn (16 phút, 3h59) không bị hủy; quá hạn 4h01 bị hủy +
+  hoàn kho + movement + nhật ký; đơn QR/POS cũ vẫn hủy ở 16 phút; pickup `han_giu`
+  null hủy theo `created_at`; đơn gia hạn không bị hủy ở hạn cũ; hủy thủ công/khách
+  tự hủy vẫn hoạt động; chạy lệnh 2 lần idempotent; webhook đơn QR quá hạn như cũ
+  (T-CK18); POS poll không hủy nhầm pickup còn hạn + hủy khi quá `han_giu`;
+  health-check không báo quá hạn pickup còn hạn.
 - `KhoaDongMysqlTest` (1, **skip trên SQLite**): khóa dòng `SELECT ... FOR UPDATE`
   thật trên MySQL/InnoDB — chỉ chạy khi trỏ vào bản sao MySQL (xem bên dưới).
 - `KiemTraHeThongTest` (13): từng mục của `he-thong:kiem-tra`, gồm scheduler,
@@ -782,6 +799,10 @@ kết quả chạy thực tế ở mục 18):
   tạm dừng, lọc hóa đơn theo ngày, upload ảnh, tìm kiếm, tem barcode, tích điểm,
   xuất báo cáo, đơn nhập/hóa đơn nhập, phân quyền, nhật ký, trả hàng (quá hạn, giảm
   giá + điểm, floor cộng dồn, tiền hoàn 0, chờ duyệt, dòng trùng), hold giỏ, kiểm kê.
+- `RefreshDatabaseGuardTest` (3): chốt chặn `RefreshDatabase` trong `tests/TestCase.php`
+  — mô phỏng cấu hình MySQL (port 9, DB giả, **không kết nối thật**) phải bị ném
+  ngoại lệ tiếng Việt ngay trong setUp trước khi kịp migrate; sqlite `:memory:` đi
+  qua; sqlite file cũng bị chặn.
 - `RouteKhoiTest` (4): test khói toàn bộ route GET cho khách, thu ngân, thủ kho,
   admin với dữ liệu ≥3 bản ghi mỗi mô hình có quan hệ (loại + sản phẩm, khách,
   hóa đơn + chi tiết, nhà cung cấp, đơn nhập, hóa đơn nhập, phiếu trả, biến động
@@ -829,24 +850,31 @@ kết quả chạy thực tế ở mục 18):
 Lưu ý khi chạy test:
 
 - Test dùng SQLite `:memory:` qua `RefreshDatabase` (`phpunit.xml`), không đụng
-  database MySQL thật.
+  database MySQL thật. **Chốt chặn T3:** `tests/TestCase.php` ném ngoại lệ tiếng
+  Việt nếu một test `RefreshDatabase` chạy trên kết nối không phải sqlite
+  `:memory:` (MySQL thật/bản sao, sqlite file) — chặn trước khi `migrate:fresh`
+  kịp xóa gì. Các test MySQL-copy không dùng `RefreshDatabase` nên không bị ảnh
+  hưởng; bằng chứng: `RefreshDatabaseGuardTest`.
 - Phải build asset trước (`npm ci` và `npm run build`) để có
   `public/build/manifest.json`; nếu không, các test render Blade dùng `@vite`
   sẽ lỗi 500.
-- `KhoaDongMysqlTest` tự skip khi không phải MySQL. Muốn chạy, trỏ vào **bản sao**
-  MySQL (không bao giờ là `doan_cnw`), vì `RefreshDatabase` sẽ xóa và migrate lại
-  CSDL đó:
+- `KhoaDongMysqlTest` và các lớp `*MysqlCopyTest` tự skip khi không phải MySQL
+  bản sao `*_copy`. Muốn chạy, trỏ vào **bản sao** MySQL (không bao giờ là
+  `doan_cnw`) bằng biến môi trường tiến trình, **filter chính xác** (xem cảnh báo
+  bên dưới và mục 17):
 
   ```powershell
   $env:DB_CONNECTION='mysql'; $env:DB_DATABASE='doan_cnw_copy'
   $env:DB_USERNAME='root'; $env:DB_PASSWORD=''
-  php artisan test --filter=KhoaDongMysqlTest
+  php artisan test --filter='MysqlCopyTest|KhoaDongMysqlTest'
   Remove-Item Env:DB_CONNECTION, Env:DB_DATABASE, Env:DB_USERNAME, Env:DB_PASSWORD
   ```
 
-  `AnhUrlMysqlCopyTest` cũng chạy bằng cách trỏ bản sao như trên (đổi `--filter`);
-  riêng lớp này **không** `RefreshDatabase` — nó cần cột `hinh_anh` VARCHAR(150)
-  thật của bản sao để tái hiện lỗi 1406, và tự dọn bản ghi nó tạo.
+  Cả 4 lớp này **không** `RefreshDatabase` — giữ schema/dữ liệu bản sao, tự áp
+  migration rồi dọn bản ghi nó tạo. Riêng `AnhUrlMysqlCopyTest` cần cột
+  `hinh_anh` VARCHAR(150) thật của bản sao để tái hiện lỗi 1406. **Không** chạy
+  full suite với env MySQL: các test `RefreshDatabase` khác sẽ bị chốt chặn T3
+  ném ngoại lệ (đúng thiết kế — bảo vệ bản sao).
 
 - Chưa có test cho: hành vi khi hai webhook đến đồng thời trên môi trường thật
   (đã có test khóa dòng tuần tự trên bản sao MySQL), luồng trình duyệt thật của
@@ -1302,25 +1330,38 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
   (tách phí ship khỏi doanh thu) chưa implement. Đơn giao_tan_noi tạo xong chuyển
   sang trang QR hiện có/placeholder. Hủy đơn đã thanh toán + hoàn tiền là thủ công
   (P3). Chi tiết: `docs/BAO_CAO_DAT_HANG_P2.md`.
-- **Kiểm thử hiện tại: 418 pass, 48 skip, 2042 assertions** (511.76s,
-  `XDEBUG_MODE=off`, nhánh `feat/dat-hang-p2-giao-tan-noi`). 48 skip = `KhoaDongMysqlTest`
+- **Kiểm thử hiện tại: xem mục 9** (baseline trước merge: P1 419 pass, 41 skip,
+  2007 assertions; P2 418 pass, 48 skip, 2042 assertions; số sau merge P1+P2 cập nhật
+  ở mục 17/18). Skip MySQL-copy = `KhoaDongMysqlTest`
   (1) + `AnhUrlMysqlCopyTest` (37) + `DatHangP0MysqlCopyTest` (1) + `DatHangP1MysqlCopyTest`
-  (2) + `DatHangP2MysqlCopyTest` (1) + các test khác phụ thuộc môi trường (6) — SQLite
-  không có khóa dòng/InnoDB, không cưỡng chế độ dài VARCHAR và không phải MySQL strict
-  để thử migration; cần trỏ vào bản sao MySQL để chạy (mục 9). Số pass không thay thế
+  (2) + `DatHangP2MysqlCopyTest` (1) — SQLite không có khóa dòng/InnoDB, không cưỡng chế độ dài VARCHAR và không phải
+  MySQL strict để thử migration; cần trỏ vào bản sao MySQL để chạy (mục 9). Các nhóm
+  này phải chạy thật trên `doan_cnw_copy` bằng filter chính xác (mục 17). Số pass không thay thế
   kiểm tra đó. **Cẩn thận filter:** chạy test MySQL-copy phải dùng filter chính xác
   (`--filter='MysqlCopyTest|KhoaDongMysqlTest'`); filter rộng `--filter=Mysql` bắt nhầm
   method `...mysqldump` của `SaoLuuCsdlTest` (dùng `RefreshDatabase`) → `migrate:fresh`
-  xóa sạch bản sao khi đặt env MySQL.
+  xóa sạch bản sao khi đặt env MySQL. Từ T3 đã có chốt chặn `RefreshDatabase`
+  (ném ngoại lệ tiếng Việt nếu không phải sqlite `:memory:`) nhưng **vẫn phải dùng
+  filter chính xác** — chốt chặn là lưới an toàn, không phải lý do chạy filter rộng.
 - **Đặt hàng online P1 — chỉ guest PICKUP:** checkout giữ hàng qua R1 (khóa dòng sản
   phẩm id tăng dần + `GiuHangOnlineService::kiemTra` trong transaction), tra cứu bằng
   mã + SĐT (SĐT chỉ trong thân POST, bằng chứng xác thực lưu session), polling chỉ trả
   trạng thái, khách tự hủy, thu ngân xác nhận/hủy/gia hạn (trần `online_gia_han_toi_da_gio`).
-  QR online để P2. Test đồng thời T-DH13 là tranh chấp khóa dòng InnoDB THẬT qua hai
-  kết nối (không phải đa luồng). **Chặn triển khai:** scheduler nền `donhang:huy-qua-han`
-  hiện hủy mọi đơn `cho_thanh_toan` quá 15 phút (không lọc `han_giu`) → sẽ hủy nhầm đơn
-  pickup giữ 4h; cần duyệt hướng sửa trước khi bật P1 (báo cáo mục 6.1). Chi tiết:
+  **D12 chống ôm hàng (T2):** honeypot `trang_web` ẩn; tối đa `online_max_don_mo` (3)
+  đơn pickup mở trên mỗi SĐT chuẩn hóa (kiểm tra TRONG transaction sau khóa,
+  `SoDienThoai::chuanHoa`); tối đa `online_max_sanpham` (10) sản phẩm khác nhau/đơn và
+  số lượng mỗi dòng 1..`online_max_soluong`; mọi từ chối dùng thông báo chung, không lộ
+  dữ liệu đơn khác; throttle 5/phút/IP → 429. QR online để P2. Test đồng thời T-DH13
+  là tranh chấp khóa dòng InnoDB THẬT qua hai kết nối (không phải đa luồng).
+  Scheduler nền `donhang:huy-qua-han` **đã sửa (T1)**: dùng chung
+  `DonHang::scopeQuaHanCho` — pickup online hủy theo `han_giu`, đơn còn lại theo
+  `created_at+15ph` (không còn hủy nhầm đơn pickup 4h). Chi tiết:
   `docs/BAO_CAO_DAT_HANG_P1.md`.
+- **Chốt chặn RefreshDatabase (T3):** `tests/TestCase.php` ném ngoại lệ tiếng Việt
+  nếu test `RefreshDatabase` chạy trên kết nối không phải sqlite `:memory:` — chặn
+  trước `migrate:fresh`, bảo vệ cả CSDL thật lẫn bản sao khi lỡ đặt env MySQL.
+  Bằng chứng: `RefreshDatabaseGuardTest` (mô phỏng cấu hình mysql, không kết nối
+  thật). Test MySQL-copy không dùng `RefreshDatabase` nên không bị ảnh hưởng.
 - **Mã phiếu trả chống trùng trong cùng giây (đã sửa 2026-11-12)**: `sinhMaPhieuTra`
   (`TraHangController.php:152-171`) dò hậu tố đã dùng của giây hiện tại rồi quét tiến
   từ điểm ngẫu nhiên, kèm vòng thử lại tối đa 5 lần khi vi phạm unique do giao dịch
