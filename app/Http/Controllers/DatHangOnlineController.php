@@ -233,7 +233,11 @@ class DatHangOnlineController extends Controller
 
         app(ThongBaoService::class)->thongBaoDonOnlineMoi($don);
 
-        return redirect()->route('dat-hang.qr', $don->ma_tra_cuu);
+        // Pickup (P1) giữ trang thành công; QR (P2) sang trang QR trả trước.
+        return redirect()->route(
+            $don->phuong_thuc === 'chuyenkhoan' ? 'dat-hang.qr' : 'dat-hang.thanhcong',
+            $don->ma_tra_cuu
+        );
     }
 
     public function getQr(string $ma_tra_cuu, ThanhToanChuyenKhoanService $service, VietQrService $vietQr): View

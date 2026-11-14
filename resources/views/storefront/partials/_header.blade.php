@@ -35,12 +35,11 @@
                         <i class="fa-solid fa-gauge-high"></i>
                         <span class="d-none d-md-inline">Trang quản trị</span>
                     </a>
-                @else
-                    <a class="sf-icon-btn" href="{{ route('profile.show') }}" title="Thông tin cá nhân">
-                        <i class="fa-solid fa-user"></i>
-                        <span class="d-none d-md-inline">{{ $user->name }}</span>
-                    </a>
                 @endif
+                <a class="sf-icon-btn" href="{{ route('profile.show') }}" title="Thông tin cá nhân">
+                    <i class="fa-solid fa-user"></i>
+                    <span class="d-none d-md-inline">{{ $user->name }}</span>
+                </a>
                 <a class="sf-icon-btn" href="{{ route('auth.dangxuat') }}" title="Đăng xuất">
                     <i class="fa-solid fa-right-from-bracket"></i>
                     <span class="d-none d-md-inline">Đăng xuất</span>
