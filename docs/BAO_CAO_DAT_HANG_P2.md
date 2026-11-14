@@ -2,7 +2,153 @@
 
 **Nhánh:** `feat/dat-hang-p2-giao-tan-noi` (tạo từ `feat/dat-hang-p1-checkout`)
 **Ngày:** 2026-11-14
-**Phạm vi:** Chuẩn bị schema, config, model, test + Form/Checkout cho giao_tan_noi (theo quyết định mới ghi đè D1/D2)
+**Phạm vi:** Bước 1 của prompt P2 — (A) merge nền P1 + WIP, (B) kiểm kê WIP + M3 + chốt chặn, (C) Form/Checkout giao_tan_noi. DỪNG sau bước 1; các bước 2–4 (QR online/webhook/tra cứu/báo cáo) để đợt sau.
+
+> **Đọc mục "Bước 1 — đợt 2026-11-14" ngay dưới đây để biết trạng thái hiện tại.**
+> Các mục Bước 0 / Bước 1 cũ / 1–12 bên dưới là giai đoạn chuẩn bị trước đó (giữ lại để đối chiếu).
+
+## Bước 1 — đợt 2026-11-14 (A merge + B kiểm kê + C form/checkout)
+
+### A. Merge nền (merge, không rebase; giữ cả hai phía)
+
+| Commit | Nội dung |
+|---|---|
+| `f477078` | merge `feat/dat-hang-p1-checkout` (P1) vào nhánh P2 |
+| `177e182` | merge `wip/p2-giao-tan-noi` (WIP) vào nhánh P2 |
+| `ec77163` | fix 2 test đỏ sau merge ở CODE production (redirect pickup/QR + header hồ sơ), không sửa test |
+
+- Merge-base `e52e235`. Giữ cả hai phía xung đột; không rebase; không xóa `wip/p2-giao-tan-noi`.
+- Baseline sau merge: **2 failed / 42 skipped / 434 passed (2073 assertions, 542.80s)**.
+  2 đỏ là hành vi WIP thiếu (redirect QR + link hồ sơ cho khách đăng nhập) → sửa ở
+  `DatHangOnlineController` (redirect có điều kiện) và `_header.blade.php` (bỏ `@else`),
+  commit `ec77163`, không hạ/sửa test cũ.
+
+### B. Kiểm kê WIP + M3 + chốt chặn
+
+**Kiểm kê WIP** (delta `f477078..177e182`, 21 tệp +1654/−15): xem bảng dưới.
+M3/config/form/test không nằm trong `3105eaa` (wip save) mà ở các commit P2 cũ
+`d8cf82a`/`fbc6a1b`/`ed190b6` đã có trên nhánh P2 trước merge.
+
+| Hạng mục WIP | Trạng thái | Ghi chú |
+|---|---|---|
+| `qr.blade.php` (trang QR + polling POST) | Đã có | Giữ nguyên; escape `{{ }}`/`@json`; không lộ PII ngoài mã đơn |
+| `thanhcong/trangthai/danhsach` views | Đã có | Giữ nguyên |
+| `thongtincanhan` (hồ sơ + đơn của tôi) | Đã có | `ThongTinCaNhanController` mới; SĐT còn tự do (P3) |
+| `_header.blade.php` | Đã có + sửa | Thêm link hồ sơ cho mọi user đăng nhập (`ec77163`) |
+| `User::khachHang()` HasOne | Đã có | Dùng prefill, không ghi ngược (D8) |
+| `DonHang` fillable M3 | Đã có | Đủ 6 cột |
+| Migration tăng độ dài ảnh 500 | Đã có | Không đụng enum/FK |
+| Routes +7, `chay-schedule-hidden.vbs` | Đã có | Giữ nguyên |
+| Trang QR dùng VietQrService đúng tổng gồm ship | Thiếu | Bước 2 |
+| Webhook đặt `trang_thai_giao` (D15) | Thiếu | Bước 2 |
+| Tra cứu hiển thị trạng thái giao | Thiếu | Bước 3 |
+| Báo cáo tách phí ship khỏi doanh thu | Thiếu | Bước 4 |
+| LỖI B (tạo QR) fix `987d06b` | Lệch | Chỉ ở `fix/loi-van-hanh-1`, CHƯA merge → không xây bước 2 trên nền này |
+
+**M3** (`2026_11_14_000003_...`): 6 cột (`hinh_thuc_nhan`, `ten_nguoi_nhan`,
+`sdt_nguoi_nhan`, `dia_chi_giao`, `phi_giao_hang`, `trang_thai_giao`); `down()` chặn khi
+còn đơn `giao_tan_noi`. Đã kiểm up/down trên MySQL-copy (tự áp M1→M2→M3 rồi rollback
+ngược; copy trả về trạng thái pre-M1, 0 cột M1/M3, 5 dòng gốc). Không thêm enum, không FK mới.
+
+**Chốt chặn mở rộng** (`478fd43`): `tests/TestCase.php::setUpTraits` chặn cả
+`RefreshDatabase` + `DatabaseMigrations` + `DatabaseTruncation` trên kết nối không phải
+sqlite `:memory:`. Giữ tiền tố thông báo "RefreshDatabase bị chặn" cho test chứng minh cũ.
+Test chứng minh mới: `DatabaseMigrationsGuardTest`, `DatabaseTruncationGuardTest`
+(mỗi lớp một tệp để PHPUnit 12 discovery nạp đúng). Grep xác nhận chỉ 2 lớp chứng minh
+này dùng `DatabaseMigrations`/`DatabaseTruncation`; `migrate:fresh`/`db:wipe` chỉ trong
+`LenhNguyHiemTest` (mock, không đụng DB thật).
+
+**D15 regression** (`f84a1c6`): `ConfigP2BooleanTest` (3 test) khẳng định
+`env('POS_ONLINE_TU_DONG_XAC_NHAN', false) === true` cho mặc định false / 'true'→true /
+'false'→false. Bug nghi ngờ KHÔNG tái hiện (env() chuẩn hóa chuỗi 'true' thành bool);
+giữ nguyên config, không đổi sang filter_var.
+
+### C. Form + Checkout giao_tan_noi (test đỏ trước, triển khai tối thiểu)
+
+**Test đỏ** (`376eabb`): `DatHangP2GiaoTanNoiMoRongTest` 23 test (18 đỏ đúng lý do /
+5 xanh nền), đổi honeypot `trang_web`→`truong_phu` ở `DatHangP1ChongOmHangTest`,
+cập nhật dữ liệu test miễn phí theo giá DB ở `DatHangP2FormCheckoutTest`.
+Chạy đỏ riêng: **18 failed / 5 passed (41 assertions)**.
+
+**Triển khai** (`119f030`):
+- Form: 4 ô địa chỉ (`dia_chi_so_nha/phuong_xa/quan_huyen/tinh_thanh`) ghép một cột
+  `dia_chi_giao` ≤255; honeypot trung tính `truong_phu` (type=text, autocomplete=off,
+  tabindex=-1, aria-hidden, ẩn CSS không phải type=hidden); prefill từ hồ sơ liên kết
+  (`auth()->user()?->khachHang`), KHÔNG ghi ngược (D8/L1); phí + tổng chỉ hiển thị;
+  chọn giao → ép QR, ẩn "Trả tại quầy".
+- Controller: validate 4 phần địa chỉ (bắt buộc cùng nhau, thông báo tiếng Việt),
+  vùng giao khớp tỉnh chính xác (`POS_GIAO_HANG_TINH`, lỗi khóa `dia_chi_tinh_thanh`);
+  giữ đường `dia_chi_giao` cũ (substring, lỗi khóa `dia_chi_giao`) cho client/test cũ;
+  bỏ khối tính phí ở controller (R1 tính); redirect pickup→`thanhcong`, QR→`qr`.
+- Service R1 (`$online`): phí tính TRONG transaction từ tổng giá DB + config
+  (`mien_phi_giao_tu>0 && tongTien>=ngưỡng` → 0); `tong_thanh_toan = tiền hàng + phí`;
+  D12 mở cho mọi `kenh=online` (`kiemTraGioiHanDonMo(sdt, phuongThuc)` đếm theo phương
+  thức của đơn mới, SĐT chuẩn hóa, trong transaction sau khóa); trần giữ pickup không đổi;
+  `trang_thai_giao=null` tới khi thanh toán; POS không đổi hành vi.
+- `DonHang::scopeQuaHanCho` (D17): mọi đơn `kenh=online` có `han_giu` hủy theo `han_giu`
+  (QR 30 phút không bị hủy ở mốc 15 phút); còn lại `created_at+15ph`.
+- Telegram: thêm "Hình thức: Giao tận nơi" + người nhận (escape) + SĐT nhận (che);
+  KHÔNG đưa địa chỉ đầy đủ vào Telegram/log.
+
+**Xanh sau triển khai:** 6 tệp ảnh hưởng **78 passed (277 assertions, 201.44s)**;
+MySQL-copy **42 passed (341 assertions, 11.22s)**; guard+config **8 passed (19 assertions)**.
+
+### Kiểm chứng trình duyệt (sqlite tạm, không đụng DB thật)
+
+Server `php artisan serve` với `DB_CONNECTION=sqlite DB_DATABASE=<temp>/p2browser/database.sqlite`,
+`TELEGRAM_BOT_TOKEN='' TELEGRAM_CHAT_ID=''`. Golden path: thêm SP1 (34.000₫) → `/dat-hang`
+→ chọn "Giao tận nơi" → điền khách + người nhận + 4 phần địa chỉ → Đặt hàng.
+- Honeypot `truong_phu`: type=text, autocomplete=off, tabindex=-1, trong khối aria-hidden,
+  offscreen (−9999), **value rỗng (browser không autofill)**; không còn `email`/`trang_web`.
+- 4 ô địa chỉ hiện; QR tự chọn + ẩn "Trả tại quầy"; phí 30.000, tổng 64.000 (34.000+30.000).
+- Redirect `/dat-hang/qr/{ma_tra_cuu}`; trang QR hiện tổng 64.000₫, phí 30.000₫,
+  VietQR amount=64000, không lộ PII; **không lỗi console**.
+- Bản ghi DB: `kenh=online, phuong_thuc=chuyenkhoan, trang_thai=cho_thanh_toan,
+  hinh_thuc_nhan=giao_tan_noi`, `dia_chi_giao="12 Nguyễn Trãi, Phường 1, Quận 5, Hồ Chí Minh"`,
+  `phi_giao_hang=30000, tong_tien=34000, tong_thanh_toan=64000, trang_thai_giao=null,
+  han_giu` đặt, `customer_id=null`; movement `ban -1`, tồn SP1 7→6.
+
+### Kết quả toàn suite (sqlite `:memory:`, `XDEBUG_MODE=off php artisan test`)
+
+```
+Tests:    42 skipped, 464 passed (2164 assertions)
+Duration: 550.75s
+```
+
+- **0 failed.** 42 skipped = MySQL-copy (`KhoaDongMysqlTest` 1 + `AnhUrlMysqlCopyTest` 37
+  + `DatHangP0MysqlCopyTest` 1 + `DatHangP1MysqlCopyTest` 2 + `DatHangP2MysqlCopyTest` 1).
+- Tổng 506 test (Unit 50 + Feature 456). So với baseline sau merge (434 passed / 42 skipped
+  / 2 failed, 2073 assertions): +28 test mới (23 MoRong + 2 guard + 3 config), 2 đỏ sau merge
+  đã sửa ở production (`ec77163`), toàn bộ xanh (464 passed).
+- MySQL-copy chạy riêng bằng filter chính xác trên `doan_cnw_copy`: **42 passed (341
+  assertions, 11.22s)**; copy rollback về pre-M1 (0 cột M1/M3, 5 dòng gốc).
+
+### Lệch so với prompt (ghi nhận trung thực)
+
+1. Nhánh P2 đã có bước 0+1 cũ; merge-base `e52e235`; M3 nằm ở commit P2 cũ, không trong `3105eaa`.
+2. README các test `Loi*` chỉ ở `fix/loi-van-hanh-1` (chưa merge).
+3. DB thật `doan_cnw` ĐÃ áp M1+M2+M3 ngoài phiên này (quan sát chỉ đọc); copy là pre-M1.
+4. Bug D15 không tái hiện → giữ config gốc + 3 test regression.
+5. LỖI B (tạo QR) fix `987d06b` chỉ ở `fix/loi-van-hanh-1`, chưa merge → không xây bước 2 trên nền này.
+
+### Việc để P3 / bước sau
+
+- Trang QR online dùng VietQrService đúng tổng gồm ship + đếm ngược `han_giu` (bước 2).
+- Webhook hoàn tất đặt `trang_thai_giao` theo D15, idempotent (bước 2).
+- Tra cứu hiển thị trạng thái giao, địa chỉ chỉ cho người xác thực (bước 3).
+- Báo cáo tách `phi_giao_hang` khỏi doanh thu/lợi nhuận hàng hóa (bước 4).
+- `ThongTinCaNhan` SĐT còn tự do (chuẩn hóa + chặn trùng) — P3.
+- Hủy đơn đã thanh toán + hoàn tiền thủ công (D16) — P3.
+- Merge LỖI B (`fix/loi-van-hanh-1`) trước khi làm bước 2.
+
+### Cần người dùng xác nhận
+
+| Vấn đề | Câu hỏi | Gợi ý |
+|---|---|---|
+| Phí giao hàng thật | `POS_PHI_GIAO_HANG=30000` đúng chưa? | Chờ chủ cửa hàng |
+| Ngưỡng miễn phí | `POS_MIEN_PHI_GIAO_TU=0` (tắt) hay đặt ngưỡng? | 300000–500000 |
+| Vùng giao | `POS_GIAO_HANG_TINH` rỗng = không giới hạn; có chốt danh sách tỉnh? | Khớp tỉnh chính xác |
+| Định nghĩa doanh thu | Phí ship có tính vào doanh thu? | KHÔNG tính (tách riêng) |
 
 ## Bước 0: Kiểm tra nền
 
@@ -215,7 +361,9 @@ P2 mở rộng đặt hàng online theo quyết định mới:
 - **D16**: Hủy đơn đã thanh toán + hoàn tiền = THỦ CÔNG (P3)
 - **D17**: Hạn QR online từ `han_giu` (online_qr_phut = 30)
 
-Đợt này chỉ hoàn thành **phần chuẩn bị** (migration, config, model, test test đỏ migration). Các phần thực thi (form, checkout, QR, webhook, tra cứu, báo cáo) để các pha sau.
+Đợt chuẩn bị trước đó chỉ hoàn thành migration/config/model/test đỏ. Đợt 2026-11-14
+(mục "Bước 1 — đợt 2026-11-14" ở đầu) đã hoàn thành A merge nền + B kiểm kê/M3/chốt chặn
++ C Form/Checkout giao_tan_noi. Các phần QR online/webhook/tra cứu/báo cáo để bước 2–4.
 
 ## 1. Migration M3: Thêm cột giao tận nơi
 
