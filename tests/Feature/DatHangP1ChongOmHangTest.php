@@ -102,7 +102,9 @@ class DatHangP1ChongOmHangTest extends TestCase
     {
         $sp = $this->sp(10);
 
-        $res = $this->dat($this->cart([[$sp, 2]]), ['trang_web' => 'http://spam.example']);
+        // P2 Bước C: honeypot đổi sang tên trung tính truong_phu (không gợi
+        // website/email/phone/address để trình duyệt không tự điền).
+        $res = $this->dat($this->cart([[$sp, 2]]), ['truong_phu' => 'http://spam.example']);
 
         $res->assertRedirect();
         $this->assertSame(self::LOI_CHUNG, session('error'));
@@ -114,7 +116,7 @@ class DatHangP1ChongOmHangTest extends TestCase
     {
         $sp = $this->sp(10);
 
-        $this->dat($this->cart([[$sp, 2]]), ['trang_web' => ''])->assertRedirect();
+        $this->dat($this->cart([[$sp, 2]]), ['truong_phu' => ''])->assertRedirect();
 
         $this->assertDatabaseCount('invoices', 1);
     }
@@ -127,7 +129,7 @@ class DatHangP1ChongOmHangTest extends TestCase
             ->get(route('dat-hang.form'));
 
         $res->assertOk();
-        $res->assertSee('name="trang_web"', false);
+        $res->assertSee('name="truong_phu"', false);
         $res->assertSee('aria-hidden="true"', false);
     }
 

@@ -159,11 +159,14 @@ class DatHangP2FormCheckoutTest extends TestCase
 
     public function test_checkout_giao_tan_noi_mien_phi_khi_dat_nguong(): void
     {
-        config(['pos.mien_phi_giao_tu' => 200000]);
+        // P2 Bước C: phí miễn phí xét theo tiền hàng TÍNH LẠI TỪ DB (không tin
+        // giá session). Giữ nguyên ý định ca test (đạt ngưỡng → miễn phí) nhưng
+        // dùng giá DB thật của sản phẩm seed (34000) và ngưỡng 30000 thay vì
+        // giá session 300000 như bản WIP.
+        config(['pos.mien_phi_giao_tu' => 30000]);
         $sanPham = SanPham::first();
-        // Tạo đơn có tong_tien >= 200000
         $this->withSession(['storefront_cart' => [
-            $sanPham->id => ['id' => $sanPham->id, 'ten' => $sanPham->ten, 'gia_ban' => 300000, 'soluong' => 1],
+            $sanPham->id => ['id' => $sanPham->id, 'ten' => $sanPham->ten, 'gia_ban' => $sanPham->gia_ban, 'soluong' => 1],
         ]])->get('/dat-hang');
         $token = $this->withSession(['checkout_token' => 'test-token'])->get('/dat-hang')->viewData('token');
 
