@@ -303,7 +303,10 @@ class PosWorkflowTest extends TestCase
             'phuong_thuc' => 'tienmat',
         ]);
 
-        $response->assertRedirect()->assertSessionHas('error');
+        // Lỗi A (Vận hành 2): vượt điểm hiện có nay ném ValidationException
+        // (422 theo trường diem_su_dung) thay vì flash 'error' chung —
+        // assertion đổi sang errors bag, nghiệp vụ chặn vẫn nguyên.
+        $response->assertRedirect()->assertSessionHasErrors('diem_su_dung');
         $this->assertDatabaseCount('invoices', 0);
         $this->assertDatabaseHas('customers', ['id' => $customer->id, 'diem_tichluy' => 1]);
     }
