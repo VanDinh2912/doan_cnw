@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\DonHang;
 use App\Models\SanPham;
+use App\Services\TongQuanKhoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -11,13 +12,15 @@ use Illuminate\Support\Facades\DB;
 
 class ThongKeController extends Controller
 {
-    public function getTongQuan(): View
+    public function getTongQuan(TongQuanKhoService $tongQuan): View
     {
         $data = [
-            'soSanPham' => SanPham::count(),
-            'soHoaDon' => DonHang::count(),
+            'chiSo' => $tongQuan->chiSo(),
             'sanPhamTonThap' => in_array(auth()->user()->role, ['admin', 'thukho'], true)
-                ? SanPham::whereColumn('soluong', '<=', 'soluong_toithieu')->orderBy('soluong')->get()
+                ? SanPham::where('trang_thai', true)
+                    ->whereColumn('soluong', '<=', 'soluong_toithieu')
+                    ->orderBy('soluong')
+                    ->get()
                 : collect(),
             'canhBaoMatKhauMacDinh' => auth()->user()->role === 'admin'
                 ? app(\App\Services\CanhBaoMatKhauMacDinh::class)->danhSachEmail()
@@ -25,6 +28,11 @@ class ThongKeController extends Controller
         ];
 
         return view('tongquan', $data);
+    }
+
+    public function getSoLieuTongQuan(TongQuanKhoService $tongQuan): JsonResponse
+    {
+        return response()->json($tongQuan->chiSo());
     }
 
     public function getTrangThongKe(): View

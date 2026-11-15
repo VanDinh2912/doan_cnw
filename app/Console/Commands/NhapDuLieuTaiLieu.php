@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Console\Commands\Concerns\ChanLenhPhaHuy;
 use App\Models\KhachHang;
 use App\Models\NhaCungCap;
+use App\Rules\SoDienThoaiHopLe;
 use Illuminate\Console\Command;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
@@ -49,9 +50,9 @@ class NhapDuLieuTaiLieu extends Command
         $skipped = 0;
 
         foreach ($rows as $row) {
-            $phone = trim((string) ($row['so_dienthoai'] ?? ''));
+            $phone = SoDienThoaiHopLe::chuanHoa((string) ($row['so_dienthoai'] ?? ''));
             $name = trim((string) ($row['ho_ten'] ?? ''));
-            if ($name === '' || $phone === '') {
+            if ($name === '' || $phone === '' || ! preg_match(SoDienThoaiHopLe::REGEX, $phone)) {
                 $skipped++;
                 continue;
             }

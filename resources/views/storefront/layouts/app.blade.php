@@ -8,7 +8,7 @@
     @vite(['resources/css/storefront.css', 'resources/js/storefront.js'])
     @stack('styles')
 </head>
-<body class="sf-body">
+<body class="sf-body" data-img-fallback="{{ asset('img/no-image.svg') }}">
 
 @include('storefront.partials._header')
 

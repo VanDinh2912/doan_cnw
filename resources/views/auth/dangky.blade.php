@@ -48,6 +48,7 @@
                 <input id="so_dienthoai" name="so_dienthoai" type="tel"
                        class="form-control @error('so_dienthoai') is-invalid @enderror"
                        value="{{ old('so_dienthoai') }}" required autocomplete="tel"
+                       inputmode="numeric" maxlength="20" pattern="[0-9+\-.\s\(\)]{10,20}"
                        placeholder="Ví dụ: 0912345678">
                 @error('so_dienthoai') <div class="invalid-feedback">{{ $message }}</div> @enderror
             </div>
@@ -78,5 +79,13 @@
         </p>
     </div>
 </main>
+<script>
+    const sdtInput = document.getElementById('so_dienthoai');
+    if (sdtInput) {
+        sdtInput.addEventListener('input', () => {
+            sdtInput.value = sdtInput.value.replace(/[^0-9+\-.\s()]/g, '').slice(0, 20);
+        });
+    }
+</script>
 </body>
 </html>

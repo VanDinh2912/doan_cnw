@@ -36,10 +36,10 @@
                         <span class="d-none d-md-inline">Trang quản trị</span>
                     </a>
                 @endif
-                <span class="sf-icon-btn" style="cursor:default;" title="Tài khoản khách hàng">
+                <a class="sf-icon-btn" href="{{ route('profile.show') }}" title="Thông tin cá nhân">
                     <i class="fa-solid fa-user"></i>
                     <span class="d-none d-md-inline">{{ $user->name }}</span>
-                </span>
+                </a>
                 <a class="sf-icon-btn" href="{{ route('auth.dangxuat') }}" title="Đăng xuất">
                     <i class="fa-solid fa-right-from-bracket"></i>
                     <span class="d-none d-md-inline">Đăng xuất</span>

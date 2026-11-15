@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\KhachHang;
 use App\Models\User;
+use App\Rules\SoDienThoaiHopLe;
 use App\Services\CanhBaoMatKhauMacDinh;
 use App\Services\NhatKyService;
 use Illuminate\Http\RedirectResponse;
@@ -76,10 +77,14 @@ class AuthController extends Controller
 
     public function postDangKy(Request $request): RedirectResponse
     {
+        $request->merge([
+            'so_dienthoai' => SoDienThoaiHopLe::chuanHoa($request->input('so_dienthoai')),
+        ]);
+
         $data = $request->validate([
             'name' => ['required', 'string', 'max:100'],
             'email' => ['required', 'email', 'max:150', 'unique:users,email'],
-            'so_dienthoai' => ['required', 'string', 'regex:/^0\d{9,10}$/'],
+            'so_dienthoai' => ['bail', 'required', 'string', new SoDienThoaiHopLe()],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ], [
             'name.required' => 'Vui lòng nhập họ tên.',
@@ -88,7 +93,7 @@ class AuthController extends Controller
             'email.email' => 'Email không hợp lệ.',
             'email.unique' => 'Email đã được sử dụng.',
             'so_dienthoai.required' => 'Vui lòng nhập số điện thoại.',
-            'so_dienthoai.regex' => 'Số điện thoại phải bắt đầu bằng 0 và gồm 10-11 chữ số.',
+            'so_dienthoai.string' => SoDienThoaiHopLe::THONG_BAO,
             'password.required' => 'Vui lòng nhập mật khẩu.',
             'password.min' => 'Mật khẩu phải có ít nhất 8 ký tự.',
             'password.confirmed' => 'Xác nhận mật khẩu không khớp.',
@@ -108,6 +113,18 @@ class AuthController extends Controller
 
             $khachHang = KhachHang::where('so_dienthoai', $data['so_dienthoai'])->first();
 
+            // Chống chiếm hồ sơ: SĐT trùng KHÔNG tự động liên kết tài khoản.
+            // Ai biết SĐT khách cũng đăng ký được — nếu tự gán user_id thì kẻ
+            // đó xem được toàn bộ đơn hàng/điểm/địa chỉ của khách thật.
+            // Hồ sơ đã có chủ (user_id != null) → từ chối đăng ký.
+            // Hồ sơ chưa liên kết → tài khoản tạo thành công nhưng KHÔNG gán;
+            // nhân viên xác nhận liên kết thủ công ở màn hình khách hàng.
+            if ($khachHang !== null && $khachHang->user_id !== null) {
+                throw ValidationException::withMessages([
+                    'so_dienthoai' => 'Số điện thoại đã được đăng ký.',
+                ]);
+            }
+
             if ($khachHang === null) {
                 KhachHang::create([
                     'user_id' => $user->id,
@@ -116,20 +133,7 @@ class AuthController extends Controller
                     'dia_chi' => null,
                     'diem_tichluy' => 0,
                 ]);
-
-                return $user;
             }
-
-            if ($khachHang->user_id !== null) {
-                throw ValidationException::withMessages([
-                    'so_dienthoai' => 'Số điện thoại đã được liên kết với tài khoản khác.',
-                ]);
-            }
-
-            $khachHang->update([
-                'user_id' => $user->id,
-                'ho_ten' => $data['name'],
-            ]);
 
             return $user;
         });

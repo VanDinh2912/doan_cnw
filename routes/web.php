@@ -31,12 +31,46 @@ Route::get('/dangxuat', [\App\Http\Controllers\AuthController::class, 'getDangXu
     ->middleware('auth')
     ->name('auth.dangxuat');
 
+// Đổi mật khẩu (cho mọi vai trò đã đăng nhập, loại trừ khỏi middleware bat.buoc.doi.mat.khau)
+Route::middleware(['auth'])->group(function (): void {
+    Route::get('/doi-mat-khau', [\App\Http\Controllers\DoiMatKhauController::class, 'getForm'])->name('doi-mat-khau');
+    Route::post('/doi-mat-khau', [\App\Http\Controllers\DoiMatKhauController::class, 'postDoi'])->name('doi-mat-khau.post');
+});
+
 Route::post('/api/webhook/thanhtoan', [\App\Http\Controllers\WebhookController::class, 'postThanhToan'])
     ->withoutMiddleware('web')
     ->middleware('throttle:60,1')
     ->name('webhook.thanhtoan');
 
-Route::middleware(['auth', 'staff.only'])->group(function (): void {
+// Đặt hàng online guest pickup (P1) — công khai, không bắt buộc đăng nhập.
+Route::prefix('dat-hang')->name('dat-hang.')->group(function (): void {
+    Route::get('/', [\App\Http\Controllers\DatHangOnlineController::class, 'getForm'])->name('form');
+    Route::post('/', [\App\Http\Controllers\DatHangOnlineController::class, 'postDat'])
+        ->middleware('throttle:'.config('pos.online_throttle_dat', '5,1'))
+        ->name('dat');
+    Route::get('/qr/{ma_tra_cuu}', [\App\Http\Controllers\DatHangOnlineController::class, 'getQr'])->name('qr');
+    Route::get('/thanh-cong/{ma_tra_cuu}', [\App\Http\Controllers\DatHangOnlineController::class, 'getThanhCong'])->name('thanhcong');
+});
+
+Route::middleware(['auth', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->group(function (): void {
+    Route::get('/thong-tin-ca-nhan', [\App\Http\Controllers\ThongTinCaNhanController::class, 'getProfile'])->name('profile.show');
+    Route::post('/thong-tin-ca-nhan', [\App\Http\Controllers\ThongTinCaNhanController::class, 'postProfile'])->name('profile.update');
+    Route::get('/thong-tin-ca-nhan/don-hang', [\App\Http\Controllers\ThongTinCaNhanController::class, 'getOrders'])->name('profile.orders');
+    Route::get('/thong-tin-ca-nhan/don-hang/{donHang}', [\App\Http\Controllers\ThongTinCaNhanController::class, 'getOrderDetail'])->name('profile.orders.show');
+});
+
+Route::prefix('don-hang')->name('don-hang.')->group(function (): void {
+    Route::get('/tra-cuu', [\App\Http\Controllers\DatHangOnlineController::class, 'getTraCuu'])->name('tracuu');
+    Route::post('/tra-cuu', [\App\Http\Controllers\DatHangOnlineController::class, 'postTraCuu'])
+        ->middleware('throttle:'.config('pos.online_throttle_dat', '5,1'))
+        ->name('posttracuu');
+    // {ma_tra_cuu} phải đăng ký SAU /tra-cuu để không nuốt mất đường tra cứu.
+    Route::get('/{ma_tra_cuu}', [\App\Http\Controllers\DatHangOnlineController::class, 'getTrangThai'])->name('trangthai');
+    Route::post('/{ma_tra_cuu}/trang-thai', [\App\Http\Controllers\DatHangOnlineController::class, 'postPoll'])->name('poll');
+    Route::post('/{ma_tra_cuu}/huy', [\App\Http\Controllers\DatHangOnlineController::class, 'postHuy'])->name('huy');
+});
+
+Route::middleware(['auth', 'staff.only', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->group(function (): void {
     Route::get('/tongquan', [\App\Http\Controllers\ThongKeController::class, 'getTongQuan'])->name('tongquan');
 
     Route::get('/sanpham/timkiem', [\App\Http\Controllers\SanPhamController::class, 'getTimKiem'])
@@ -54,6 +88,7 @@ Route::middleware(['auth', 'staff.only'])->group(function (): void {
         Route::get('/donhang/trangthai/{donHang}', [\App\Http\Controllers\DonHangController::class, 'getTrangThai'])->name('donhang.trangthai');
         Route::post('/donhang/xacnhan/{donHang}', [\App\Http\Controllers\DonHangController::class, 'postXacNhanThanhToan'])->name('donhang.xacnhan');
         Route::post('/donhang/huycho/{donHang}', [\App\Http\Controllers\DonHangController::class, 'postHuyCho'])->name('donhang.huycho');
+        Route::post('/donhang/giahan/{donHang}', [\App\Http\Controllers\DonHangController::class, 'postGiaHan'])->name('donhang.giahan');
         Route::post('/hold', [\App\Http\Controllers\HoldController::class, 'giu'])->name('hold.giu');
         Route::get('/hold', [\App\Http\Controllers\HoldController::class, 'danhSach'])->name('hold.danhsach');
         Route::get('/hold/{gioTam}/khoiphuc', [\App\Http\Controllers\HoldController::class, 'khoiPhuc'])->name('hold.khoiphuc');
@@ -91,6 +126,17 @@ Route::middleware(['auth', 'staff.only'])->group(function (): void {
     });
 
     Route::middleware('role:admin,thukho')->group(function (): void {
+        // Quản lý tài khoản nhân viên (chỉ admin)
+        Route::prefix('taikhoan')->name('taikhoan.')->middleware('role:admin')->group(function (): void {
+            Route::get('/', [\App\Http\Controllers\TaiKhoanNhanVienController::class, 'index'])->name('danhsach');
+            Route::get('/them', [\App\Http\Controllers\TaiKhoanNhanVienController::class, 'create'])->name('them');
+            Route::post('/', [\App\Http\Controllers\TaiKhoanNhanVienController::class, 'store'])->name('store');
+            Route::get('/sua/{user}', [\App\Http\Controllers\TaiKhoanNhanVienController::class, 'edit'])->name('sua');
+            Route::put('/sua/{user}', [\App\Http\Controllers\TaiKhoanNhanVienController::class, 'update'])->name('update');
+            Route::post('/khoa/{user}', [\App\Http\Controllers\TaiKhoanNhanVienController::class, 'khoa'])->name('khoa');
+            Route::post('/mo-khoa/{user}', [\App\Http\Controllers\TaiKhoanNhanVienController::class, 'moKhoa'])->name('mokhoa');
+            Route::post('/dat-lai-mat-khau/{user}', [\App\Http\Controllers\TaiKhoanNhanVienController::class, 'datLaiMatKhau'])->name('datlaimatkhau');
+        });
         Route::get('/hoadonnhap', [\App\Http\Controllers\HoaDonNhapController::class, 'getDanhSach'])->name('hoadonnhap.danhsach');
         Route::get('/hoadonnhap/them', [\App\Http\Controllers\HoaDonNhapController::class, 'getThem'])->name('hoadonnhap.them');
         Route::post('/hoadonnhap/them', [\App\Http\Controllers\HoaDonNhapController::class, 'postThem'])->name('hoadonnhap.postthem');
@@ -150,8 +196,12 @@ Route::middleware(['auth', 'staff.only'])->group(function (): void {
     });
 
     Route::middleware('role:admin')->group(function (): void {
+        Route::get('/tong-quan/so-lieu', [\App\Http\Controllers\ThongKeController::class, 'getSoLieuTongQuan'])
+            ->middleware('throttle:30,1')
+            ->name('tongquan.solieu');
         Route::post('/kiemke/{phieu}/duyet', [\App\Http\Controllers\KiemKeController::class, 'approve'])->name('kiemke.approve');
         Route::get('/nhatky', [\App\Http\Controllers\NhatKyController::class, 'index'])->name('nhatky.index');
+        Route::get('/nhatky/xuat-csv', [\App\Http\Controllers\NhatKyController::class, 'export'])->name('nhatky.export');
         Route::get('/doisoat', [\App\Http\Controllers\DoiSoatController::class, 'index'])->name('doisoat.index');
         Route::get('/doisoat/{webhook}', [\App\Http\Controllers\DoiSoatController::class, 'show'])->name('doisoat.show');
         Route::post('/doisoat/{webhook}/xuly', [\App\Http\Controllers\DoiSoatController::class, 'xuLy'])->name('doisoat.xuly');

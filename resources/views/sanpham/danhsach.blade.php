@@ -37,8 +37,9 @@
                 <tr>
                     <td>
                         <img class="table-thumb"
-                             src="{{ $sanPham->hinh_anh ? (str_starts_with($sanPham->hinh_anh, 'upload/') ? asset($sanPham->hinh_anh) : asset('storage/'.$sanPham->hinh_anh)) : asset('img/no-image.svg') }}"
-                             alt="{{ $sanPham->ten_sanpham }}">
+                             src="{{ $sanPham->anh_url }}"
+                             alt="{{ $sanPham->ten_sanpham }}"
+                             loading="lazy" referrerpolicy="no-referrer">
                     </td>
                     <td><span class="font-monospace">{{ $sanPham->sku }}</span></td>
                     <td>{{ $sanPham->ten_sanpham }}</td>

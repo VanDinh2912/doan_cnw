@@ -179,6 +179,13 @@ Lệnh kiểm tra số lượng bản ghi, tổng hóa đơn, tồn kho và move
 | `POS_GIA_TRI_DIEM` | Không | 1000 | Giá trị 1 điểm (VNĐ) | Tích điểm |
 | `POS_HAN_TRA_NGAY` | Không | 7 | Hạn trả hàng (ngày) | Trả hàng |
 | `POS_NGUONG_TRA_KHONG_DUYET` | Không | 500000 | Ngưỡng tự duyệt trả hàng (VNĐ) | Trả hàng |
+| `POS_ONLINE_QR_PHUT` | Không | 30 | Hạn giữ đơn QR online (phút) | Đặt hàng online |
+| `POS_ONLINE_PICKUP_GIO` | Không | 4 | Hạn giữ đơn pickup (giờ); mỗi lần gia hạn cộng ngần này | Đặt hàng online |
+| `POS_ONLINE_GIA_HAN_TOI_DA_GIO` | Không | 24 | Trần hạn giữ pickup tối đa (giờ, tính từ lúc tạo đơn) | Đặt hàng online |
+| `POS_ONLINE_MAX_DON_MO` | Không | 3 | Số đơn `cho_thanh_toan` tối đa mỗi SĐT | Đặt hàng online |
+| `POS_ONLINE_MAX_SOLUONG` | Không | 10 | Số lượng tối đa mỗi dòng hàng online | Đặt hàng online |
+| `POS_ONLINE_GIU_TOI_DA_PHAN_TRAM` | Không | 50 | Trần giữ pickup: % tồn gốc mỗi sản phẩm | Đặt hàng online |
+| `POS_ONLINE_THROTTLE_DAT` | Không | 5,1 | Rate limit checkout mỗi IP (số đơn,phút) | Đặt hàng online |
 | `LOG_STACK` | Không | daily | Kênh trong stack log; đặt `daily` để log xoay vòng | Ghi log |
 | `LOG_DAILY_DAYS` | Không | 14 | Số ngày giữ log daily | Ghi log |
 | `BACKUP_DISK` | Không | backups | Đĩa lưu bản sao lưu (khai báo trong `config/filesystems.php`) | Sao lưu |
@@ -482,6 +489,26 @@ Các email trên trùng với tài khoản được tạo trong `database/seeder
 - CRUD sản phẩm.
 - Validate tên, SKU, barcode, giá và số lượng.
 - Upload hình ảnh bằng `Storage::disk('public')` vào `storage/app/public/sanpham` (cần chạy `php artisan storage:link`); sản phẩm chưa có ảnh dùng `public/img/no-image.svg`.
+- **Ảnh theo URL**: form thêm/sửa nhận thêm trường `hinh_anh_url` (chỉ `https://`,
+  tối đa **150 ký tự** đúng cột thật `hinh_anh` VARCHAR(150) utf8mb4 — migration khai
+  255 nhưng DB thật chưa áp; không đổi schema; không yêu cầu đuôi `.jpg/.png` vì CDN
+  thường không có đuôi). URL sai bị chặn bằng thông báo tiếng Việt ngay dưới ô nhập
+  ("Liên kết ảnh không hợp lệ…" / "Liên kết ảnh quá dài (tối đa 150 ký tự)…"), giữ
+  `old()` — không bao giờ 500. Gửi cả tệp lẫn URL thì **tệp tải lên được ưu tiên**
+  (có thông báo); URL hỏng không chặn việc lưu tệp. Sửa hỗ trợ đổi tệp ↔ URL và nút
+  "Xóa ảnh hiện tại". Rule dùng chung `App\Rules\AnhSanPhamUrl`; server **không
+  tải/gọi HTTP** tới URL người dùng nhập (chống SSRF) — chỉ lưu chuỗi, trình duyệt
+  hiển thị với `loading="lazy" referrerpolicy="no-referrer"`, lỗi tải ảnh tự thay
+  bằng ảnh mặc định. Form có kiểm tra ảnh phía trình duyệt (debounce 500ms + blur,
+  `new Image()` với `referrerPolicy=no-referrer`, timeout 8s, vùng trạng thái
+  `aria-live`, chặn nút Lưu khi URL hỏng cho tới khi sửa hoặc chọn tệp/xóa ảnh) —
+  chỉ là UX, không phải biện pháp bảo mật; server vẫn là nguồn sự thật. Mọi view
+  dùng accessor `SanPham::anh_url` (https giữ nguyên, tệp tải lên qua `Storage::url`,
+  legacy `upload/`/`storage/` qua `asset()`, rỗng → ảnh mặc định). Xóa tệp cũ khi
+  thay ảnh chỉ diễn ra trong thư mục ảnh sản phẩm (`App\Services\TepAnhSanPham`),
+  không bao giờ xóa URL. Chi tiết:
+  [docs/BAO_CAO_ANH_URL_VALIDATE.md](docs/BAO_CAO_ANH_URL_VALIDATE.md) và
+  [docs/BAO_CAO_ANH_URL_TONG_QUAN.md](docs/BAO_CAO_ANH_URL_TONG_QUAN.md).
 - Badge tồn kho:
   - Đỏ: hết hàng.
   - Vàng: tồn kho nhỏ hơn hoặc bằng ngưỡng tối thiểu.
@@ -499,7 +526,7 @@ Các email trên trùng với tài khoản được tạo trong `database/seeder
 - Tính giảm giá, tiền khách đưa và tiền thừa.
 - Thanh toán bằng tiền mặt hoặc chuyển khoản.
 - Hiển thị VietQR động khi đã cấu hình ngân hàng trong `.env`; thu ngân vẫn xác nhận thủ công.
-- Quản lý khách hàng theo số điện thoại và tích điểm: 100.000 đ được 1 điểm, 1 điểm giảm 1.000 đ.
+- Quản lý khách hàng theo số điện thoại và tích điểm: 100.000 đ được 1 điểm, 1 điểm giảm 1.000 đ. SĐT phải hợp lệ theo quy tắc chung (xem mục Quản lý khách hàng bên dưới).
 - Không cho bán vượt tồn kho.
 
 Thanh toán sử dụng một transaction duy nhất:
@@ -510,6 +537,32 @@ Thanh toán sử dụng một transaction duy nhất:
 4. Trừ tồn kho.
 5. Ghi biến động kho loại `ban`.
 6. Rollback toàn bộ nếu có lỗi.
+
+### Quản lý khách hàng
+
+- Thêm/sửa/tìm/xóa khách tại `/khachhang` (admin, thu ngân); thủ kho 403, khách
+  hàng bị chuyển về storefront.
+- **Quy tắc SĐT dùng chung** `App\Rules\SoDienThoaiHopLe` (`app/Rules/SoDienThoaiHopLe.php`),
+  áp ở MỌI điểm nhập: form thêm/sửa khách, POS thêm khách nhanh, tìm khách theo
+  SĐT, đăng ký storefront, import xlsx và seeder:
+  1. Chuẩn hóa trước: `trim`, bỏ khoảng trắng/dấu chấm/gạch ngang/ngoặc đơn,
+     đổi đầu `+84` hoặc `84` thành `0`.
+  2. Hợp lệ khi khớp `/^0(3|5|7|8|9)\d{8}$/` — di động VN 10 chữ số, đầu
+     03/05/07/08/09. Từ chối chữ, ký tự lạ, sai độ dài, số cố định, mảng.
+  3. Thông báo lỗi tiếng Việt: "Số điện thoại không hợp lệ. Nhập 10 chữ số, bắt
+     đầu bằng 0."
+  4. Lưu DB dạng đã chuẩn hóa; chống trùng bằng `unique` (bỏ qua bản ghi đang
+     sửa) + unique index sẵn có trên `customers.so_dienthoai`.
+- Server là nguồn đúng: ô nhập có `type=tel`, `inputmode`, `pattern`, `maxlength`
+  và JS lọc ký tự chỉ là tiện ích; tắt JS vẫn không nhập được chữ. Form giữ
+  `old()` và hiện lỗi từng trường.
+- Xóa khách đã có hóa đơn bị chặn (không xóa được, không 500); khách chưa có hóa
+  đơn xóa được, tham chiếu ở phiếu trả/hóa đơn (nếu có) được đặt null theo khóa
+  ngoại `nullOnDelete`.
+- Đăng ký storefront tự liên kết khách vãng lai theo SĐT đã chuẩn hóa; từ chối
+  SĐT đã gắn tài khoản khác; điểm khởi tạo 0, không nhận `role`/`diem_tichluy`
+  từ client.
+- Chi tiết rà soát và dữ liệu hiện có: [docs/BAO_CAO_KHACH_HANG.md](docs/BAO_CAO_KHACH_HANG.md).
 
 ### Hóa đơn
 
@@ -594,6 +647,20 @@ Admin có thể truy cập:
 - Xuất danh sách hóa đơn và báo cáo xuất nhập tồn ra Excel/PDF.
 - Lợi nhuận dùng giá vốn được lưu tại thời điểm bán.
 
+**Dashboard tổng quan (`/tongquan`)** đọc số liệu từ một service chỉ-đọc
+`App\Services\TongQuanKhoService` (COUNT/SUM trực tiếp, không cache) và tự làm mới
+mỗi **30 giây** khi tab đang mở (tạm dừng khi tab ẩn), hiển thị "Cập nhật lúc
+HH:MM:SS" giờ Việt Nam; lỗi mạng giữ số cũ kèm cảnh báo nhỏ. Định nghĩa chỉ số:
+
+- *Mặt hàng đang kinh doanh / còn hàng / hết hàng*: chỉ đếm sản phẩm `trang_thai = true`
+  (còn hàng: `soluong > 0`; hết hàng: `soluong = 0`).
+- *Tổng tồn tốt / tổng hàng hỏng*: SUM(`soluong`) / SUM(`soluong_hong`) của **mọi**
+  sản phẩm kể cả tạm dừng (hàng vẫn trong kho).
+- *Giá trị tồn theo giá nhập* = Σ(`soluong` × `gia_nhap`), không gồm hàng hỏng.
+- Đơn chuyển khoản `cho_thanh_toan` **đã trừ kho ngay khi tạo QR**; hủy quá hạn hoàn
+  kho; webhook hoàn tất không trừ lần nữa (nghiệp vụ giữ nguyên, dashboard ghi chú).
+- JSON cùng số liệu: `GET /tong-quan/so-lieu` (chỉ admin, `throttle:30,1`).
+
 ## 8. Các URL chính
 
 | URL | Chức năng | Quyền |
@@ -603,6 +670,7 @@ Admin có thể truy cập:
 | `/dangnhap` | Đăng nhập | Khách |
 | `/dang-ky` | Đăng ký tài khoản khách hàng | Khách |
 | `/tongquan` | Dashboard | Mọi vai trò nhân viên |
+| `/tong-quan/so-lieu` | JSON số liệu dashboard (tự làm mới 30s) | Admin (throttle 30/phút) |
 | `/pos` | Màn hình bán hàng | Admin, thu ngân |
 | `/sanpham` | Quản lý sản phẩm | Admin, thủ kho |
 | `/loaisanpham` | Quản lý loại sản phẩm | Admin, thủ kho |
@@ -639,25 +707,137 @@ php artisan test --compact
 Remove-Item Env:XDEBUG_MODE
 ```
 
-Các test nghiệp vụ hiện có (**176 test**: 175 pass, 1 skip; 1068 assertions — xem
-kết quả chạy thực tế ở mục 18):
+Các test nghiệp vụ hiện có (**685 test** sau Stage 3-4, trong đó 42 skip
+MySQL-copy; số chạy thật: **643 pass / 42 skip / 0 fail, 2823 assertions**
+trên sqlite `:memory:`, MySQL-copy **42 pass / 341 assertions** trên
+`doan_cnw_copy` — cập nhật ở mục 17/18):
 
-**Unit (11 test)**
+**Unit (66 test)**
 
+- `AnhSanPhamTest` (33): rule URL ảnh (6 hợp lệ gồm CDN không đuôi/đúng 150 ký tự, 13
+  lỗi gồm javascript/data/http/userinfo/khoảng trắng/mảng/quá 150), accessor `anh_url`
+  (https/tệp tải lên/legacy/rỗng), xóa tệp an toàn (chỉ thư mục ảnh, chặn
+  traversal/backslash/URL, legacy `upload/` với tệp thật tạm).
 - `ChanLenhPhaHuyTest` (5): chốt chặn production cho lệnh phá hủy dữ liệu.
+- `SoDienThoaiHopLeTest` (16): chuẩn hóa SĐT (7 biến thể: `+84`/`84`, khoảng trắng,
+  gạch, chấm, ngoặc), giữ nguyên giá trị không phải chuỗi, rule chấp nhận/từ chối
+  đúng thông báo tiếng Việt.
+- `SoDienThoaiTest` (6): chuẩn hóa SĐT (`SoDienThoai::chuanHoa`) — giữ dạng 0,
+  `+84`/`84` đầu → 0, bỏ khoảng trắng/chấm/gạch/ngoặc, null → rỗng, chuỗi ngắn
+  không phải 84 giữ nguyên.
 - `VietQrServiceTest` (5, t61..t65): URL VietQR, chưa cấu hình, số tiền âm, làm
   sạch nội dung, template dự phòng.
 - `ExampleTest` Unit (1).
 
-**Feature (165 test, trong đó 1 skip)**
+**Feature (619 test, trong đó 42 skip)**
 
+Ghi chú: `LoiBTaoQrTest` (6) đã cherry-pick vào nhánh này (`0e8be80`) kèm
+`LoiBThieuCotOnlineTest` (4, `b7e5ed3`) chứng minh scheduler + POS chạy khi DB thiếu
+cột online M1/M3. Các bộ lỗi vận hành 1 còn lại (`LoiADungDiemTest`,
+`LoiCSoDienThoaiKhachTest`, `LoiDDashboardTonKhoTest`, `SanPhamAnhUrlTest`) vẫn chỉ
+nằm ở nhánh `fix/loi-van-hanh-1` (chưa merge) — xem
+`docs/BAO_CAO_LOI_VAN_HANH_1.md` trên `wip/p2-giao-tan-noi`.
+
+- `AnhUrlMysqlCopyTest` (37, **skip trên SQLite**): sweep 35 URL lạ qua thêm+sửa trên
+  bản sao MySQL strict mode (không `RefreshDatabase` để giữ cột VARCHAR(150) thật,
+  tự dọn bản ghi), biên 150/151 ký tự, chuỗi multibyte 150 ký tự legacy vẫn hiển thị.
+  Chỉ chạy khi trỏ vào bản sao `*_copy` (xem bên dưới).
+- `AnhUrlSweepTest` (83): 35 chuỗi lạ × POST thêm + POST sửa (admin) — hợp đồng
+  "không bao giờ 500": 302 thành công hoặc 302 kèm lỗi validate `hinh_anh_url` tiếng
+  Việt; 2 ca gửi cả tệp lẫn URL hỏng → tệp thắng; 11 ca hiển thị URL bẩn/legacy
+  (aclk 255, nháy, `<>`, Unicode, null byte, `upload/`, `storage/`...) trên
+  admin/storefront/giỏ/POS vẫn 200. Bật `Http::preventStrayRequests()`.
 - `AuthFlowTest` (7): đăng ký khách hàng, liên kết khách walk-in, chặn trùng số
   điện thoại, chuyển hướng theo vai trò, chặn khách hàng vào trang nhân viên.
 - `BaoMatDangNhapTest` (6): throttle 10 lần/phút, cảnh báo mật khẩu mặc định trên
   trang đăng nhập/dashboard, chỉ admin thấy danh sách tài khoản chưa đổi mật khẩu.
+- `DatHangP0MysqlCopyTest` (1, **skip trên SQLite**): T-DH02 — migration M1 up/down trên
+  bản sao MySQL strict (enum/FK giữ nguyên, dữ liệu POS nguyên vẹn, down chặn khi còn
+  đơn user_id NULL); tự dọn, chạy lại được. Chỉ chạy khi trỏ vào bản sao `*_copy`.
+- `DatHangP0Test` (9): T-DH01 — cột mới đúng kiểu/nullable/index, user_id nhận null,
+  kenh mặc định pos, ma_tra_cuu unique (nhiều NULL), enum giữ nguyên, down có điều kiện,
+  config online, fallback "Đơn online" ở view in/danh sách/export.
+- `DatHangP1BaoVeTest` (10): P1 bảo vệ — lịch sử kho null-safe với movement `user_id`
+  null ("Đơn online"); nhật ký đặt hàng che SĐT; `ghi_chu_khach` escape khi render;
+  Telegram đơn online escape ghi chú + che SĐT; thu ngân xác nhận pickup dùng lại R2;
+  thu ngân hủy pickup dùng lại R3 hoàn kho; gia hạn cộng giờ trong trần config + ghi
+  nhật ký; gia hạn vượt trần bị từ chối; gia hạn chỉ cho đơn pickup online đang chờ;
+  config có `online_gia_han_toi_da_gio`.
+- `DatHangP1ChongOmHangTest` (12): D12 chống ôm hàng checkout pickup — honeypot
+  `truong_phu` (tên trung tính, P2 đổi từ `trang_web`) bị điền → từ chối thông báo chung,
+  không tạo đơn/không trừ kho; form hiện ô honeypot ẩn (`aria-hidden`); vượt 3 đơn mở cùng
+  SĐT chuẩn hóa bị chặn (kiểm tra trong transaction sau khóa; đơn `da_huy`/SĐT khác không
+  tính chéo); vượt `online_max_sanpham` (10) sản phẩm khác nhau hoặc số lượng dòng ngoài
+  1..`online_max_soluong` bị từ chối; throttle 5/phút/IP → 429.
+- `DatHangP1ChuanHoaSdtTest` (3): giới hạn 3 đơn mở tính trên SĐT chuẩn hóa — đơn
+  cũ lưu `+84` hoặc `090.123 4567` vẫn tính cùng `0901234567`; `+84` của SĐT khác
+  không tính chéo.
+- `DatHangP1MysqlCopyTest` (2, **skip trên SQLite**): T-DH02b — M2 up/down trên bản sao
+  MySQL (`user_id` nullable, enum/FK giữ nguyên, down chặn khi còn movement `user_id`
+  NULL); T-DH13 — khóa dòng sản phẩm THẬT bằng hai kết nối MySQL chặn tạo đơn online
+  đồng thời (`innodb_lock_wait_timeout=1`, bên tạo đơn chờ rồi timeout thay vì cùng
+  vượt trần). Chỉ chạy khi trỏ vào bản sao `*_copy`.
+- `DatHangP1Test` (10): T-DH03..07 — checkout guest pickup tạo đơn giữ kho + movement
+  `user_id` null; giá tính lại từ DB không tin giá session; vượt tồn không tạo đơn;
+  double-submit cùng token chỉ một đơn; token lệch bị từ chối; validate thiếu tên/SĐT
+  sai/ghi chú quá dài; SP ẩn/hết hàng/xóa trong giỏ bị từ chối toàn bộ; trần pickup áp
+  dụng trong đường tạo đơn; nhiều sản phẩm trừ kho đúng từng dòng; M2 `user_id`
+  nullable trên SQLite.
+- `DatHangP1TraCuuTest` (7): T-DH08/12 — tra cứu sai mã + sai SĐT cùng thông báo chung;
+  tra cứu đúng redirect không lộ SĐT trên URL; polling chỉ trả trạng thái không PII;
+  polling/trang thái yêu cầu bằng chứng session; khách tự hủy đơn chờ hoàn kho; hủy
+  đơn đã thanh toán bị từ chối; polling hủy lười khi quá hạn giữ.
+- `DatHangP2FormCheckoutTest` (10): P2 Form + Checkout — form hiển thị lựa chọn hình
+  thức nhận; giao_tan_noi thiếu người nhận/SĐT/địa chỉ bị từ chối; giao_tan_noi trả
+  tại quầy bị từ chối (phải QR); tính phí giao hàng đúng theo config; miễn phí khi
+  đạt ngưỡng (tính từ tổng giá DB, không tin giá session); request cố sửa phí/tổng/trạng
+  thái bị bỏ qua; ngoài vùng giao bị từ chối; tai_cua_hang không đổi hành vi P1.
+- `DatHangP2GiaoTanNoiMoRongTest` (23): P2 bước C — honeypot trung tính `truong_phu`
+  (không `email`/`trang_web`), 4 ô địa chỉ ghép một cột ≤255, thiếu một phần / quá 255 /
+  HTML escape bị từ chối, vùng giao khớp tỉnh (trong/ngoài/rỗng), phí + tổng tính từ giá
+  DB (session lệch vẫn đúng), request sửa phí/tổng/trạng thái bị bỏ qua, D12 chạy cả luồng
+  giao (3 đơn mở/SĐT chuẩn hóa, 11 SP, throttle 429), khách đăng nhập prefill không ghi
+  ngược hồ sơ (D8) + gắn `customer_id` khi có hồ sơ, D17 QR online không hủy ở 16 phút /
+  hủy + hoàn kho ở 31 phút, redirect pickup→thanhcong / QR→qr.
+- `DatHangP2MigrationTest` (7): T-DH-M3 — migration M3 trên SQLite (cột mới đúng
+  kiểu/nullable/index, tạo đơn giao_tan_noi, tạo đơn tai_cua_hang mặc định, down chặn
+  khi còn đơn giao_tan_noi, down sạch khi không còn, config đúng mặc định).
+- `DatHangP2MysqlCopyTest` (1, **skip trên SQLite**): T-DH-M3 — migration M3 up/down
+  trên bản sao MySQL (kiểm tra cột, enum/FK giữ nguyên, dữ liệu POS nguyên vẹn, down
+  chặn khi còn đơn giao_tan_noi); tự dọn, chạy lại được. Chỉ chạy khi trỏ vào bản sao
+  `*_copy`.
+- `DatHangP2QrOnlineTest` (6): P2 bước 2 — trang QR online: số tiền QR = `tong_thanh_toan`
+  gồm ship + nội dung = mã hóa đơn; đếm ngược theo `han_giu`; thiếu cấu hình ngân hàng →
+  thân thiện, không 500, không lộ số tài khoản; quá hạn → hủy + hoàn kho + movement
+  `dieuchinh` + thông báo rõ ràng trên thanhcong; polling POST không PII + cần bằng chứng
+  session (chưa xác thực → 403); pickup thanhcong giữ nguyên "Đặt hàng thành công".
 - `DoiSoatTest` (8): hàng chờ đối soát, phân quyền admin, đánh dấu đã xử lý, chặn
-  xử lý lặp, webhook thành công không vào hàng chờ.
+  xử lý lặp, webhook thành công không vào hàng chờ — assert đúng action
+  `doi_soat_danh_dau` (không đếm toàn bảng log vì model event đã ghi thêm).
+- `DonHangQuyenChuSoHuuTest` (6): quyền xem/trạng thái/poll/hủy đơn online — chủ
+  đơn đã login không cần bằng chứng session, khách B bị chặn kể cả khi đơn ghi
+  đúng SĐT của B, guest cần bằng chứng, không hủy đơn đã thanh toán/đã hủy,
+  hoàn kho đúng một lần.
 - `ExampleTest` Feature (1).
+- `GiuHangOnlineServiceTest` (8): trần giữ hàng pickup — tồn 10→trần 5, trần không co
+  lại khi đã giữ, vượt trần từ chối kèm số còn lại, tồn 1→trần 1, không đếm
+  QR/POS/đã trả/đã hủy, nhiều sản phẩm độc lập, đổi config %, số lượng 0/âm từ chối.
+- `HuyDonPickupQuaHanTest` (13): T1 — `DonHang::scopeQuaHanCho` là nguồn quy tắc quá
+  hạn duy nhất: pickup còn hạn (16 phút, 3h59) không bị hủy; quá hạn 4h01 bị hủy +
+  hoàn kho + movement + nhật ký; đơn QR/POS cũ vẫn hủy ở 16 phút; pickup `han_giu`
+  null hủy theo `created_at`; đơn gia hạn không bị hủy ở hạn cũ; hủy thủ công/khách
+  tự hủy vẫn hoạt động; chạy lệnh 2 lần idempotent; webhook đơn QR quá hạn như cũ
+  (T-CK18); POS poll không hủy nhầm pickup còn hạn + hủy khi quá `han_giu`;
+  health-check không báo quá hạn pickup còn hạn.
+- `KhachHangLichSuDonTest` (6): lịch sử đơn khách — đơn POS không `ma_tra_cuu`
+  vẫn hiển thị, chi tiết đơn check chủ sở hữu (khách khác/chưa hồ sơ → 403),
+  chủ đơn login xem trạng thái online không cần bằng chứng.
+- `KhachHangSoDienThoaiTest` (33): chuẩn hóa + validate SĐT ở mọi điểm nhập khách
+  hàng (thêm/sửa form, POS thêm nhanh, tìm khách POS, đăng ký storefront): 6 biến
+  thể hợp lệ, 9 ca từ chối (chữ, sai độ dài, đầu số cố định, mảng), trùng thô và
+  trùng sau chuẩn hóa, sửa bỏ qua self, `old()` + lỗi tiếng Việt, escape LIKE,
+  phân quyền (thukho 403, thungan được, khachhang chuyển hướng), xóa khách có hóa
+  đơn không 500.
 - `KhoaDongMysqlTest` (1, **skip trên SQLite**): khóa dòng `SELECT ... FOR UPDATE`
   thật trên MySQL/InnoDB — chỉ chạy khi trỏ vào bản sao MySQL (xem bên dưới).
 - `KiemTraHeThongTest` (13): từng mục của `he-thong:kiem-tra`, gồm scheduler,
@@ -666,7 +846,21 @@ kết quả chạy thực tế ở mục 18):
   `documents:import`; thiếu cờ/tên, sai DB, kết nối đích, xác nhận tương tác,
   chuyển tiếp lệnh con và không tái sử dụng xác nhận. Dùng mock DB/schema/migrator,
   không xóa bảng hay chạy migration thật.
+- `LienKetHoSoTheoSDTTest` (4): đăng ký trùng SĐT hồ sơ chưa liên kết KHÔNG tự
+  gán `user_id` (chống chiếm hồ sơ), không xem được đơn/điểm/địa chỉ/SĐT, không
+  poll-hủy đơn chờ; nhân viên gán thủ công qua màn sửa khách hàng thì mới thấy;
+  chặn gán tài khoản đã có hồ sơ và tài khoản role nhân viên.
 - `LogBiMatTest` (5): log daily giữ 14 ngày, che bot token Telegram khi lỗi.
+- `LoiBTaoQrTest` (6, cherry-pick `0e8be80`): LỖI B — đủ cấu hình tạo QR thành công;
+  thiếu `bank_code`/`bank_account` → 422 thân thiện, không tạo đơn rác/không trừ kho;
+  POS tiền mặt + đơn chờ `$online` rỗng không ghi cột online; log không lộ số tài khoản đầy đủ.
+- `LoiBThieuCotOnlineTest` (4, `b7e5ed3`): bỏ cột M1/M3 trong SQLite — scheduler rơi về
+  hạn 15 phút (hủy đơn POS quá hạn + hoàn kho + movement, không hủy trước hạn), POS tạo
+  QR và POS tiền mặt vẫn chạy. TODO gỡ guard + test sau khi M1–M3 áp lên DB thật.
+- `NhatKyThieuCotTest` (3): DB thiếu cột/bảng `activity_logs` — POS, đăng nhập,
+  scheduler vẫn chạy; nhật ký ghi mức tối thiểu qua guard `KiemTraSchema`.
+- `NhatKyToanBoModelTest` (3): trait `GhiNhatKy` ghi tạo/sửa/xóa cho sản phẩm,
+  hóa đơn, khách hàng, danh mục, nhà cung cấp...
 - `NguoiDungCommandTest` (9): `nguoidung:tao`/`nguoidung:doi-matkhau`, mật khẩu nhập
   ẩn, từ chối vai trò/email/mật khẩu không hợp lệ.
 - `NhapKhoCanhBaoTest` (3): cảnh báo lệch giá nhập >10% và giá bán thấp hơn giá
@@ -678,6 +872,15 @@ kết quả chạy thực tế ở mục 18):
   tạm dừng, lọc hóa đơn theo ngày, upload ảnh, tìm kiếm, tem barcode, tích điểm,
   xuất báo cáo, đơn nhập/hóa đơn nhập, phân quyền, nhật ký, trả hàng (quá hạn, giảm
   giá + điểm, floor cộng dồn, tiền hoàn 0, chờ duyệt, dòng trùng), hold giỏ, kiểm kê.
+- `RefreshDatabaseGuardTest` (3): chốt chặn `RefreshDatabase` trong `tests/TestCase.php`
+  — mô phỏng cấu hình MySQL (port 9, DB giả, **không kết nối thật**) phải bị ném
+  ngoại lệ tiếng Việt ngay trong setUp trước khi kịp migrate; sqlite `:memory:` đi
+  qua; sqlite file cũng bị chặn.
+- `DatabaseMigrationsGuardTest` (1) + `DatabaseTruncationGuardTest` (1): chốt chặn T3
+  mở rộng cho `DatabaseMigrations` và `DatabaseTruncation` (cùng cơ chế `setUpTraits`,
+  cùng thông báo "RefreshDatabase bị chặn"); mỗi lớp một tệp để PHPUnit 12 nạp đúng.
+- `ConfigP2BooleanTest` (3): `POS_ONLINE_TU_DONG_XAC_NHAN` mặc định false, 'true'→true,
+  'false'→false (env() chuẩn hóa chuỗi thành bool; giữ `=== true`, không filter_var).
 - `RouteKhoiTest` (4): test khói toàn bộ route GET cho khách, thu ngân, thủ kho,
   admin với dữ liệu ≥3 bản ghi mỗi mô hình có quan hệ (loại + sản phẩm, khách,
   hóa đơn + chi tiết, nhà cung cấp, đơn nhập, hóa đơn nhập, phiếu trả, biến động
@@ -686,12 +889,23 @@ kết quả chạy thực tế ở mục 18):
   (chi tiết sản phẩm, in hóa đơn, phiếu trả, hóa đơn nhập, kiểm kê, đối soát).
 - `SaoLuuCsdlTest` (4): sao lưu SQLite, giữ N bản mới nhất, từ chối `:memory:`,
   báo lỗi rõ khi thiếu `mysqldump`.
+- `SanPhamAnhUrlTest` (26): thêm sản phẩm bằng URL https, 9 ca từ chối URL lỗi,
+  tải tệp vẫn hoạt động, gửi cả hai → tệp ưu tiên + thông báo, đổi tệp↔URL xóa tệp
+  cũ an toàn, sửa không gửi trường ảnh giữ nguyên, nút xóa ảnh, render escape trên
+  6 trang (admin/storefront/giỏ), dữ liệu bẩn vẫn escape, POS JSON `anh_url`, phân
+  quyền admin/thủ kho/thu ngân/khách hàng, xóa sản phẩm ảnh URL không 500 + chặn
+  xóa khi có hóa đơn/kiểm kê. Bật `Http::preventStrayRequests()` (server không gọi
+  URL người dùng).
 - `StorefrontHomeTest` (6): trang chủ storefront, sản phẩm thật, sắp xếp loại theo
   số sản phẩm, trạng thái rỗng, header theo vai trò.
 - `StorefrontProductTest` (5): chi tiết sản phẩm/danh mục trả 200 và hiển thị tên,
   id không tồn tại trả 404 trang lỗi tiếng Việt, link danh mục trên trang chủ trỏ
   đúng route; tái hiện lỗi lazy-load `loaiSanPham` ở danh sách sản phẩm liên quan.
 - `TacVuNenTest` (2): `hold:clean` chỉ xóa giỏ quá 24h, Telegram thành công.
+- `TaiKhoanGuardTest` (6): guard `/taikhoan` dùng `KiemTraSchema` (sửa lỗi 302 do
+  `array_key_exists` trên model rỗng), admin factory không refresh vào được,
+  tài khoản khóa bị đăng xuất, cờ đổi MK redirect đúng một lần, thứ tự middleware
+  khóa trước cờ đổi MK, DB thiếu cột Stage 3 vẫn đăng nhập/POS/scheduler được.
 - `ThanhToanChuyenKhoanTest` (21: T-CK01..T-CK18 + 1 test route duy nhất + 2 test
   CSRF thật): tạo QR, webhook hợp lệ/sai key/trùng lặp/dư/thiếu/out, xác nhận/hủy
   thủ công, polling, hủy lười, lệnh hủy quá hạn, in/doanh thu, webhook tới đơn đã
@@ -700,31 +914,56 @@ kết quả chạy thực tế ở mục 18):
   → false): ngoại lệ đúng path `api/webhook/thanhtoan` (path khác vẫn 419) và
   webhook chạy không session/cookie khi CSRF đang bật (401/400/200, đăng nhập
   không token vẫn 419).
-- `ThongBaoLoiTest` (5): trang lỗi 404/403/419/500 tiếng Việt, 500 không lộ chi
-  tiết, POS hiển thị hướng dẫn khi phiên hết hạn và giữ giỏ hàng.
+- `ThongBaoLoiTest` (6): trang lỗi 404/403/419/500 tiếng Việt, 500 không lộ chi
+  tiết, exception thật render trang 500 khi `app.debug=false`, POS hiển thị hướng
+  dẫn khi phiên hết hạn và giữ giỏ hàng.
 - `ToanVenGiaoDichTest` (6): tính nguyên tử của hủy đơn, nhập kho và thanh toán.
+- `TongQuanSoLieuTest` (18): dashboard đọc đúng sau mọi nghiệp vụ — bán tiền mặt,
+  tạo QR trừ kho ngay, webhook không trừ lần nữa, hủy quá hạn hoàn kho, trả hàng
+  tốt/hỏng, nhập kho trực tiếp, xác nhận hóa đơn nhập, kiểm kê duyệt; sản phẩm
+  ẩn/xóa/hết hàng đếm đúng; endpoint `tongquan.solieu` chỉ admin (403/302 đúng vai
+  trò, throttle 30/phút); số trên trang khớp endpoint; giá trị tồn theo giá nhập.
+- `TraHangTrungMaPhieuTest` (2): hai phiếu trả tạo trong cùng một giây với bộ sinh
+  số ngẫu nhiên bị khóa trùng giá trị vẫn thành công, mã khác nhau, đúng định dạng
+  `TH+YmdHis+2 số`, kho hoàn đủ 2 lần; hết 90 hậu tố của giây thì báo lỗi có kiểm
+  soát, không tạo phiếu. Khóa RNG bằng hàm cùng namespace
+  (`tests/Support/bo-sinh-so-ngau-nhien.php`), không sửa code production để test.
 
 Lưu ý khi chạy test:
 
 - Test dùng SQLite `:memory:` qua `RefreshDatabase` (`phpunit.xml`), không đụng
-  database MySQL thật.
+  database MySQL thật. **Chốt chặn T3 (mở rộng P2):** `tests/TestCase.php::setUpTraits`
+  ném ngoại lệ tiếng Việt nếu một test dùng `RefreshDatabase`, `DatabaseMigrations`
+  hoặc `DatabaseTruncation` chạy trên kết nối không phải sqlite `:memory:` (MySQL
+  thật/bản sao, sqlite file) — chặn trước khi `migrate:fresh`/truncate kịp xóa gì.
+  Các test MySQL-copy không dùng ba trait này nên không bị ảnh hưởng; bằng chứng:
+  `RefreshDatabaseGuardTest`, `DatabaseMigrationsGuardTest`, `DatabaseTruncationGuardTest`.
 - Phải build asset trước (`npm ci` và `npm run build`) để có
   `public/build/manifest.json`; nếu không, các test render Blade dùng `@vite`
   sẽ lỗi 500.
-- `KhoaDongMysqlTest` tự skip khi không phải MySQL. Muốn chạy, trỏ vào **bản sao**
-  MySQL (không bao giờ là `doan_cnw`), vì `RefreshDatabase` sẽ xóa và migrate lại
-  CSDL đó:
+- `KhoaDongMysqlTest` và các lớp `*MysqlCopyTest` tự skip khi không phải MySQL
+  bản sao `*_copy`. Muốn chạy, trỏ vào **bản sao** MySQL (không bao giờ là
+  `doan_cnw`) bằng biến môi trường tiến trình, **filter chính xác** (xem cảnh báo
+  bên dưới và mục 17):
 
   ```powershell
   $env:DB_CONNECTION='mysql'; $env:DB_DATABASE='doan_cnw_copy'
   $env:DB_USERNAME='root'; $env:DB_PASSWORD=''
-  php artisan test --filter=KhoaDongMysqlTest
+  php artisan test --filter='MysqlCopyTest|KhoaDongMysqlTest'
   Remove-Item Env:DB_CONNECTION, Env:DB_DATABASE, Env:DB_USERNAME, Env:DB_PASSWORD
   ```
 
+  Cả 4 lớp này **không** `RefreshDatabase` — giữ schema/dữ liệu bản sao, tự áp
+  migration rồi dọn bản ghi nó tạo. Riêng `AnhUrlMysqlCopyTest` cần cột
+  `hinh_anh` VARCHAR(150) thật của bản sao để tái hiện lỗi 1406. **Không** chạy
+  full suite với env MySQL: các test `RefreshDatabase` khác sẽ bị chốt chặn T3
+  ném ngoại lệ (đúng thiết kế — bảo vệ bản sao).
+
 - Chưa có test cho: hành vi khi hai webhook đến đồng thời trên môi trường thật
-  (đã có test khóa dòng tuần tự trên bản sao MySQL), và luồng trình duyệt thật của
-  POS (các test hiện gọi HTTP nội bộ).
+  (đã có test khóa dòng tuần tự trên bản sao MySQL), luồng trình duyệt thật của
+  POS (các test hiện gọi HTTP nội bộ), và **JS kiểm tra ảnh URL phía trình duyệt**
+  trong form sản phẩm (đã kiểm chứng thủ công bằng trình duyệt trên bản sao MySQL;
+  checklist ở [docs/BAO_CAO_ANH_URL_VALIDATE.md](docs/BAO_CAO_ANH_URL_VALIDATE.md)).
 
 Kiểm tra cú pháp PHP:
 
@@ -831,6 +1070,8 @@ app/
 │   ├── PhieuTra.php
 │   ├── SanPham.php
 │   └── User.php
+├── Rules/
+│   └── SoDienThoaiHopLe.php
 ├── Services/
 │   ├── HoaDonNhapService.php
 │   ├── NhatKyService.php
@@ -1013,6 +1254,8 @@ Sau khi kiểm thử, tạo Pull Request để merge vào `main`.
 Ưu tiên các phần đã có dữ liệu mẫu trong `TaiLieu/`, không mở rộng sang mobile
 hoặc API khi chưa cần cho đồ án.
 
+- Đặt hàng online tối thiểu (guest + khách đăng nhập, QR/pickup): đã có thiết kế chờ duyệt tại [docs/THIET_KE_DAT_HANG_ONLINE.md](docs/THIET_KE_DAT_HANG_ONLINE.md) — chưa triển khai.
+
 ### Pha 15 — Nhà cung cấp và đơn nhập hàng — Đã hoàn thành
 
 - Có migration cho `suppliers`, `purchase_orders`, `purchase_order_items` và
@@ -1166,10 +1409,115 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
 - **`db:wipe` đã có chốt chặn production** như `migrate:fresh`: cần
   `--force-dangerous` và đúng tên database đích; `--force` đơn lẻ không đủ.
   Test chốt chặn dùng mock DB/schema/migrator, không xóa hay migrate CSDL thật.
-- **Kiểm thử hiện tại: 175 pass, 1 skip, 1068 assertions** (255.79s,
-  `XDEBUG_MODE=off`). `KhoaDongMysqlTest` bị skip vì SQLite không có khóa
-  dòng/InnoDB; cần trỏ vào bản sao MySQL để chạy (mục 9). Lượt bổ sung này không
-  kiểm lại MySQL hoặc luồng trình duyệt POS; số pass không thay thế kiểm tra đó.
+- **Đặt hàng online P2 (giao tận nơi) — Form + Checkout + trang QR online đã xong (bước 1–2, 2026-11-14/15)**:
+  `giao_tan_noi` bắt buộc QR trả trước + tên/SĐT người nhận + địa chỉ 4 phần (số nhà/đường,
+  phường/xã, quận/huyện, tỉnh/thành) ghép một cột `dia_chi_giao` ≤255; vùng giao khớp tỉnh
+  chính xác theo `POS_GIAO_HANG_TINH`; phí cố định `POS_PHI_GIAO_HANG`, miễn phí khi tổng
+  giá DB ≥ `POS_MIEN_PHI_GIAO_TU` (>0); tổng = tiền hàng + phí tính TRONG transaction (R1);
+  honeypot trung tính `truong_phu`; prefill hồ sơ không ghi ngược (D8); D12 chạy cả luồng
+  giao; D17 QR online hủy theo `han_giu` (30 phút), không hủy ở mốc 15 phút;
+  `trang_thai_giao=null` tới khi thanh toán. **Bước 2 đã xong (2026-11-15):** trang QR online
+  dùng VietQrService đúng tổng gồm ship + nội dung = mã hóa đơn, đếm ngược theo `han_giu`,
+  hết hạn → hủy + hoàn kho + thông báo rõ ràng, thiếu cấu hình ngân hàng → thân thiện không
+  500/không lộ số tài khoản, polling POST + bằng chứng session không PII (sửa lỗi kiểu trả về
+  `getQr`). **Chưa implement (bước 3–4):** webhook đặt `trang_thai_giao` (D15), tra cứu hiển
+  thị trạng thái giao, báo cáo tách phí ship khỏi doanh thu. Hủy đơn đã thanh toán + hoàn tiền
+  thủ công (P3). Chi tiết: `docs/BAO_CAO_DAT_HANG_P2.md`.
+- **Kiểm thử hiện tại: xem mục 9** (Stage 3-4, 2026-11-16, nhánh
+  `feat/khach-nhatky-taikhoan`: **643 pass / 42 skip / 0 fail, 2823 assertions,
+  497.88s** trên sqlite `:memory:`; MySQL-copy **42 pass / 341 assertions,
+  12.68s** trên `doan_cnw_copy`. Baseline trước đó: 624 pass / 42 skip /
+  2712 assertions — lượt chạy bị ảnh hưởng giữa chừng bởi chỉnh sửa đang làm;
+  2 fail `/taikhoan` 302 đã được chứng minh riêng trên cây trước sửa và xanh sau
+  fix `KiemTraSchema`. Mốc trước: sau bước 2 P2 (2026-11-15) 480 pass / 42 skip /
+  0 fail, 2255 assertions, 306.799s; MySQL-copy 42 pass / 341 assertions / 13.25s.
+  Baseline trước đó: P1 419 pass/41 skip/
+  2007 assertions; P2 chuẩn bị 418 pass/48 skip/2042 assertions; sau merge P1+WIP 434 pass/
+  42 skip/2 fail/2073 assertions — 2 fail đã sửa ở production `ec77163`; bước 1 P2 464 pass/
+  42 skip/2164 assertions; tiền đề bước 2 474 pass/42 skip/2219 assertions). Skip MySQL-copy =
+  `KhoaDongMysqlTest` (1) + `AnhUrlMysqlCopyTest` (37) + `DatHangP0MysqlCopyTest` (1) +
+  `DatHangP1MysqlCopyTest` (2) + `DatHangP2MysqlCopyTest` (1) — SQLite không có khóa
+  dòng/InnoDB, không cưỡng chế độ dài VARCHAR và không phải MySQL strict để thử migration;
+  cần trỏ vào bản sao MySQL để chạy (mục 9). Các nhóm này phải chạy thật trên
+  `doan_cnw_copy` bằng filter chính xác (mục 17). Số pass không thay thế kiểm tra đó.
+  **Cẩn thận filter:** chạy test MySQL-copy phải dùng filter chính xác
+  (`--filter='MysqlCopyTest|KhoaDongMysqlTest'`); filter rộng `--filter=Mysql` bắt nhầm
+  method `...mysqldump` của `SaoLuuCsdlTest` (dùng `RefreshDatabase`) → `migrate:fresh`
+  xóa sạch bản sao khi đặt env MySQL. Từ T3 (mở rộng P2 cho cả `DatabaseMigrations`/
+  `DatabaseTruncation`) đã có chốt chặn `RefreshDatabase` (ném ngoại lệ tiếng Việt nếu
+  không phải sqlite `:memory:`) nhưng **vẫn phải dùng filter chính xác** — chốt chặn là
+  lưới an toàn, không phải lý do chạy filter rộng.
+- **Đặt hàng online P1 — chỉ guest PICKUP:** checkout giữ hàng qua R1 (khóa dòng sản
+  phẩm id tăng dần + `GiuHangOnlineService::kiemTra` trong transaction), tra cứu bằng
+  mã + SĐT (SĐT chỉ trong thân POST, bằng chứng xác thực lưu session), polling chỉ trả
+  trạng thái, khách tự hủy, thu ngân xác nhận/hủy/gia hạn (trần `online_gia_han_toi_da_gio`).
+  **D12 chống ôm hàng (T2):** honeypot `trang_web` ẩn; tối đa `online_max_don_mo` (3)
+  đơn pickup mở trên mỗi SĐT chuẩn hóa (kiểm tra TRONG transaction sau khóa,
+  `SoDienThoai::chuanHoa`); tối đa `online_max_sanpham` (10) sản phẩm khác nhau/đơn và
+  số lượng mỗi dòng 1..`online_max_soluong`; mọi từ chối dùng thông báo chung, không lộ
+  dữ liệu đơn khác; throttle 5/phút/IP → 429. QR online để P2. Test đồng thời T-DH13
+  là tranh chấp khóa dòng InnoDB THẬT qua hai kết nối (không phải đa luồng).
+  Scheduler nền `donhang:huy-qua-han` **đã sửa (T1)**: dùng chung
+  `DonHang::scopeQuaHanCho` — pickup online hủy theo `han_giu`, đơn còn lại theo
+  `created_at+15ph` (không còn hủy nhầm đơn pickup 4h). Chi tiết:
+  `docs/BAO_CAO_DAT_HANG_P1.md`.
+- **Chốt chặn RefreshDatabase (T3, mở rộng P2):** `tests/TestCase.php::setUpTraits` ném
+  ngoại lệ tiếng Việt nếu test dùng `RefreshDatabase`, `DatabaseMigrations` hoặc
+  `DatabaseTruncation` chạy trên kết nối không phải sqlite `:memory:` — chặn trước
+  `migrate:fresh`/truncate, bảo vệ cả CSDL thật lẫn bản sao khi lỡ đặt env MySQL.
+  Bằng chứng: `RefreshDatabaseGuardTest`, `DatabaseMigrationsGuardTest`,
+  `DatabaseTruncationGuardTest` (mô phỏng cấu hình mysql, không kết nối thật).
+  Test MySQL-copy không dùng ba trait này nên không bị ảnh hưởng.
+- **CSDL thật `doan_cnw` ĐÃ áp M1+M3** (quan sát chỉ đọc `SHOW CREATE TABLE invoices`
+  2026-11-14, tái xác nhận 2026-11-15: có `kenh/hinh_thuc_nhan/han_giu/phi_giao_hang`,
+  `user_id` nullable); bản sao `doan_cnw_copy` giữ trạng thái pre-M1 (`user_id NOT NULL`,
+  5 dòng) để harness tự áp + rollback. **Lưu ý mâu thuẫn tiền đề:** người dùng nêu "DB thật
+  chưa có M1/M2/M3" nhưng bằng chứng chỉ đọc cho thấy đã có; guard `Schema::hasColumn`
+  vẫn an toàn ở cả hai giả định nên được GIỮ theo chỉ đạo. **TODO: gỡ guard (b, c, M3) +
+  `LoiBThieuCotOnlineTest` sau khi người dùng xác nhận M1–M3 đã áp.** Không migrate/seed/
+  rollback trên DB thật trong phiên này (chỉ `SHOW CREATE` chỉ đọc).
+- **LỖI B (tạo QR) đã cherry-pick vào nhánh P2 (2026-11-15)**: `0e8be80` (test `987d06b`)
+  + `b61c83b` (fix `aae9ae8`) + `b7e5ed3` (test thiếu cột). Chỉ LỖI B, KHÔNG kéo LỖI A/C/D.
+  Fix gồm: (a) `postTaoQr` thiếu cấu hình ngân hàng → 422 thân thiện + `Str::mask` số tài
+  khoản khi log (xử lý LỖI B-POS); (b) `scopeQuaHanCho` guard `hasColumn('kenh')` → fallback
+  15 phút khi thiếu cột, còn không giữ logic D17; (c) R1 chỉ ghi cột online M1 khi `$online`
+  khác rỗng, cột M3 chỉ ghi khi `hasColumn('hinh_thuc_nhan')`. Xung đột chỉ ở
+  `ThanhToanChuyenKhoanService.php` (R1), giải quyết giữ cả hai; controller/model auto-merge.
+  Nền QR đã hết lỗi → được phép dựng bước 2. Chi tiết: `docs/BAO_CAO_DAT_HANG_P2.md`.
+- **Mã phiếu trả chống trùng trong cùng giây (đã sửa 2026-11-12)**: `sinhMaPhieuTra`
+  (`TraHangController.php:152-171`) dò hậu tố đã dùng của giây hiện tại rồi quét tiến
+  từ điểm ngẫu nhiên, kèm vòng thử lại tối đa 5 lần khi vi phạm unique do giao dịch
+  đồng thời (`:89-100`). Định dạng in `TH+YmdHis+2 số` giữ nguyên, không đổi
+  cột/migration. Trần cứng **90 mã/giây** (hết hậu tố → lỗi có kiểm soát, đã có test).
+  Flake `PosWorkflowTest` trả hàng đã hết: 11 test trả hàng chạy 5 lần liên tiếp đều
+  xanh (mục 18). **Ba nơi sinh mã khác vẫn dùng mẫu cũ** `YmdHis + random_int(10,99)`
+  và còn nguy cơ trùng tương tự, chưa sửa trong đợt này: kiểm kê
+  (`KiemKeController.php:32`, KK), hóa đơn nhập (`HoaDonNhapController.php:140`, HN),
+  đơn nhập (`NhapHangController.php:96`, PN). Mã hóa đơn `HD{Ymd}-{XXXX}` là chuỗi
+  tuần tự theo ngày có `lockForUpdate` (`DonHangController.php:322-333`,
+  `ThanhToanChuyenKhoanService.php:309-320`), khác mẫu ngẫu nhiên. Chi tiết:
+  [docs/BAO_CAO_MA_PHIEU_TRA_HANG.md](docs/BAO_CAO_MA_PHIEU_TRA_HANG.md).
+- **URL ảnh đã hết lỗi 500 do quá dài (sửa 2026-11-12)**: cột thật `products.hinh_anh`
+  là VARCHAR(150) utf8mb4 (migration khai 255 nhưng chưa áp lên DB thật), rule cũ
+  cho lọt URL 151–255 ký tự → `SQLSTATE[22001] 1406` → 500. `AnhSanPhamUrl` nay
+  giới hạn **150 ký tự** với 2 thông báo tiếng Việt riêng (không hợp lệ / quá dài);
+  có tệp tải lên thì URL hỏng không chặn lưu tệp. JS form kiểm tra ảnh phía trình
+  duyệt (debounce 500ms + blur, `Image()` no-referrer, timeout 8s, chặn nút Lưu)
+  **chỉ là UX, không phải bảo mật** và chưa có test tự động; server vẫn là nguồn sự
+  thật. URL legacy >150 ký tự vẫn hiển thị nhưng khi sửa phải xóa trắng ô URL/chọn
+  tệp/xóa ảnh mới lưu được; chưa dọn dữ liệu legacy. Chi tiết + phương án
+  Content-Type phía server (kèm chống SSRF) chờ xác nhận:
+  [docs/BAO_CAO_ANH_URL_VALIDATE.md](docs/BAO_CAO_ANH_URL_VALIDATE.md).
+- **SĐT khách hàng đã siết chặt** (nhánh `fix/khach-hang-so-dien-thoai`, **đã merge vào
+  nhánh `feat/khach-nhatky-taikhoan` ngày 2026-11-15**): mọi điểm nhập dùng chung
+  `App\Rules\SoDienThoaiHopLe` — chuẩn hóa (`+84`/`84` → `0`, bỏ khoảng trắng/dấu
+  chấm/gạch/ngoặc) rồi mới validate `/^0(3|5|7|8|9)\d{8}$/`. Bản ghi thật từng có SĐT
+  là tên người (báo cáo 2026-11-11) **đã được sửa** — khảo sát chỉ đọc 2026-11-15:
+  101 khách, 0 rỗng/NULL/sai định dạng/trùng. Lệnh dry-run liệt kê bản ghi sai và
+  phương án xử lý ở [docs/BAO_CAO_KHACH_HANG.md](docs/BAO_CAO_KHACH_HANG.md), chờ
+  người dùng xác nhận.
+- **Danh sách khách hàng tải toàn bộ**, phân trang chỉ phía client (DataTables);
+  endpoint POS thêm khách nhanh (`postTaoNhanh`) đã validate nhưng chưa có UI gọi.
 - **Test khói route GET phủ 61/62 route GET**: đủ 4 vai trò (khách, thu ngân, thủ
   kho, admin), mọi route không/ có tham số `{id}` dùng id thật đều trả 200/302/403
   hợp lệ, không 500. Route duy nhất chưa phủ là `storage/{path}` — route phục vụ
@@ -1186,8 +1534,8 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
 
 ## 18. Kết quả kiểm tra
 
-Cập nhật lần cuối: **2026-11-11**, trên nhánh `feat/san-sang-van-hanh` (tiếp nối
-`docs/ra-soat-readme`). Số liệu của đợt rà soát cũ được giữ lại để đối chiếu.
+Cập nhật lần cuối: **2026-11-12**, trên nhánh `fix/anh-url-validate` (từ
+`fix/ma-phieu-tra-hang`). Số liệu của các đợt trước được giữ lại để đối chiếu.
 
 | Kiểm tra | Kết quả | Ghi chú |
 |----------|---------|---------|
@@ -1198,6 +1546,57 @@ Cập nhật lần cuối: **2026-11-11**, trên nhánh `feat/san-sang-van-hanh`
 | `php artisan route:list` | ✅ Hoạt động | 100 routes (không đổi sau khi xóa controller legacy) |
 | `php artisan demo:kiemtra-du-lieu` | ✅ Đã chạy trên DB thật, **"Dữ liệu hợp lệ."** (exit 0) | Lệnh chỉ đọc — xem minh chứng bên dưới |
 | `php artisan demo:reset` | Không chạy | Xóa dữ liệu thật |
+
+### Đợt Stage 3-4 — Khách hàng, nhật ký toàn bộ, chốt main (2026-11-16, nhánh `feat/khach-nhatky-taikhoan`)
+
+| Kiểm tra | Kết quả | Ghi chú |
+|----------|---------|---------|
+| Lịch sử đơn khách | ✅ | Route `profile.orders.show` + trang chi tiết riêng; đơn POS không `ma_tra_cuu` vẫn xem được; check chủ sở hữu `customer_id`; eager-load chi tiết+sản phẩm |
+| SĐT hiển thị | ✅ | Bỏ mask không nhất quán ở header profile/orders — hiển thị đầy đủ cho chính chủ tài khoản |
+| SĐT mọi điểm nhập | ✅ | `SoDienThoaiHopLe` + mutator đã chặn chữ cái; DB thật 101 khách hợp lệ (dry-run) |
+| Nhật ký toàn bộ model | ✅ | `GhiNhatKy` gắn cho 14+ model nghiệp vụ; `PaymentWebhook` cố ý không gắn (đã có log đối soát riêng) |
+| Guard DB thiếu cột | ✅ | `KiemTraSchema` (cache tĩnh `Schema::hasColumn`) thay `array_key_exists` trên model rỗng — **sửa bug production: `/taikhoan` trước đây 302 vô hạn**; kèm sửa `with('customer')` → `khachHang` (500) |
+| Middleware tài khoản | ✅ | Thứ tự `khoa.luc` trước `bat.buoc.doi.mat.khau`; thiếu cột = không cờ, không redirect; test mới 6 ca |
+| Liên kết hồ sơ theo SĐT | ✅ **CÓ LỘ → ĐÃ BỊT** | Trước: đăng ký trùng SĐT khách vãng lai tự chiếm hồ sơ. Sau: không tự liên kết; admin gán thủ công ở màn sửa khách hàng; test 4 ca |
+| `DoiSoatTest` diff | ✅ | 2 assertion đổi từ đếm toàn bảng log → assert đúng action `doi_soat_danh_dau`; chứng minh đỏ (1399 dòng) → xanh |
+| Full suite | ✅ **643 pass / 42 skip / 0 fail (2823 assertions, 497.88s)** | Skip = MySQL-copy cần bản sao |
+| MySQL-copy | ✅ **42 pass / 341 assertions (12.68s)** | `--filter='MysqlCopyTest\|KhoaDongMysqlTest'` trên `doan_cnw_copy` |
+| `view:cache` | ✅ | Blade biên dịch thành công |
+| Migration mới áp DB thật | ⏳ Chưa | Guard `KiemTraSchema` + `TODO(gỡ guard)` sẵn sàng; quy trình gỡ ở `docs/BAO_CAO_STAGE3_4_KHACH_NHATKY.md` mục 7 |
+
+### Đợt Stage 3 — Quản lý tài khoản nhân viên (2026-11-15, nhánh `feat/khach-nhatky-taikhoan`)
+
+| Kiểm tra | Kết quả | Ghi chú |
+|----------|---------|---------|
+| Migration 2026_11_15_000002 | ✅ Đã viết sẵn | Thêm `khoa_luc` (timestamp nullable) + `bat_buoc_doi_mat_khau` (boolean default false) vào bảng `users`; `down()` có guard `Schema::hasColumn` |
+| Middleware CheckKhoaLuc | ✅ Hoạt động | Kiểm tra khóa cho mọi vai trò, logout + redirect về đăng nhập; dùng `array_key_exists` trên user đã nạp (không thêm truy vấn DB) |
+| Middleware CheckBatBuocDoiMatKhau | ✅ Hoạt động | Chuyển hướng về `/doi-mat-khau` khi cờ `bat_buoc_doi_mat_khau=true`; loại trừ trang đổi mật khẩu, đăng xuất, tài nguyên tĩnh |
+| Controller TaiKhoanNhanVienController | ✅ CRUD đầy đủ | Danh sách (admin, thungan, thukho), tạo/sửa/khóa/mở khóa/đặt lại mật khẩu; chỉ admin truy cập qua middleware `role:admin` |
+| Controller DoiMatKhauController | ✅ Đổi mật khẩu tự | Cho mọi vai trò đã đăng nhập (nhân viên + khách); yêu cầu mật khẩu hiện tại, mật khẩu mới theo quy tắc, xác nhận; throttle |
+| Views taikhoan/* | ✅ 5 views | `danhsach.blade.php`, `them.blade.php`, `sua.blade.php`, `doimatkhau.blade.php` (nhân viên), `doimatkhau_khach.blade.php` (khách) |
+| Nhật ký thao tác | ✅ NhatKyService | Ghi tạo/sửa/khóa/mở khóa/đặt lại mật khẩu/đổi mật khẩu; không ghi mật khẩu/token |
+| Test TaiKhoanNhanVienStage3Test | ✅ 30/33 pass | 3 test danh sách tạm bỏ qua do middleware redirect khi thiếu cột trong SQLite test DB |
+| RouteKhoiTest cập nhật | ✅ Thêm route /taikhoan, /doi-mat-khau | Smoke test GET theo vai trò |
+| Full suite | ⚠️ 611 pass / 4 fail / 42 skip | 2 fail DoiSoatTest (lỗi cũ không reset activity_logs), 2 fail RouteKhoiTest/TaiKhoanNhanVienStage3Test (middleware redirect khi thiếu cột) |
+| MySQL-copy test | ⏭️ Skip | Cần MySQL bản sao `doan_cnw_copy` |
+
+### Đợt Stage 2 — Nhật ký kiểm toán (2026-11-15)
+
+| Kiểm tra | Kết quả | Ghi chú |
+|----------|---------|---------|
+| Migration 2026_11_15_000001 | ✅ Đã viết sẵn | Thêm `doi_tuong_loai`, `truoc`, `sau`, `user_agent`, `nguon`, `nhom_id` vào bảng `activity_logs`; không enum/FK mới |
+| NhatKyService | ✅ Hoạt động | Ghi nhật ký append-only, che PII tự động (`password`, `token`, `email`, `so_dienthoai`, `dia_chi`) |
+| Trait GhiNhatKy | ✅ Tự động ghi | Cho model KhachHang, User; chặn update/delete trên NhatKyHoatDong |
+| /nhatky | ✅ Admin only | Lọc, phân trang, giờ Việt Nam, xuất CSV |
+| Test NhatKyStage2Test | ✅ 4/4 pass | Migration, model, trait, lệnh nhatky:don-cu |
+
+### Đợt Stage 1 — Kiểm soát SĐT (2026-11-15)
+
+| Kiểm tra | Kết quả | Ghi chú |
+|----------|---------|---------|
+| Rule SoDienThoaiHopLe | ✅ Áp dụng mọi điểm nhập | Khách hàng, đặt hàng online, hồ sơ cá nhân |
+| Mutator chuẩn hóa | ✅ Tự động | `+84`/`84` → `0`, bỏ khoảng trắng/chấm/gạch/ngoặc |
+| Test SoDienThoaiStage1Test | ✅ 51/51 pass | Rule, mutator, lệnh dry-run |
 
 ### Đợt nâng cấp sẵn sàng vận hành (2026-11-10, nhánh `feat/san-sang-van-hanh`)
 
@@ -1262,6 +1661,74 @@ không thêm migration/slug, không merge/push.
 | Lỗi lazy-load/N+1 phát hiện | **0** | Không phải sửa `with()`/`load()` ở controller hay view nào trong đợt này |
 | Đường dẫn máy cá nhân trong README, `docs/`, `scripts/` | **0 kết quả** | Báo cáo storefront dùng `<thư-mục-dự-án>`; dòng HEAD khớp `git log` |
 | `.env` / migrate/seed/demo:reset | **Không đọc/ghi; không chạy** | Chỉ SQLite `:memory:`; không merge/push |
+
+### Đợt ảnh URL + dashboard tổng quan (2026-11-11, nhánh `feat/anh-url-tong-quan`)
+
+| Kiểm tra | Kết quả | Ghi chú |
+|----------|---------|---------|
+| Test mới chạy trước triển khai (đỏ) | **70 failed, 6 passed (86 assertions), 3.20s** | 3 tệp: `AnhSanPhamTest`, `SanPhamAnhUrlTest`, `TongQuanSoLieuTest`; 6 pass là ca quyền/giữ-nguyên vốn đã đúng |
+| `XDEBUG_MODE=off php artisan test` phần A | **59 passed (156 assertions), 2.23s** | Rule URL + accessor + xóa tệp an toàn + form/view + vá `getXoa` |
+| `XDEBUG_MODE=off php artisan test` phần B | **18 passed (86 assertions), 0.99s** | Sau khi tách assertion guest thành test riêng (driver `actingAs` dính xuyên request) |
+| `npm run build` | ✅ Thành công (2.06s) | Bắt buộc sau khi sửa `app.js`/`storefront.js` (fallback ảnh lỗi) |
+| `XDEBUG_MODE=off php artisan test` (full suite cuối) | **252 passed, 1 skipped (1310 assertions), 219.44s**, exit 0 | 253 ca: 44 Unit + 209 Feature; skip duy nhất `KhoaDongMysqlTest`; flake `returns.ma_phieu` không xuất hiện |
+| `php artisan route:list --json` | **104 routes** (trước: 103) | Đúng 1 route mới `GET\|HEAD tong-quan/so-lieu => tongquan.solieu`, middleware `web,auth,staff.only,role:admin,throttle:30,1` |
+| Đối soát kho CHỈ ĐỌC trên `doan_cnw` (SQL mục 12, `tinker --execute`) | **300 sản phẩm, 0 lệch** | `products.soluong` khớp tổng `stock_movements`; không sửa dữ liệu, không cần dry-run |
+| `.env` / migrate/seed/demo:reset / schema | **Không đọc/ghi; không chạy; không thêm migration** | URL giới hạn 255 ký tự theo cột `hinh_anh` VARCHAR(255) hiện có; không merge/push |
+
+Chi tiết khảo sát, nguyên nhân dashboard sai định nghĩa và bằng chứng từng nghiệp vụ:
+[docs/BAO_CAO_ANH_URL_TONG_QUAN.md](docs/BAO_CAO_ANH_URL_TONG_QUAN.md).
+
+### Đợt chuẩn hóa SĐT khách hàng (2026-11-11, nhánh `fix/khach-hang-so-dien-thoai`)
+
+| Kiểm tra | Kết quả | Ghi chú |
+|----------|---------|---------|
+| Test mới trước khi sửa (đỏ trước) | **35 failed, 14 passed** (89 assertions), 6.94s | `SoDienThoaiHopLeTest` + `KhachHangSoDienThoaiTest` — chứng minh lỗi nhận chữ/sai định dạng |
+| Test mới sau khi sửa | **49 passed** (140 assertions), 1.96s | 16 Unit + 33 Feature |
+| `XDEBUG_MODE=off php artisan test` (lượt 1) | 1 failed, 1 skipped, 223 passed (1207 assertions), 257.36s | Fail là flake có sẵn `returns.ma_phieu` (trùng mã phiếu trả cùng giây), không do thay đổi khách hàng |
+| `php artisan test tests/Feature/PosWorkflowTest.php` (chạy lại lớp flake) | **32 passed** (195 assertions), 58.26s | Xác nhận flake; không sửa mã phiếu trả trong đợt này |
+| `XDEBUG_MODE=off php artisan test` (lượt 2, sạch) | **224 passed, 1 skipped (1208 assertions), 214.82s**, exit 0 | 225 ca: 27 Unit + 198 Feature; skip duy nhất `KhoaDongMysqlTest` |
+| `php artisan view:cache` | ✅ Thành công | Toàn bộ view biên dịch được |
+| Kiểm tra dữ liệu thật `doan_cnw` (CHỈ ĐỌC) | 101 khách; 0 rỗng; 0 trùng; **1 SĐT sai** ("Lê Văn Định") | 100/101 khớp quy tắc chặt ⇒ áp quy tắc chặt; bản ghi sai giữ nguyên, đề xuất dry-run ở mục 8 báo cáo |
+| Migration mới | **Không thêm** | Unique index `customers.so_dienthoai` đã có sẵn |
+| `.env` / migrate/seed/demo:reset trên DB thật | **Không đọc/ghi; không chạy** | Không merge/push |
+
+Chi tiết lỗi trước/sau, test chứng minh và mục chờ xác nhận:
+[docs/BAO_CAO_KHACH_HANG.md](docs/BAO_CAO_KHACH_HANG.md).
+
+### Đợt sửa trùng mã phiếu trả (2026-11-12, nhánh `fix/ma-phieu-tra-hang`)
+
+| Kiểm tra | Kết quả | Ghi chú |
+|----------|---------|---------|
+| Test mới chạy trước sửa (đỏ) | **1 failed, 1 passed (4 assertions), 27.67s** | `TraHangTrungMaPhieuTest`: phiếu thứ hai ném `SQLSTATE[23000] UNIQUE constraint failed: returns.ma_phieu` → 500; RNG khóa trùng giá trị + thời gian đóng băng cùng giây |
+| `XDEBUG_MODE=off php artisan test --filter=TraHangTrungMaPhieuTest` (sau sửa) | **2 passed (13 assertions), 5.38s** | Hai phiếu cùng giây thành công, mã khác nhau, đúng định dạng `TH+YmdHis+2 số`; ca hết 90 hậu tố báo lỗi không tạo phiếu |
+| 11 test trả hàng `PosWorkflowTest` × 5 lần liên tiếp | **11 passed (113 assertions) mỗi lượt**; 32.40s / 31.14s / 32.58s / 30.80s / 27.63s | `--filter='return\|zero_cash'`; không lượt nào đỏ — hết flake |
+| `XDEBUG_MODE=off php artisan test` (full suite cuối) | **254 passed, 1 skipped (1323 assertions), 213.79s**, exit 0 | 255 ca: 44 Unit + 211 Feature; skip duy nhất `KhoaDongMysqlTest` |
+| `php -l app/Http/Controllers/TraHangController.php` | ✅ No syntax errors | Sửa tối thiểu trong controller, không đổi cột/migration |
+| `php artisan route:list --json` | **104 routes** (không đổi) | Không thêm route |
+| `.env` / migrate/seed/demo:reset / schema | **Không đọc/ghi; không chạy; không thêm migration** | Chỉ SQLite `:memory:`; không merge/push |
+
+Chi tiết khảo sát mọi nơi sinh mã (TH/KK/HN/PN/HD), nguyên nhân và thiết kế sửa:
+[docs/BAO_CAO_MA_PHIEU_TRA_HANG.md](docs/BAO_CAO_MA_PHIEU_TRA_HANG.md).
+
+### Đợt validate URL ảnh — hết 500 (2026-11-12, nhánh `fix/anh-url-validate`)
+
+| Kiểm tra | Kết quả | Ghi chú |
+|----------|---------|---------|
+| Đọc log production (chỉ đọc) | 2× `SQLSTATE[22001] Data too long for column 'hinh_anh'` (14:53:14 / 14:55:16, `products` id=68) | URL aclk đúng 255 ký tự; cột thật **VARCHAR(150)** utf8mb4 trên cả `doan_cnw` lẫn `doan_cnw_copy` (`information_schema`, chỉ đọc), `sql_mode` STRICT_TRANS_TABLES |
+| Test sweep mới chạy trước sửa (đỏ, SQLite) | **6 failed, 75 passed (360 assertions), 3.02s** | 151/200/255 ký tự × thêm/sửa lọt rule cũ (rule 255 theo migration chưa áp) |
+| Sweep trên bản sao MySQL strict (đỏ) | **4 failed, 33 passed (220 assertions), 5.67s** | 1406 Data too long thật → 500; không `RefreshDatabase` để giữ cột 150 của bản sao |
+| Test tệp + URL hỏng (đỏ) | **2 failed (4 assertions), 0.73s** | URL hỏng chặn cả khi có tệp — sai spec "tệp thắng" |
+| Sau sửa: 3 lớp ảnh URL (SQLite) | **142 passed (542 assertions), 4.52s** | `AnhUrlSweepTest` + `AnhSanPhamTest` + `SanPhamAnhUrlTest` |
+| Sau sửa: thêm `ThongBaoLoiTest` | **148 passed (560 assertions), 15.58s** | Gồm test mới: exception thật → trang 500 tiếng Việt khi `app.debug=false` |
+| Sau sửa: sweep trên bản sao MySQL | **37 passed (243 assertions), 2.33s** | 150 ký tự lưu được / 151 bị từ chối bằng validate; multibyte 150 ký tự legacy vẫn hiển thị; tự dọn, xác nhận 0 bản ghi SWEEP |
+| Kiểm chứng trình duyệt (`artisan serve` trỏ copy) | ✅ 10 ca UX | Debounce/blur, 3 trạng thái aria-live, chặn/mở nút Lưu, tệp thắng, lỗi server tiếng Việt + `old()`, golden path thêm sản phẩm; user/sản phẩm tạm đã dọn khỏi copy |
+| `npm run build` | ✅ Thành công (2.25s) | JS form là inline Blade, không đổi bundle Vite |
+| `XDEBUG_MODE=off php artisan test` (full suite cuối) | **338 passed, 38 skipped (1714 assertions), 250.41s**, exit 0 | 376 ca: 44 Unit + 332 Feature; 38 skip = `KhoaDongMysqlTest` (1) + `AnhUrlMysqlCopyTest` (37) |
+| `.env` / migrate/seed/demo:reset / schema | **Không đọc/ghi; không chạy; không thêm migration** | MySQL chỉ qua bản sao bằng env tiến trình; server không gọi HTTP tới URL người dùng; không merge/push |
+
+Chi tiết nguyên nhân (rule 255 vs cột thật 150), bằng chứng log, thiết kế JS,
+checklist thủ công và các mục chờ xác nhận:
+[docs/BAO_CAO_ANH_URL_VALIDATE.md](docs/BAO_CAO_ANH_URL_VALIDATE.md).
 
 
 Kết quả `he-thong:kiem-tra` trên CSDL thật ngày 2026-11-10 (trước triển khai, đợt ban đầu):

@@ -42,7 +42,7 @@ class StorefrontCartController extends Controller
             'id' => $sanPham->id,
             'sku' => $sanPham->sku,
             'ten_sanpham' => $sanPham->ten_sanpham,
-            'hinh_anh' => $sanPham->hinh_anh,
+            'hinh_anh' => $sanPham->anh_url,
             'gia_ban' => (float) $sanPham->gia_ban,
             'soluong' => $newQty,
             'ton_kho' => $sanPham->soluong,

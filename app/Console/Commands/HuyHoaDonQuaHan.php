@@ -15,13 +15,7 @@ class HuyHoaDonQuaHan extends Command
 
     public function handle(ThanhToanChuyenKhoanService $service): int
     {
-        $soPhut = (int) config('pos.cho_thanh_toan_phut', 15);
-        $hanChot = now()->subMinutes($soPhut);
-
-        $danhSach = DonHang::query()
-            ->where('trang_thai', 'cho_thanh_toan')
-            ->where('created_at', '<', $hanChot)
-            ->get();
+        $danhSach = DonHang::query()->quaHanCho()->get();
 
         if ($danhSach->isEmpty()) {
             $this->info('Không có hóa đơn nào quá hạn chờ thanh toán.');

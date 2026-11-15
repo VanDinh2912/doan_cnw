@@ -185,3 +185,14 @@ document.addEventListener('DOMContentLoaded', () => {
     initFavouriteButtons();
     initQuickView();
 });
+
+// Bắt sự kiện error ở capture phase vì lỗi tải ảnh không nổi bọt; chỉ thay một lần để tránh lặp vô hạn.
+document.addEventListener('error', function (event) {
+    const img = event.target;
+    if (!(img instanceof HTMLImageElement) || img.dataset.daFallback === '1') return;
+    const fallback = document.body.dataset.imgFallback;
+    if (fallback && img.src !== fallback) {
+        img.dataset.daFallback = '1';
+        img.src = fallback;
+    }
+}, true);

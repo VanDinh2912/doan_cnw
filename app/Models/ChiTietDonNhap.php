@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\GhiNhatKy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ChiTietDonNhap extends Model
 {
-    use HasFactory;
+    use GhiNhatKy, HasFactory;
 
     protected $table = 'purchase_order_items';
 

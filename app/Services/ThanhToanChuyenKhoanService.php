@@ -7,19 +7,27 @@ use App\Models\ChiTietDonHang;
 use App\Models\DonHang;
 use App\Models\KhachHang;
 use App\Models\SanPham;
+use App\Support\SoDienThoai;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 
 class ThanhToanChuyenKhoanService
 {
+    public function __construct(private GiuHangOnlineService $giuHangOnline)
+    {
+    }
+
     /**
      * Tạo hóa đơn ở trạng thái cho_thanh_toan và giữ hàng ngay lập tức.
      *
      * @param array $gioHang Danh sách sản phẩm trong giỏ [['id' => 1, 'soluong' => 2], ...]
      * @param array $thongTinKhach Thông tin giảm giá, customer_id, diem_su_dung
-     * @param mixed $user Người thực hiện (thu ngân / admin)
+     * @param mixed $user Người thực hiện (thu ngân / admin); null với đơn online guest
+     * @param array $online Thông tin đơn online (kenh, phuong_thuc, ma_tra_cuu, han_giu...); rỗng = POS
+     * @param int|null $onlineCustomerId ID khách hàng cho đơn online (khách đã đăng nhập)
      */
-    public function taoHoaDonChoThanhToan(array $gioHang, array $thongTinKhach, $user): DonHang
+    public function taoHoaDonChoThanhToan(array $gioHang, array $thongTinKhach, $user, array $online = [], ?int $onlineCustomerId = null): DonHang
     {
         $gioHangSorted = collect($gioHang)
             ->sortBy(fn (array $item, string|int $key): int => (int) ($item['id'] ?? $key))
@@ -29,7 +37,10 @@ class ThanhToanChuyenKhoanService
             throw new RuntimeException('Giỏ hàng đang trống.');
         }
 
-        return DB::transaction(function () use ($gioHangSorted, $thongTinKhach, $user): DonHang {
+        $laOnline = ($online['kenh'] ?? null) === 'online';
+        $laOnlinePickup = $laOnline && ($online['phuong_thuc'] ?? null) === 'tienmat';
+
+        return DB::transaction(function () use ($gioHangSorted, $thongTinKhach, $user, $online, $laOnline, $laOnlinePickup, $onlineCustomerId): DonHang {
             $tongTien = 0;
             $sanPhams = [];
 
@@ -41,9 +52,27 @@ class ThanhToanChuyenKhoanService
                 }
 
                 $soLuong = (int) $item['soluong'];
+
+                // Trần giữ pickup phải kiểm tra SAU khi đã khóa dòng sản phẩm để hai đơn
+                // đồng thời không cùng vượt trần (SUM thấy phần giữ đã commit của đơn trước).
+                if ($laOnlinePickup) {
+                    $this->giuHangOnline->kiemTra($sanPham->id, $soLuong);
+                }
+
                 $thanhTien = (float) $sanPham->gia_ban * $soLuong;
                 $tongTien += $thanhTien;
                 $sanPhams[] = [$sanPham, $soLuong, $thanhTien];
+            }
+
+            // D12: tối đa online_max_don_mo đơn mở trên mỗi SĐT chuẩn hóa, áp cho
+            // cả pickup lẫn QR/giao tận nơi (đếm theo phương thức của đơn mới).
+            // Kiểm tra TRONG transaction sau khi khóa sản phẩm để hai đơn đồng thời
+            // không cùng vượt giới hạn; thông báo chung, không lộ dữ liệu đơn khác.
+            if ($laOnline && ! empty($online['so_dienthoai_dat'])) {
+                $this->kiemTraGioiHanDonMo(
+                    (string) $online['so_dienthoai_dat'],
+                    (string) ($online['phuong_thuc'] ?? 'chuyenkhoan')
+                );
             }
 
             // 2. Tính giảm giá & khóa khách hàng
@@ -54,8 +83,11 @@ class ThanhToanChuyenKhoanService
             $diemSuDung = (int) ($thongTinKhach['diem_su_dung'] ?? 0);
             $tienGiamDiem = 0;
 
-            if (! empty($thongTinKhach['customer_id'])) {
-                $khachHang = KhachHang::query()->lockForUpdate()->findOrFail($thongTinKhach['customer_id']);
+            // Ưu tiên customer_id từ online (khách đã đăng nhập)
+            $customerId = $onlineCustomerId ?? ($thongTinKhach['customer_id'] ?? null);
+
+            if (! empty($customerId)) {
+                $khachHang = KhachHang::query()->lockForUpdate()->findOrFail($customerId);
                 if ($diemSuDung > $khachHang->diem_tichluy) {
                     throw new RuntimeException('Số điểm sử dụng vượt quá điểm hiện có.');
                 }
@@ -70,13 +102,25 @@ class ThanhToanChuyenKhoanService
             $tongThanhToan = $tongTien - $tienGiam - $tienGiamDiem;
             $diemTichLuyNhan = $khachHang ? (int) floor($tongThanhToan / config('pos.diem_moi_dong')) : 0;
 
+            // Phí giao hàng (D13): tính từ tiền hàng DB ở trên + config, không nhận
+            // phí từ client/session. Miễn phí khi tiền hàng >= ngưỡng (nếu > 0).
+            $phiGiaoHang = 0;
+            if (($online['hinh_thuc_nhan'] ?? null) === 'giao_tan_noi') {
+                $phiGiaoHang = (int) config('pos.phi_giao_hang', 30000);
+                $mienPhiGiaoTu = (int) config('pos.mien_phi_giao_tu', 0);
+                if ($mienPhiGiaoTu > 0 && $tongTien >= $mienPhiGiaoTu) {
+                    $phiGiaoHang = 0;
+                }
+            }
+            $tongThanhToan += $phiGiaoHang;
+
             // 3. Sinh mã hóa đơn S7
             $maHoaDon = $this->taoMaHoaDon();
 
             // 4. Tạo hóa đơn trạng thái cho_thanh_toan
-            $donHang = DonHang::create([
+            $duLieuDonHang = [
                 'ma_hoadon' => $maHoaDon,
-                'user_id' => $user->id,
+                'user_id' => $user?->id,
                 'customer_id' => $khachHang?->id,
                 'tong_tien' => $tongTien,
                 'giam_gia_phantram' => $giamGiaPhanTram,
@@ -87,10 +131,34 @@ class ThanhToanChuyenKhoanService
                 'tong_thanh_toan' => $tongThanhToan,
                 'tien_khach_dua' => 0,
                 'tien_thua' => 0,
-                'phuong_thuc' => 'chuyenkhoan',
+                'phuong_thuc' => $online['phuong_thuc'] ?? 'chuyenkhoan',
                 'trang_thai' => 'cho_thanh_toan',
                 'thoi_gian_thanh_toan' => null,
-            ]);
+            ];
+
+            // Cột online M1: chỉ ghi khi là đơn online VÀ DB đã có cột kenh.
+            // Guard code-đi-trước-schema: POS ($online rỗng) không ghi cột online;
+            // TODO: gỡ guard hasColumn sau khi M1-M3 đã áp lên DB thật doan_cnw.
+            if (! empty($online) && Schema::hasColumn('invoices', 'kenh')) {
+                if (isset($online['kenh'])) $duLieuDonHang['kenh'] = $online['kenh'];
+                if (isset($online['ma_tra_cuu'])) $duLieuDonHang['ma_tra_cuu'] = $online['ma_tra_cuu'];
+                if (isset($online['ten_khach_dat'])) $duLieuDonHang['ten_khach_dat'] = $online['ten_khach_dat'];
+                if (isset($online['so_dienthoai_dat'])) $duLieuDonHang['so_dienthoai_dat'] = $online['so_dienthoai_dat'];
+                if (isset($online['ghi_chu_khach'])) $duLieuDonHang['ghi_chu_khach'] = $online['ghi_chu_khach'];
+                if (isset($online['han_giu'])) $duLieuDonHang['han_giu'] = $online['han_giu'];
+            }
+
+            // Cột giao hàng M3: chỉ ghi khi DB đã có cột (POS vẫn tạo QR trước khi áp M3).
+            if (Schema::hasColumn('invoices', 'hinh_thuc_nhan')) {
+                $duLieuDonHang['hinh_thuc_nhan'] = $online['hinh_thuc_nhan'] ?? 'tai_cua_hang';
+                $duLieuDonHang['ten_nguoi_nhan'] = $online['ten_nguoi_nhan'] ?? null;
+                $duLieuDonHang['sdt_nguoi_nhan'] = $online['sdt_nguoi_nhan'] ?? null;
+                $duLieuDonHang['dia_chi_giao'] = $online['dia_chi_giao'] ?? null;
+                $duLieuDonHang['phi_giao_hang'] = $phiGiaoHang;
+                $duLieuDonHang['trang_thai_giao'] = null; // D15: null cho tới khi thanh toán
+            }
+
+            $donHang = DonHang::create($duLieuDonHang);
 
             // 5. Trừ tồn kho và ghi movement loại ban ngay lập tức (giữ hàng)
             foreach ($sanPhams as [$sanPham, $soLuong, $thanhTien]) {
@@ -107,7 +175,7 @@ class ThanhToanChuyenKhoanService
 
                 BienDongKho::create([
                     'product_id' => $sanPham->id,
-                    'user_id' => $user->id,
+                    'user_id' => $user?->id,
                     'invoice_id' => $donHang->id,
                     'loai' => 'ban',
                     'soluong' => -$soLuong,
@@ -301,6 +369,30 @@ class ThanhToanChuyenKhoanService
                 'message' => 'Đã hủy hóa đơn chờ thanh toán và hoàn trả tồn kho, điểm.',
             ];
         }, 2);
+    }
+
+    /**
+     * D12 — chặn ôm hàng: đếm đơn online đang mở (cho_thanh_toan) cùng phương
+     * thức với đơn mới, của cùng SĐT chuẩn hóa; đủ online_max_don_mo thì từ chối
+     * bằng thông báo chung. Gọi trong transaction sau lockForUpdate sản phẩm.
+     * Đơn da_huy/da_thanh_toan và đơn POS không tính.
+     */
+    private function kiemTraGioiHanDonMo(string $sdt, string $phuongThuc): void
+    {
+        $gioiHan = (int) config('pos.online_max_don_mo', 3);
+        $sdtChuanHoa = SoDienThoai::chuanHoa($sdt);
+
+        $dangMo = DonHang::query()
+            ->where('kenh', 'online')
+            ->where('phuong_thuc', $phuongThuc)
+            ->where('trang_thai', 'cho_thanh_toan')
+            ->pluck('so_dienthoai_dat')
+            ->filter(fn (?string $s): bool => SoDienThoai::chuanHoa($s) === $sdtChuanHoa)
+            ->count();
+
+        if ($dangMo >= $gioiHan) {
+            throw new RuntimeException('Không thể tạo đơn hàng. Vui lòng thử lại.');
+        }
     }
 
     /**

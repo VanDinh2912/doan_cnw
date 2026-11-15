@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Models\DonHang;
+use App\Support\CheThongTin;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -68,6 +70,31 @@ class ThongBaoService
         $msg = "✅ <b>Đã nhận {$soTienFmt} đ</b>\nHóa đơn: <b>{$maHoaDon}</b>\nThời gian: {$gio}";
         if ($ghiChu) {
             $msg .= "\nGhi chú: {$ghiChu}";
+        }
+
+        $this->guiTelegram($msg);
+    }
+
+    // Escape ghi chú khách + che SĐT trước khi ghép tin Telegram HTML (tránh XSS/lộ PII).
+    public function thongBaoDonOnlineMoi(DonHang $don): void
+    {
+        $soTienFmt = number_format((float) $don->tong_thanh_toan, 0, ',', '.');
+        $sdtChe = CheThongTin::soDienThoai($don->so_dienthoai_dat);
+        $hanGiu = $don->han_giu?->format('H:i d/m/Y') ?? '—';
+        $msg = "<b>ĐƠN ONLINE MỚI</b>\n"
+            ."Mã đơn: <b>{$don->ma_hoadon}</b>\n"
+            .'Khách: '.e($don->ten_khach_dat)."\n"
+            ."SĐT: {$sdtChe}\n"
+            ."Tổng: {$soTienFmt} đ\n"
+            ."Hạn giữ: {$hanGiu}";
+        if ($don->hinh_thuc_nhan === 'giao_tan_noi') {
+            // Không đưa địa chỉ đầy đủ vào Telegram; SĐT người nhận che một phần.
+            $msg .= "\nHình thức: Giao tận nơi"
+                ."\nNgười nhận: ".e($don->ten_nguoi_nhan)
+                ."\nSĐT nhận: ".CheThongTin::soDienThoai($don->sdt_nguoi_nhan);
+        }
+        if ($don->ghi_chu_khach) {
+            $msg .= "\nGhi chú: ".e($don->ghi_chu_khach);
         }
 
         $this->guiTelegram($msg);

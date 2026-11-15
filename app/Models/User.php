@@ -7,11 +7,13 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use App\Models\Concerns\GhiNhatKy;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, GhiNhatKy;
 
     /**
      * The attributes that are mass assignable.
@@ -23,6 +25,8 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'khoa_luc',
+        'bat_buoc_doi_mat_khau',
     ];
 
     /**
@@ -45,6 +49,8 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'khoa_luc' => 'datetime',
+            'bat_buoc_doi_mat_khau' => 'boolean',
         ];
     }
 
@@ -56,5 +62,10 @@ class User extends Authenticatable
     public function bienDongKhos(): HasMany
     {
         return $this->hasMany(BienDongKho::class);
+    }
+
+    public function khachHang(): HasOne
+    {
+        return $this->hasOne(KhachHang::class);
     }
 }

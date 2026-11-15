@@ -467,6 +467,14 @@ class RouteKhoiTest extends TestCase
             ['name' => 'thongke.topsanpham', 'roles' => ['admin']],
             ['name' => 'baocao.hoadon', 'params' => ['dinhDang' => 'xlsx'], 'roles' => ['admin']],
 
+            // Tài khoản nhân viên (chỉ admin).
+            ['name' => 'taikhoan.danhsach', 'roles' => ['admin']],
+            ['name' => 'taikhoan.them', 'roles' => ['admin']],
+            ['name' => 'taikhoan.sua', 'params' => ['user' => $this->nguoiDung['thungan']->id], 'roles' => ['admin']],
+
+            // Đổi mật khẩu (mọi vai trò đã đăng nhập).
+            ['name' => 'doi-mat-khau', 'guest' => 302, 'status' => 200, 'roles' => ['admin', 'thungan', 'thukho']],
+
             // Đăng xuất đặt cuối cùng: route này hủy phiên nên phải chạy sau các route cần đăng nhập.
             ['name' => 'auth.dangxuat', 'guest' => 302, 'status' => 302, 'roles' => ['admin', 'thungan', 'thukho']],
         ];

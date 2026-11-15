@@ -9,10 +9,12 @@ use App\Models\PhieuTra;
 use App\Models\SanPham;
 use App\Services\NhatKyService;
 use Brick\Math\BigInteger;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
+use RuntimeException;
 use Throwable;
 
 class TraHangController extends Controller
@@ -73,8 +75,7 @@ class TraHangController extends Controller
             $diemThuHoi = (int) floor($tongHoan / max(1, config('pos.diem_moi_dong', 100000)));
             $diemHoan = self::tinhDiemHoan($donHang, $giaTriHangTra);
             $duyetNgay = $tongHoan <= config('pos.nguong_tra_khong_duyet', 500000);
-            $phieuTra = PhieuTra::create([
-                'ma_phieu' => 'TH'.now()->format('YmdHis').random_int(10, 99),
+            $thuocTinhPhieu = [
                 'invoice_id' => $donHang->id,
                 'user_id' => $request->user()->id,
                 'customer_id' => $donHang->customer_id,
@@ -84,7 +85,19 @@ class TraHangController extends Controller
                 'hinh_thuc_hoan' => $validated['hinh_thuc_hoan'],
                 'trang_thai' => $duyetNgay ? 'hoan_thanh' : 'cho_duyet',
                 'ly_do' => $validated['ly_do'] ?? null,
-            ]);
+            ];
+            $phieuTra = null;
+            for ($lanThu = 1; $lanThu <= 5; $lanThu++) {
+                try {
+                    $phieuTra = PhieuTra::create($thuocTinhPhieu + ['ma_phieu' => self::sinhMaPhieuTra()]);
+                    break;
+                } catch (QueryException $exception) {
+                    // Giao dịch khác có thể chèn cùng mã giữa lúc dò và lúc tạo; thử lại với mã mới.
+                    if ($lanThu === 5 || ! self::loiTrungMaPhieu($exception)) {
+                        throw $exception;
+                    }
+                }
+            }
             foreach ($items as [$chiTiet, $item, $tienDong]) {
                 $phieuTra->chiTiets()->create([
                     'invoice_detail_id' => $chiTiet->id,
@@ -134,6 +147,33 @@ class TraHangController extends Controller
         NhatKyService::ghi($request, 'duyet_phieu_tra', 'phieu_tra', $phieuTra->id, 'Duyệt phiếu '.$phieuTra->ma_phieu);
 
         return back()->with('success', 'Đã duyệt phiếu trả hàng.');
+    }
+
+    private static function sinhMaPhieuTra(): string
+    {
+        $tienTo = 'TH'.now()->format('YmdHis');
+        $daDung = PhieuTra::query()
+            ->where('ma_phieu', 'like', $tienTo.'%')
+            ->pluck('ma_phieu')
+            ->map(fn (string $ma): int => (int) substr($ma, -2))
+            ->all();
+        // Quét tiến từ điểm ngẫu nhiên (quay vòng 10..99) để luôn ra mã khác
+        // kể cả khi bộ sinh số lặp lại giá trị; giữ định dạng TH+YmdHis+2 số.
+        $batDau = random_int(10, 99);
+        for ($buoc = 0; $buoc < 90; $buoc++) {
+            $hauTo = 10 + (($batDau - 10 + $buoc) % 90);
+            if (! in_array($hauTo, $daDung, true)) {
+                return $tienTo.$hauTo;
+            }
+        }
+
+        throw new RuntimeException('Đã dùng hết 90 mã phiếu trả trong giây '.now()->format('YmdHis'));
+    }
+
+    private static function loiTrungMaPhieu(QueryException $exception): bool
+    {
+        return (string) $exception->getCode() === '23000'
+            && str_contains($exception->getMessage(), 'ma_phieu');
     }
 
     private static function tinhDiemHoan(DonHang $donHang, int $giaTriHangTra): int

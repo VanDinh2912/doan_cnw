@@ -62,19 +62,15 @@ class KiemTraHeThong extends Command
 
     private function kiemTraDonQuaHan(): void
     {
-        $soPhut = (int) config('pos.cho_thanh_toan_phut', 15);
-        $tonDong = DonHang::query()
-            ->where('trang_thai', 'cho_thanh_toan')
-            ->where('created_at', '<', now()->subMinutes($soPhut))
-            ->count();
+        $tonDong = DonHang::query()->quaHanCho()->count();
 
         if ($tonDong > 0) {
-            $this->bao('WARN', 'Đơn chờ quá hạn', "{$tonDong} đơn chờ thanh toán quá {$soPhut} phút chưa được hủy");
+            $this->bao('WARN', 'Đơn chờ quá hạn', "{$tonDong} đơn chờ thanh toán đã quá hạn giữ chưa được hủy");
 
             return;
         }
 
-        $this->bao('OK', 'Đơn chờ quá hạn', "không có đơn chờ thanh toán quá {$soPhut} phút");
+        $this->bao('OK', 'Đơn chờ quá hạn', 'không có đơn chờ thanh toán quá hạn giữ');
     }
 
     /**

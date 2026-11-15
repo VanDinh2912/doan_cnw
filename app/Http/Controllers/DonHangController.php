@@ -8,6 +8,7 @@ use App\Models\DonHang;
 use App\Models\LoaiSanPham;
 use App\Models\KhachHang;
 use App\Models\SanPham;
+use App\Services\NhatKyService;
 use App\Services\ThanhToanChuyenKhoanService;
 use App\Services\VietQrService;
 use Illuminate\Http\JsonResponse;
@@ -15,6 +16,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Throwable;
 
@@ -65,6 +67,36 @@ class DonHangController extends Controller
             return response()->json(['error' => 'Giỏ hàng đang trống.'], 422);
         }
 
+        if (! $vietQr->enabled()) {
+            $bankCode = trim((string) config('pos.bank_code'));
+            $bankAccount = trim((string) config('pos.bank_account'));
+
+            $thongBao = 'Chưa cấu hình tài khoản ngân hàng nhận QR.';
+            if ($bankCode === '' && $bankAccount === '') {
+                $thongBao = 'Chưa cấu hình tài khoản ngân hàng nhận QR.';
+            } elseif ($bankCode === '') {
+                $thongBao = 'Chưa cấu hình mã ngân hàng nhận QR.';
+            } elseif ($bankAccount === '') {
+                $thongBao = 'Chưa cấu hình số tài khoản ngân hàng nhận QR.';
+            } else {
+                $thongBao = 'Thông tin tài khoản ngân hàng nhận QR không hợp lệ.';
+            }
+
+            $maskedAccount = $bankAccount !== ''
+                ? Str::mask($bankAccount, '*', 0, max(0, strlen($bankAccount) - 4))
+                : '(trống)';
+
+            Log::warning('Tạo QR thất bại do cấu hình ngân hàng không hợp lệ.', [
+                'bank_code' => $bankCode ?: '(trống)',
+                'bank_account' => $maskedAccount,
+            ]);
+
+            return response()->json([
+                'error' => $thongBao,
+                'message' => $thongBao,
+            ], 422);
+        }
+
         try {
             $donHang = $service->taoHoaDonChoThanhToan($gioHang, $validated, $request->user());
 
@@ -96,8 +128,7 @@ class DonHangController extends Controller
      */
     public function getTrangThai(DonHang $donHang, ThanhToanChuyenKhoanService $service): JsonResponse
     {
-        $phut = (int) config('pos.cho_thanh_toan_phut', 15);
-        if ($donHang->trang_thai === 'cho_thanh_toan' && $donHang->created_at->addMinutes($phut)->isPast()) {
+        if (DonHang::whereKey($donHang->id)->quaHanCho()->exists()) {
             $service->huyChoThanhToan($donHang, 'Quá hạn chờ thanh toán (hủy lười)');
             $donHang->refresh();
         }
@@ -147,6 +178,53 @@ class DonHangController extends Controller
             'success' => true,
             'message' => 'Đã hủy chờ thanh toán và hoàn trả tồn kho.',
         ]);
+    }
+
+    // Gia hạn đơn pickup online: cộng giờ giữ, chặn ở trần created_at + online_gia_han_toi_da_gio.
+    public function postGiaHan(Request $request, DonHang $donHang): JsonResponse
+    {
+        if ($donHang->kenh !== 'online' || $donHang->phuong_thuc !== 'tienmat' || $donHang->trang_thai !== 'cho_thanh_toan') {
+            return response()->json(['error' => 'Chỉ gia hạn được đơn pickup online đang chờ thanh toán.'], 422);
+        }
+
+        $gioGiaHan = (int) config('pos.online_pickup_gio', 4);
+        $tranToiDa = (int) config('pos.online_gia_han_toi_da_gio', 24);
+
+        $ketQua = DB::transaction(function () use ($donHang, $gioGiaHan, $tranToiDa, $request): array {
+            $locked = DonHang::where('id', $donHang->id)->lockForUpdate()->first();
+            if (! $locked || $locked->trang_thai !== 'cho_thanh_toan') {
+                return ['success' => false, 'message' => 'Đơn không còn ở trạng thái chờ thanh toán.'];
+            }
+
+            $tran = $locked->created_at->copy()->addHours($tranToiDa);
+            if ($locked->han_giu !== null && $locked->han_giu->greaterThanOrEqualTo($tran)) {
+                return ['success' => false, 'message' => 'Đơn đã đạt hạn giữ tối đa, không thể gia hạn.'];
+            }
+
+            $base = ($locked->han_giu !== null && $locked->han_giu->isFuture()) ? $locked->han_giu : now();
+            $moi = $base->copy()->addHours($gioGiaHan);
+            if ($moi->greaterThan($tran)) {
+                $moi = $tran->copy();
+            }
+
+            $locked->update(['han_giu' => $moi]);
+
+            NhatKyService::ghi(
+                $request,
+                'gia_han_don_online',
+                'invoices',
+                $locked->id,
+                'Gia hạn đơn pickup '.$locked->ma_hoadon.' đến '.$moi->format('d/m/Y H:i')
+            );
+
+            return ['success' => true, 'message' => 'Đã gia hạn hạn giữ hàng.', 'han_giu' => $moi->toIso8601String()];
+        }, 2);
+
+        if (! $ketQua['success']) {
+            return response()->json(['error' => $ketQua['message']], 422);
+        }
+
+        return response()->json(['success' => true, 'message' => $ketQua['message'], 'han_giu' => $ketQua['han_giu']]);
     }
 
     public function getDanhSach(Request $request): View

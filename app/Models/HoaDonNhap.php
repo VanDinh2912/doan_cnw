@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\GhiNhatKy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class HoaDonNhap extends Model
 {
-    use HasFactory;
+    use GhiNhatKy, HasFactory;
     protected $table = 'purchase_invoices';
     protected $fillable = [
         'ma_phieu', 'so_hoadon', 'ky_hieu', 'mau_so', 'ngay_hoadon', 'supplier_id',

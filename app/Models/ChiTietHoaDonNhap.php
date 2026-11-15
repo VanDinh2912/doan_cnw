@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\GhiNhatKy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ChiTietHoaDonNhap extends Model
 {
-    use HasFactory;
+    use GhiNhatKy, HasFactory;
     protected $table = 'purchase_invoice_items';
     protected $fillable = ['purchase_invoice_id', 'stt', 'product_id', 'ten_hang', 'don_vi', 'soluong', 'don_gia', 'thanh_tien', 'category_id', 'gia_ban_de_xuat'];
     protected function casts(): array { return ['don_gia' => 'integer', 'thanh_tien' => 'integer', 'gia_ban_de_xuat' => 'integer']; }

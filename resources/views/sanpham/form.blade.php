@@ -36,8 +36,36 @@
                     <input class="form-control" id="don_vi" name="don_vi" value="{{ old('don_vi', $sanPham->don_vi ?: 'Cái') }}" required>
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label" for="hinh_anh">Hình ảnh</label>
+                    <label class="form-label" for="hinh_anh">Hình ảnh (tải tệp)</label>
                     <input class="form-control" id="hinh_anh" name="hinh_anh" type="file" accept="image/*">
+                    @error('hinh_anh')
+                        <div class="text-danger small mt-1">{{ $message }}</div>
+                    @enderror
+                </div>
+                <div class="col-md-8">
+                    <label class="form-label" for="hinh_anh_url">Hoặc dán URL ảnh (https)</label>
+                    <input class="form-control" id="hinh_anh_url" name="hinh_anh_url" type="url"
+                           value="{{ old('hinh_anh_url', $sanPham->exists && str_starts_with((string) $sanPham->hinh_anh, 'https://') ? $sanPham->hinh_anh : '') }}"
+                           placeholder="https://cdn.example.com/anh.jpg">
+                    @error('hinh_anh_url')
+                        <div class="text-danger small mt-1">{{ $message }}</div>
+                    @enderror
+                    <div class="form-text">Gửi cả tệp lẫn URL thì tệp tải lên được ưu tiên. URL chỉ nhận https, tối đa 150 ký tự.</div>
+                    <div id="trang-thai-url" class="form-text" aria-live="polite"></div>
+                </div>
+                <div class="col-12 d-flex align-items-center gap-3">
+                    <img id="xem-truoc-anh"
+                         src="{{ $sanPham->exists ? $sanPham->anh_url : asset('img/no-image.svg') }}"
+                         data-mac-dinh="{{ $sanPham->exists ? $sanPham->anh_url : asset('img/no-image.svg') }}"
+                         alt="Xem trước ảnh sản phẩm"
+                         loading="lazy" referrerpolicy="no-referrer"
+                         style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid #dee2e6;">
+                    @if ($sanPham->exists)
+                        <div class="form-check">
+                            <input class="form-check-input" id="xoa_anh" name="xoa_anh" type="checkbox" value="1">
+                            <label class="form-check-label" for="xoa_anh">Xóa ảnh hiện tại</label>
+                        </div>
+                    @endif
                 </div>
                 <div class="col-md-3">
                     <label class="form-label" for="gia_nhap">Giá nhập</label>
@@ -62,9 +90,124 @@
             </div>
             <div class="mt-4">
                 <a class="btn btn-secondary" href="{{ route('sanpham.danhsach') }}">Hủy</a>
-                <button class="btn btn-primary" type="submit">Lưu</button>
+                <button class="btn btn-primary" id="nut-luu" type="submit">Lưu</button>
             </div>
         </form>
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+(function () {
+    const tep = document.getElementById('hinh_anh');
+    const url = document.getElementById('hinh_anh_url');
+    const xoaAnh = document.getElementById('xoa_anh');
+    const xemTruoc = document.getElementById('xem-truoc-anh');
+    const nutLuu = document.getElementById('nut-luu');
+    const trangThai = document.getElementById('trang-thai-url');
+    if (!xemTruoc || !url || !nutLuu || !trangThai) return;
+
+    const anhMacDinh = xemTruoc.dataset.macDinh;
+    const BAO_LOI = 'Liên kết này không phải ảnh hoặc không tải được. Hãy chọn \'Sao chép địa chỉ hình ảnh\' rồi dán lại.';
+    const CHO_KIEM_TRA = 500;
+    const TIMEOUT_ANH = 8000;
+
+    let henGio = null;
+    let henTimeout = null;
+    let anhDangKiemTra = null;
+    let giaTriDaKiemTra = null;
+    let muc = 'trong';
+
+    function capNhatNutLuu() {
+        const coTep = !!(tep && tep.files && tep.files.length > 0);
+        const coUrl = url.value.trim() !== '';
+        nutLuu.disabled = coUrl && !coTep && !(xoaAnh && xoaAnh.checked)
+            && (muc === 'dang_kiem_tra' || muc === 'hong');
+    }
+
+    function datMuc(moi, loiNhan, lop) {
+        muc = moi;
+        trangThai.textContent = loiNhan;
+        trangThai.className = lop;
+        capNhatNutLuu();
+    }
+
+    function huyKiemTra() {
+        if (henTimeout !== null) { clearTimeout(henTimeout); henTimeout = null; }
+        if (anhDangKiemTra !== null) {
+            anhDangKiemTra.onload = null;
+            anhDangKiemTra.onerror = null;
+            anhDangKiemTra = null;
+        }
+    }
+
+    function capNhatXemTruoc() {
+        if (xoaAnh && xoaAnh.checked) { xemTruoc.src = anhMacDinh; return; }
+        if (tep && tep.files && tep.files[0]) { xemTruoc.src = URL.createObjectURL(tep.files[0]); return; }
+        const giaTri = url.value.trim();
+        xemTruoc.src = giaTri.startsWith('https://') ? giaTri : anhMacDinh;
+    }
+
+    function ketThucKiemTra(anh, thanhCong) {
+        if (anhDangKiemTra !== anh) return;
+        huyKiemTra();
+        if (thanhCong) {
+            datMuc('hop_le', 'Liên kết ảnh tải được.', 'form-text text-success');
+            capNhatXemTruoc();
+        } else {
+            datMuc('hong', BAO_LOI, 'form-text text-danger');
+            if (!(xoaAnh && xoaAnh.checked) && !(tep && tep.files && tep.files[0])) {
+                xemTruoc.src = anhMacDinh;
+            }
+        }
+    }
+
+    function kiemTraUrl() {
+        if (henGio !== null) { clearTimeout(henGio); henGio = null; }
+        huyKiemTra();
+        const giaTri = url.value.trim();
+        giaTriDaKiemTra = giaTri;
+        if (giaTri === '') {
+            datMuc('trong', '', 'form-text');
+            capNhatXemTruoc();
+            return;
+        }
+        if (!giaTri.startsWith('https://')) {
+            datMuc('hong', BAO_LOI, 'form-text text-danger');
+            capNhatXemTruoc();
+            return;
+        }
+        datMuc('dang_kiem_tra', 'Đang kiểm tra liên kết ảnh…', 'form-text');
+        const anh = new Image();
+        anhDangKiemTra = anh;
+        anh.referrerPolicy = 'no-referrer';
+        anh.onload = function () { ketThucKiemTra(anh, true); };
+        anh.onerror = function () { ketThucKiemTra(anh, false); };
+        henTimeout = setTimeout(function () { ketThucKiemTra(anh, false); }, TIMEOUT_ANH);
+        anh.src = giaTri;
+    }
+
+    url.addEventListener('input', function () {
+        capNhatXemTruoc();
+        if (henGio !== null) clearTimeout(henGio);
+        if (url.value.trim() === '') {
+            huyKiemTra();
+            giaTriDaKiemTra = '';
+            datMuc('trong', '', 'form-text');
+            return;
+        }
+        datMuc('dang_kiem_tra', 'Đang kiểm tra liên kết ảnh…', 'form-text');
+        henGio = setTimeout(kiemTraUrl, CHO_KIEM_TRA);
+    });
+    url.addEventListener('blur', function () {
+        const giaTri = url.value.trim();
+        if (giaTri === giaTriDaKiemTra && (muc === 'hop_le' || muc === 'hong')) return;
+        kiemTraUrl();
+    });
+    if (tep) tep.addEventListener('change', function () { capNhatXemTruoc(); capNhatNutLuu(); });
+    if (xoaAnh) xoaAnh.addEventListener('change', function () { capNhatXemTruoc(); capNhatNutLuu(); });
+    capNhatNutLuu();
+})();
+</script>
+@endpush

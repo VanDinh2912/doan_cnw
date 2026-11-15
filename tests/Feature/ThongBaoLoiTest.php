@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
 /**
@@ -48,6 +49,21 @@ class ThongBaoLoiTest extends TestCase
             ->assertSee('Máy chủ gặp sự cố')
             ->assertDontSee('Exception')
             ->assertDontSee('SQLSTATE');
+    }
+
+    public function test_exception_that_su_render_trang_500_tieng_viet_khi_debug_tat(): void
+    {
+        config(['app.debug' => false]);
+        Route::middleware('web')->get('/_test-loi-500', function () {
+            throw new \RuntimeException('SQLSTATE[22001]: Data too long for column hinh_anh');
+        });
+
+        $this->get('/_test-loi-500')
+            ->assertStatus(500)
+            ->assertSee('Máy chủ gặp sự cố')
+            ->assertDontSee('SQLSTATE')
+            ->assertDontSee('Data too long')
+            ->assertDontSee('RuntimeException');
     }
 
     public function test_pos_co_xu_ly_loi_ajax_than_thien(): void
