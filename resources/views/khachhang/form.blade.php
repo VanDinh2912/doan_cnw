@@ -26,6 +26,21 @@
         <input class="form-control @error('dia_chi') is-invalid @enderror" id="dia_chi" name="dia_chi" value="{{ old('dia_chi', $khachHang->dia_chi) }}">
         @error('dia_chi') <div class="invalid-feedback">{{ $message }}</div> @enderror
     </div>
+    @if ($khachHang->exists)
+    <div class="mb-3">
+        <label class="form-label" for="user_id">Tài khoản khách hàng</label>
+        <select class="form-select @error('user_id') is-invalid @enderror" id="user_id" name="user_id">
+            <option value="">— Chưa liên kết —</option>
+            @foreach (($taiKhoan ?? collect()) as $tk)
+                <option value="{{ $tk->id }}" @selected((string) old('user_id', $khachHang->user_id) === (string) $tk->id)>
+                    {{ $tk->name }} ({{ $tk->email }})
+                </option>
+            @endforeach
+        </select>
+        <small class="text-muted">Chỉ nhân viên được gán liên kết sau khi xác nhận danh tính. Tài khoản đã liên kết hồ sơ khác không xuất hiện ở đây.</small>
+        @error('user_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
+    </div>
+    @endif
     <div>
         <a class="btn btn-secondary" href="{{ route('khachhang.danhsach') }}">Hủy</a>
         <button class="btn btn-primary" type="submit">Lưu</button>

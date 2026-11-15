@@ -113,6 +113,18 @@ class AuthController extends Controller
 
             $khachHang = KhachHang::where('so_dienthoai', $data['so_dienthoai'])->first();
 
+            // Chống chiếm hồ sơ: SĐT trùng KHÔNG tự động liên kết tài khoản.
+            // Ai biết SĐT khách cũng đăng ký được — nếu tự gán user_id thì kẻ
+            // đó xem được toàn bộ đơn hàng/điểm/địa chỉ của khách thật.
+            // Hồ sơ đã có chủ (user_id != null) → từ chối đăng ký.
+            // Hồ sơ chưa liên kết → tài khoản tạo thành công nhưng KHÔNG gán;
+            // nhân viên xác nhận liên kết thủ công ở màn hình khách hàng.
+            if ($khachHang !== null && $khachHang->user_id !== null) {
+                throw ValidationException::withMessages([
+                    'so_dienthoai' => 'Số điện thoại đã được đăng ký.',
+                ]);
+            }
+
             if ($khachHang === null) {
                 KhachHang::create([
                     'user_id' => $user->id,
@@ -121,20 +133,7 @@ class AuthController extends Controller
                     'dia_chi' => null,
                     'diem_tichluy' => 0,
                 ]);
-
-                return $user;
             }
-
-            if ($khachHang->user_id !== null) {
-                throw ValidationException::withMessages([
-                    'so_dienthoai' => 'Số điện thoại đã được liên kết với tài khoản khác.',
-                ]);
-            }
-
-            $khachHang->update([
-                'user_id' => $user->id,
-                'ho_ten' => $data['name'],
-            ]);
 
             return $user;
         });
