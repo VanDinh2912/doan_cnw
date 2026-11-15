@@ -4,8 +4,7 @@
   (phương án 1 người dùng duyệt 2026-11-15: nền P2 đầy đủ, Stage 1 merge
   `fix/khach-hang-so-dien-thoai`).
 - **Báo cáo:** `docs/BAO_CAO_KHACH_NHATKY_TAIKHOAN.md`.
-- **Baseline:** 522 test — 480 pass / 42 skip (MySQL-copy) / 0 fail, 2255 assertions,
-  477.59s (Xdebug off, sqlite `:memory:`, 2026-11-15).
+- **Baseline sau commit guard:** 582 test — 582 pass / 42 skip (MySQL-copy) / 2 fail (DoiSoatTest T-DS04/T-DS06, lỗi test cũ không reset activity_logs), 2597 assertions, 671.77s (Xdebug off, sqlite `:memory:`, 2026-11-15).
 
 | Stage | Nội dung | Trạng thái | Commit |
 |---|---|---|---|
@@ -80,8 +79,8 @@
 
 ### Phần 2 (Đang làm)
 - Middleware CheckBatBuocDoiMatKhau: moi file da tao (chua add vao route)
-- Guard DB: thay Schema::hasColumn trong middleware bang kiem tra tren user da nạp (array_key_exists)
 - Stage 2 (nhat ky kiem toan) ĐÃ TỒN TẠI: NhatKyService + trait GhiNhatKy + migration extend_activity_logs
+- Baseline sau commit guard: 582 test — 582 pass / 42 skip / 2 fail (DoiSoatTest T-DS04/T-DS06, lỗi test cũ không reset activity_logs), 2597 assertions, 671.77s
 - CON THIEU:
   - A. ƯU TIÊN AN TOÀN: route + controller đổi mật khẩu tự (/doi-mat-khau) cho mọi vai trò, views (danhsach, them, sua, doi-mat-khau)
   - B. Guard DB: CheckKhoaLuc và CheckBatBuocDoiMatKhau dùng array_key_exists thay vì Schema::hasColumn

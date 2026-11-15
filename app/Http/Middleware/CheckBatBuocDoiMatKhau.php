@@ -44,7 +44,7 @@ class CheckBatBuocDoiMatKhau
         // Guard: Chỉ kiểm tra nếu cột bat_buoc_doi_mat_khau đã tồn tại
         if ($user && $this->columnExists('bat_buoc_doi_mat_khau')) {
             // Loại trừ các route không cần chuyển hướng
-            $excludedRoutes = ['doi-mat-khau', 'dangxuat'];
+            $excludedRoutes = ['doi-mat-khau', 'doi-mat-khau.post', 'auth.dangxuat'];
             $currentRoute = $request->route()?->getName();
 
             if ($user->bat_buoc_doi_mat_khau === true && !in_array($currentRoute, $excludedRoutes, true)) {

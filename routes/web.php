@@ -31,6 +31,12 @@ Route::get('/dangxuat', [\App\Http\Controllers\AuthController::class, 'getDangXu
     ->middleware('auth')
     ->name('auth.dangxuat');
 
+// Đổi mật khẩu (cho mọi vai trò đã đăng nhập, loại trừ khỏi middleware bat.buoc.doi.mat.khau)
+Route::middleware(['auth'])->group(function (): void {
+    Route::get('/doi-mat-khau', [\App\Http\Controllers\DoiMatKhauController::class, 'getForm'])->name('doi-mat-khau');
+    Route::post('/doi-mat-khau', [\App\Http\Controllers\DoiMatKhauController::class, 'postDoi'])->name('doi-mat-khau.post');
+});
+
 Route::post('/api/webhook/thanhtoan', [\App\Http\Controllers\WebhookController::class, 'postThanhToan'])
     ->withoutMiddleware('web')
     ->middleware('throttle:60,1')
