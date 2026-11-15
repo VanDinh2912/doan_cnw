@@ -43,6 +43,27 @@ class DonHang extends Model
         };
     }
 
+    public function getHinhThucNhanTiengVietAttribute(): string
+    {
+        return match ($this->hinh_thuc_nhan) {
+            'giao_tan_noi' => 'Giao tận nơi',
+            'tai_cua_hang' => 'Nhận tại cửa hàng',
+            default => '—',
+        };
+    }
+
+    public function getTrangThaiGiaoTiengVietAttribute(): string
+    {
+        return match ($this->trang_thai_giao) {
+            'cho_xac_nhan' => 'Chờ xác nhận',
+            'da_xac_nhan' => 'Đã xác nhận',
+            'dang_giao' => 'Đang giao',
+            'da_giao' => 'Đã giao',
+            'da_huy_giao' => 'Đã hủy giao',
+            default => '—',
+        };
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

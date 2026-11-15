@@ -7,6 +7,7 @@ use App\Models\ChiTietDonHang;
 use App\Models\DonHang;
 use App\Models\KhachHang;
 use App\Models\SanPham;
+use App\Support\KiemTraSchema;
 use App\Support\SoDienThoai;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -273,6 +274,20 @@ class ThanhToanChuyenKhoanService
                 $updateData['ghi_chu'] = $lockedInvoice->ghi_chu
                     ? $lockedInvoice->ghi_chu.' | '.$ghiChu
                     : $ghiChu;
+            }
+
+            // D15: đơn online giao tận nơi → đặt trạng thái giao ngay khi tiền về.
+            // POS_ONLINE_TU_DONG_XAC_NHAN=true → da_xac_nhan, false → cho_xac_nhan.
+            // Guard: DB thiếu cột trang_thai_giao thì bỏ qua, vẫn hoàn tất đơn;
+            // chỉ đặt khi đang null nên webhook lặp/manual confirm không ghi đè
+            // trạng thái do nhân viên (P3) đã cập nhật.
+            if (($lockedInvoice->kenh ?? null) === 'online'
+                && ($lockedInvoice->hinh_thuc_nhan ?? null) === 'giao_tan_noi'
+                && $lockedInvoice->trang_thai_giao === null
+                && KiemTraSchema::coCot('invoices', 'trang_thai_giao')) {
+                $updateData['trang_thai_giao'] = config('pos.online_tu_dong_xac_nhan')
+                    ? 'da_xac_nhan'
+                    : 'cho_xac_nhan';
             }
 
             $lockedInvoice->update($updateData);

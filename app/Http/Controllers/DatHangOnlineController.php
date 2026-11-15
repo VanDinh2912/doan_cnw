@@ -53,6 +53,7 @@ class DatHangOnlineController extends Controller
             'pickupGio' => (int) config('pos.online_pickup_gio', 4),
             'phiGiaoHang' => (int) config('pos.phi_giao_hang', 30000),
             'mienPhiGiaoTu' => (int) config('pos.mien_phi_giao_tu', 0),
+            'giaoTanNoiBat' => (bool) config('pos.giao_tan_noi_bat', false),
             'khachHang' => auth()->user()?->khachHang,
         ]);
     }
@@ -101,6 +102,12 @@ class DatHangOnlineController extends Controller
         $validated['hinh_thuc_nhan'] = $validated['hinh_thuc_nhan'] ?? 'tai_cua_hang';
 
         // P2: tai_cua_hang cho cả QR và trả tại quầy (không còn chặn như P1)
+
+        // Cờ POS_GIAO_TAN_NOI_BAT: tắt thì từ chối giao_tan_noi ở server
+        // (UI cũng đã ẩn lựa chọn; vẫn chặn request thủ công).
+        if ($validated['hinh_thuc_nhan'] === 'giao_tan_noi' && ! config('pos.giao_tan_noi_bat')) {
+            return back()->withErrors(['hinh_thuc_nhan' => 'Hiện cửa hàng chưa hỗ trợ giao tận nơi.'])->withInput();
+        }
 
         // Kiểm tra giao_tan_noi phải dùng QR
         if ($validated['hinh_thuc_nhan'] === 'giao_tan_noi' && $validated['phuong_thuc'] !== 'qr') {
@@ -331,8 +338,11 @@ class DatHangOnlineController extends Controller
         }
         $don = $this->huyNeuQuaHan($don, $service);
 
-        // Polling chỉ trả trạng thái, không kèm SĐT / thông tin khách (T5).
-        return response()->json(['trang_thai' => $don->trang_thai]);
+        // Polling chỉ trả trạng thái (thanh toán + giao), không kèm SĐT / thông tin khách (T5).
+        return response()->json([
+            'trang_thai' => $don->trang_thai,
+            'trang_thai_giao' => $don->trang_thai_giao,
+        ]);
     }
 
     public function postHuy(Request $request, string $ma_tra_cuu, ThanhToanChuyenKhoanService $service): RedirectResponse

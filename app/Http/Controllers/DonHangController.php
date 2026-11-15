@@ -168,6 +168,13 @@ class DonHangController extends Controller
             return response()->json(['error' => $res['message']], 422);
         }
 
+        // Đơn giao tận nơi: báo Telegram sau commit (không địa chỉ đầy đủ, SĐT che).
+        DB::afterCommit(function () use ($donHang): void {
+            if ($donHang->hinh_thuc_nhan === 'giao_tan_noi') {
+                app(\App\Services\ThongBaoService::class)->thongBaoDonGiaoDaThanhToan($donHang);
+            }
+        });
+
         return response()->json([
             'success' => true,
             'message' => 'Đã xác nhận thanh toán thành công.',

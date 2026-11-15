@@ -99,6 +99,26 @@ class KiemTraHeThong extends Command
         } else {
             $this->bao('WARN', 'Telegram', 'thiếu TELEGRAM_BOT_TOKEN hoặc TELEGRAM_CHAT_ID — thông báo/cảnh báo bị tắt');
         }
+
+        // Cờ đặt hàng online (P2): báo trạng thái; WARN khi bật mà thiếu biến cần thiết.
+        $datHangBat = (bool) config('pos.dat_hang_online_bat');
+        $giaoTanNoiBat = (bool) config('pos.giao_tan_noi_bat');
+        $this->bao($datHangBat ? 'OK' : 'INFO', 'Đặt hàng online', $datHangBat ? 'POS_DAT_HANG_ONLINE_BAT đang bật' : 'POS_DAT_HANG_ONLINE_BAT đang tắt — mọi route đặt hàng online trả 404');
+
+        if (! $datHangBat) {
+            $this->bao('INFO', 'Giao tận nơi', 'POS_GIAO_TAN_NOI_BAT không có ý nghĩa khi đặt hàng online đang tắt');
+        } elseif (! $giaoTanNoiBat) {
+            $this->bao('INFO', 'Giao tận nơi', 'POS_GIAO_TAN_NOI_BAT đang tắt — chỉ nhận tại cửa hàng');
+        } else {
+            $this->bao('OK', 'Giao tận nơi', 'POS_GIAO_TAN_NOI_BAT đang bật');
+        }
+
+        if ($datHangBat && ($bankCode === '' || $bankAccount === '')) {
+            $this->bao('WARN', 'Đặt hàng online', 'đang bật nhưng thiếu POS_BANK_CODE/POS_BANK_ACCOUNT — khách không quét được QR');
+        }
+        if ($giaoTanNoiBat && ! $datHangBat) {
+            $this->bao('WARN', 'Giao tận nơi', 'POS_GIAO_TAN_NOI_BAT bật nhưng POS_DAT_HANG_ONLINE_BAT tắt — cờ giao hàng không có tác dụng');
+        }
     }
 
     private function kiemTraMoiTruong(): void

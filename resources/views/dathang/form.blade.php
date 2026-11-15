@@ -20,10 +20,12 @@
                         <input type="radio" name="hinh_thuc_nhan" value="tai_cua_hang" {{ old('hinh_thuc_nhan', 'tai_cua_hang') === 'tai_cua_hang' ? 'checked' : '' }}>
                         Nhận tại cửa hàng
                     </label>
-                    <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
-                        <input type="radio" name="hinh_thuc_nhan" value="giao_tan_noi" {{ old('hinh_thuc_nhan') === 'giao_tan_noi' ? 'checked' : '' }}>
-                        Giao tận nơi
-                    </label>
+                    @if ($giaoTanNoiBat ?? false)
+                        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
+                            <input type="radio" name="hinh_thuc_nhan" value="giao_tan_noi" {{ old('hinh_thuc_nhan') === 'giao_tan_noi' ? 'checked' : '' }}>
+                            Giao tận nơi
+                        </label>
+                    @endif
                 </div>
                 @error('hinh_thuc_nhan')<div style="color:var(--sf-stock-out);font-size:var(--sf-text-sm);">{{ $message }}</div>@enderror
             </div>

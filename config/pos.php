@@ -22,6 +22,8 @@ return [
     'mien_phi_giao_tu' => (int) env('POS_MIEN_PHI_GIAO_TU', 0),
     'online_tu_dong_xac_nhan' => env('POS_ONLINE_TU_DONG_XAC_NHAN', false) === true,
     'giao_hang_tinh' => env('POS_GIAO_HANG_TINH', ''),
+    'dat_hang_online_bat' => env('POS_DAT_HANG_ONLINE_BAT', false) === true,
+    'giao_tan_noi_bat' => env('POS_GIAO_TAN_NOI_BAT', false) === true,
     'sepay_webhook_api_key' => env('SEPAY_WEBHOOK_API_KEY', ''),
     'telegram_bot_token' => env('TELEGRAM_BOT_TOKEN', ''),
     'telegram_chat_id' => env('TELEGRAM_CHAT_ID', ''),

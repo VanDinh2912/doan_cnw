@@ -71,9 +71,11 @@
                         <button type="submit" class="sf-icon-btn" style="height:44px;">
                             <i class="fa-solid fa-rotate"></i> Cập nhật
                         </button>
-                        <a href="{{ route('dat-hang.form') }}" class="sf-icon-btn is-primary" style="height:44px;padding:0 24px;">
-                            <i class="fa-solid fa-credit-card"></i> Đặt hàng
-                        </a>
+                        @if (config('pos.dat_hang_online_bat'))
+                            <a href="{{ route('dat-hang.form') }}" class="sf-icon-btn is-primary" style="height:44px;padding:0 24px;">
+                                <i class="fa-solid fa-credit-card"></i> Đặt hàng
+                            </a>
+                        @endif
                     </div>
                 </div>
             </form>

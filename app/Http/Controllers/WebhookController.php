@@ -154,8 +154,11 @@ class WebhookController extends Controller
                 ]);
 
                 // Thông báo Telegram sau khi giao dịch đã hoàn tất
-                DB::afterCommit(function () use ($soTienChuyen, $maHoaDon, $ghiChuDu, $treHan, $txn, $soPhutHan) {
+                DB::afterCommit(function () use ($soTienChuyen, $maHoaDon, $ghiChuDu, $treHan, $txn, $soPhutHan, $donHang) {
                     $this->thongBaoService->thongBaoThanhToanThanhCong($soTienChuyen, $maHoaDon, $ghiChuDu);
+                    if ($donHang->hinh_thuc_nhan === 'giao_tan_noi') {
+                        $this->thongBaoService->thongBaoDonGiaoDaThanhToan($donHang);
+                    }
                     if ($treHan) {
                         $this->thongBaoService->canhBaoThanhToanTreHan($soTienChuyen, $maHoaDon, $txn['ma_giaodich'], $soPhutHan);
                     }

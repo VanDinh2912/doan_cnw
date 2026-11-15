@@ -42,8 +42,11 @@ Route::post('/api/webhook/thanhtoan', [\App\Http\Controllers\WebhookController::
     ->middleware('throttle:60,1')
     ->name('webhook.thanhtoan');
 
-// Đặt hàng online guest pickup (P1) — công khai, không bắt buộc đăng nhập.
-Route::prefix('dat-hang')->name('dat-hang.')->group(function (): void {
+// Đặt hàng online guest (P1/P2) — công khai, không bắt buộc đăng nhập.
+// Cờ POS_DAT_HANG_ONLINE_BAT tắt → toàn bộ nhóm route trả 404.
+Route::prefix('dat-hang')->name('dat-hang.')
+    ->middleware('dat.hang.online')
+    ->group(function (): void {
     Route::get('/', [\App\Http\Controllers\DatHangOnlineController::class, 'getForm'])->name('form');
     Route::post('/', [\App\Http\Controllers\DatHangOnlineController::class, 'postDat'])
         ->middleware('throttle:'.config('pos.online_throttle_dat', '5,1'))
@@ -59,7 +62,9 @@ Route::middleware(['auth', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->group(function
     Route::get('/thong-tin-ca-nhan/don-hang/{donHang}', [\App\Http\Controllers\ThongTinCaNhanController::class, 'getOrderDetail'])->name('profile.orders.show');
 });
 
-Route::prefix('don-hang')->name('don-hang.')->group(function (): void {
+Route::prefix('don-hang')->name('don-hang.')
+    ->middleware('dat.hang.online')
+    ->group(function (): void {
     Route::get('/tra-cuu', [\App\Http\Controllers\DatHangOnlineController::class, 'getTraCuu'])->name('tracuu');
     Route::post('/tra-cuu', [\App\Http\Controllers\DatHangOnlineController::class, 'postTraCuu'])
         ->middleware('throttle:'.config('pos.online_throttle_dat', '5,1'))

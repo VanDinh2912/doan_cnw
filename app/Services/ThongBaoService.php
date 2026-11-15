@@ -101,6 +101,23 @@ class ThongBaoService
     }
 
     /**
+     * Đơn online giao tận nơi đã thanh toán (webhook hoặc thu ngân xác nhận).
+     * Chỉ gồm mã đơn, tổng, hình thức, người nhận + SĐT che; KHÔNG địa chỉ đầy đủ.
+     */
+    public function thongBaoDonGiaoDaThanhToan(DonHang $don): void
+    {
+        $soTienFmt = number_format((float) $don->tong_thanh_toan, 0, ',', '.');
+        $msg = "<b>ĐƠN GIAO TẬN NƠI ĐÃ THANH TOÁN</b>\n"
+            ."Mã đơn: <b>{$don->ma_hoadon}</b>\n"
+            ."Tổng: {$soTienFmt} đ\n"
+            ."Hình thức: Giao tận nơi\n"
+            ."Người nhận: ".e($don->ten_nguoi_nhan)."\n"
+            ."SĐT nhận: ".CheThongTin::soDienThoai($don->sdt_nguoi_nhan);
+
+        $this->guiTelegram($msg);
+    }
+
+    /**
      * Cảnh báo khách chuyển thiếu tiền.
      */
     public function canhBaoThieuTien(int $soTienChuyen, int $tongThanhToan, string $maHoaDon, string $maGiaoDich): void
