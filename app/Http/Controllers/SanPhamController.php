@@ -28,6 +28,7 @@ class SanPhamController extends Controller
         return view('sanpham.form', [
             'sanPham' => new SanPham(['trang_thai' => true, 'soluong_toithieu' => 5]),
             'loais' => LoaiSanPham::orderBy('ten_loai')->get(),
+            'gioiHanUrlAnh' => AnhSanPhamUrl::gioiHanDoDai(),
         ]);
     }
 
@@ -59,6 +60,7 @@ class SanPhamController extends Controller
         return view('sanpham.form', [
             'sanPham' => $sanPham,
             'loais' => LoaiSanPham::orderBy('ten_loai')->get(),
+            'gioiHanUrlAnh' => AnhSanPhamUrl::gioiHanDoDai(),
         ]);
     }
 

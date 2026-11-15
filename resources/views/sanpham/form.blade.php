@@ -50,8 +50,12 @@
                     @error('hinh_anh_url')
                         <div class="text-danger small mt-1">{{ $message }}</div>
                     @enderror
-                    <div class="form-text">Gửi cả tệp lẫn URL thì tệp tải lên được ưu tiên. URL chỉ nhận https, tối đa 150 ký tự.</div>
+                    <div class="form-text">Gửi cả tệp lẫn URL thì tệp tải lên được ưu tiên. URL chỉ nhận https, tối đa {{ $gioiHanUrlAnh ?? 150 }} ký tự.</div>
                     <div id="trang-thai-url" class="form-text" aria-live="polite"></div>
+                    <div id="hop-le-url-canh-bao" class="form-check mt-1 d-none">
+                        <input class="form-check-input" id="luu-url-du-canh-bao" type="checkbox" value="1">
+                        <label class="form-check-label small" for="luu-url-du-canh-bao">Vẫn lưu liên kết này (máy chủ sẽ kiểm tra lại định dạng)</label>
+                    </div>
                 </div>
                 <div class="col-12 d-flex align-items-center gap-3">
                     <img id="xem-truoc-anh"
@@ -106,6 +110,8 @@
     const xemTruoc = document.getElementById('xem-truoc-anh');
     const nutLuu = document.getElementById('nut-luu');
     const trangThai = document.getElementById('trang-thai-url');
+    const hopLeUrlCanhBao = document.getElementById('hop-le-url-canh-bao');
+    const luuUrlDuCanhBao = document.getElementById('luu-url-du-canh-bao');
     if (!xemTruoc || !url || !nutLuu || !trangThai) return;
 
     const anhMacDinh = xemTruoc.dataset.macDinh;
@@ -117,19 +123,33 @@
     let henTimeout = null;
     let anhDangKiemTra = null;
     let giaTriDaKiemTra = null;
+    let giaTriCanhBaoGanNhat = null;
     let muc = 'trong';
 
     function capNhatNutLuu() {
         const coTep = !!(tep && tep.files && tep.files.length > 0);
         const coUrl = url.value.trim() !== '';
+        const boQuaCanhBao = !!(luuUrlDuCanhBao && luuUrlDuCanhBao.checked);
         nutLuu.disabled = coUrl && !coTep && !(xoaAnh && xoaAnh.checked)
-            && (muc === 'dang_kiem_tra' || muc === 'hong');
+            && (muc === 'dang_kiem_tra' || (muc === 'hong' && !boQuaCanhBao));
     }
 
     function datMuc(moi, loiNhan, lop) {
         muc = moi;
         trangThai.textContent = loiNhan;
         trangThai.className = lop;
+        if (hopLeUrlCanhBao && luuUrlDuCanhBao) {
+            const hienCanhBao = moi === 'hong';
+            hopLeUrlCanhBao.classList.toggle('d-none', !hienCanhBao);
+            if (hienCanhBao) {
+                // URL mới bị cảnh báo thì phải tích lại lựa chọn "Vẫn lưu".
+                const giaTriHienTai = url.value.trim();
+                if (giaTriHienTai !== giaTriCanhBaoGanNhat) {
+                    luuUrlDuCanhBao.checked = false;
+                    giaTriCanhBaoGanNhat = giaTriHienTai;
+                }
+            }
+        }
         capNhatNutLuu();
     }
 
@@ -207,6 +227,7 @@
     });
     if (tep) tep.addEventListener('change', function () { capNhatXemTruoc(); capNhatNutLuu(); });
     if (xoaAnh) xoaAnh.addEventListener('change', function () { capNhatXemTruoc(); capNhatNutLuu(); });
+    if (luuUrlDuCanhBao) luuUrlDuCanhBao.addEventListener('change', capNhatNutLuu);
     capNhatNutLuu();
 })();
 </script>

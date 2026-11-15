@@ -2,18 +2,33 @@
 
 namespace App\Rules;
 
+use App\Support\KiemTraSchema;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 
 class AnhSanPhamUrl implements ValidationRule
 {
-    // Cột thật products.hinh_anh là VARCHAR(150) utf8mb4 (migration khai 255 nhưng chưa áp lên DB thật).
-    // Không đổi schema nên giới hạn theo cột thật, tránh SQLSTATE 1406 "Data too long" gây 500.
+    // DB thật doan_cnw đang là VARCHAR(150); migration nới lên 500 đã viết sẵn.
+    // Giới hạn hiệu lực = độ dài cột THẬT (đọc qua KiemTraSchema, cache tĩnh);
+    // không đọc được thì lùi về 150 — tránh SQLSTATE 1406 "Data too long" gây 500.
     public const MAX_DO_DAI = 150;
 
     public const THONG_BAO = 'Liên kết ảnh không hợp lệ. Hãy dán liên kết trực tiếp tới tệp ảnh bắt đầu bằng https://, không chứa khoảng trắng hay thông tin đăng nhập.';
 
-    public const THONG_BAO_QUA_DAI = 'Liên kết ảnh quá dài (tối đa '.self::MAX_DO_DAI.' ký tự). Hãy dùng liên kết trực tiếp tới tệp ảnh, không dùng liên kết tìm kiếm hay quảng cáo.';
+    /** Giới hạn độ dài theo cột thật; fallback MAX_DO_DAI khi không đọc được schema. */
+    public static function gioiHanDoDai(): int
+    {
+        try {
+            return KiemTraSchema::doDaiCotVarchar('products', 'hinh_anh') ?? self::MAX_DO_DAI;
+        } catch (\Throwable) {
+            return self::MAX_DO_DAI;
+        }
+    }
+
+    public static function thongBaoQuaDai(): string
+    {
+        return 'Liên kết ảnh quá dài (tối đa '.self::gioiHanDoDai().' ký tự). Hãy dùng liên kết trực tiếp tới tệp ảnh, không dùng liên kết tìm kiếm hay quảng cáo.';
+    }
 
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
@@ -31,8 +46,8 @@ class AnhSanPhamUrl implements ValidationRule
             return;
         }
 
-        if (mb_strlen($value) > self::MAX_DO_DAI) {
-            $fail(self::THONG_BAO_QUA_DAI);
+        if (mb_strlen($value) > self::gioiHanDoDai()) {
+            $fail(self::thongBaoQuaDai());
             return;
         }
 
