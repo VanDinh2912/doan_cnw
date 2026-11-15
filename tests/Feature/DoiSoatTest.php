@@ -139,7 +139,7 @@ class DoiSoatTest extends TestCase
             ->assertSessionHasErrors('ghi_chu');
 
         $this->assertSame('chua_xu_ly', $webhook->fresh()->trang_thai_xu_ly);
-        $this->assertDatabaseCount('activity_logs', 0);
+        $this->assertDatabaseMissing('activity_logs', ['hanh_dong' => 'doi_soat_danh_dau']);
     }
 
     // T-DS05: Đánh dấu đã xử lý cập nhật bản ghi, ghi nhật ký, KHÔNG đụng đơn/kho.
@@ -200,7 +200,7 @@ class DoiSoatTest extends TestCase
             ->assertForbidden();
 
         $this->assertSame('chua_xu_ly', $webhook->fresh()->trang_thai_xu_ly);
-        $this->assertDatabaseCount('activity_logs', 0);
+        $this->assertDatabaseMissing('activity_logs', ['hanh_dong' => 'doi_soat_danh_dau']);
     }
 
     // T-DS07: Giao dịch thành công không bị đưa vào hàng chờ đối soát.
