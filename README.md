@@ -707,8 +707,10 @@ php artisan test --compact
 Remove-Item Env:XDEBUG_MODE
 ```
 
-Các test nghiệp vụ hiện có (**571 test** sau merge nhánh SĐT khách hàng, trong đó 42 skip
-MySQL-copy; số chạy thật cập nhật ở mục 17/18):
+Các test nghiệp vụ hiện có (**685 test** sau Stage 3-4, trong đó 42 skip
+MySQL-copy; số chạy thật: **643 pass / 42 skip / 0 fail, 2823 assertions**
+trên sqlite `:memory:`, MySQL-copy **42 pass / 341 assertions** trên
+`doan_cnw_copy` — cập nhật ở mục 17/18):
 
 **Unit (66 test)**
 
@@ -727,7 +729,7 @@ MySQL-copy; số chạy thật cập nhật ở mục 17/18):
   sạch nội dung, template dự phòng.
 - `ExampleTest` Unit (1).
 
-**Feature (505 test, trong đó 42 skip)**
+**Feature (619 test, trong đó 42 skip)**
 
 Ghi chú: `LoiBTaoQrTest` (6) đã cherry-pick vào nhánh này (`0e8be80`) kèm
 `LoiBThieuCotOnlineTest` (4, `b7e5ed3`) chứng minh scheduler + POS chạy khi DB thiếu
@@ -810,7 +812,12 @@ nằm ở nhánh `fix/loi-van-hanh-1` (chưa merge) — xem
   `dieuchinh` + thông báo rõ ràng trên thanhcong; polling POST không PII + cần bằng chứng
   session (chưa xác thực → 403); pickup thanhcong giữ nguyên "Đặt hàng thành công".
 - `DoiSoatTest` (8): hàng chờ đối soát, phân quyền admin, đánh dấu đã xử lý, chặn
-  xử lý lặp, webhook thành công không vào hàng chờ.
+  xử lý lặp, webhook thành công không vào hàng chờ — assert đúng action
+  `doi_soat_danh_dau` (không đếm toàn bảng log vì model event đã ghi thêm).
+- `DonHangQuyenChuSoHuuTest` (6): quyền xem/trạng thái/poll/hủy đơn online — chủ
+  đơn đã login không cần bằng chứng session, khách B bị chặn kể cả khi đơn ghi
+  đúng SĐT của B, guest cần bằng chứng, không hủy đơn đã thanh toán/đã hủy,
+  hoàn kho đúng một lần.
 - `ExampleTest` Feature (1).
 - `GiuHangOnlineServiceTest` (8): trần giữ hàng pickup — tồn 10→trần 5, trần không co
   lại khi đã giữ, vượt trần từ chối kèm số còn lại, tồn 1→trần 1, không đếm
@@ -822,6 +829,9 @@ nằm ở nhánh `fix/loi-van-hanh-1` (chưa merge) — xem
   tự hủy vẫn hoạt động; chạy lệnh 2 lần idempotent; webhook đơn QR quá hạn như cũ
   (T-CK18); POS poll không hủy nhầm pickup còn hạn + hủy khi quá `han_giu`;
   health-check không báo quá hạn pickup còn hạn.
+- `KhachHangLichSuDonTest` (6): lịch sử đơn khách — đơn POS không `ma_tra_cuu`
+  vẫn hiển thị, chi tiết đơn check chủ sở hữu (khách khác/chưa hồ sơ → 403),
+  chủ đơn login xem trạng thái online không cần bằng chứng.
 - `KhachHangSoDienThoaiTest` (33): chuẩn hóa + validate SĐT ở mọi điểm nhập khách
   hàng (thêm/sửa form, POS thêm nhanh, tìm khách POS, đăng ký storefront): 6 biến
   thể hợp lệ, 9 ca từ chối (chữ, sai độ dài, đầu số cố định, mảng), trùng thô và
@@ -836,6 +846,10 @@ nằm ở nhánh `fix/loi-van-hanh-1` (chưa merge) — xem
   `documents:import`; thiếu cờ/tên, sai DB, kết nối đích, xác nhận tương tác,
   chuyển tiếp lệnh con và không tái sử dụng xác nhận. Dùng mock DB/schema/migrator,
   không xóa bảng hay chạy migration thật.
+- `LienKetHoSoTheoSDTTest` (4): đăng ký trùng SĐT hồ sơ chưa liên kết KHÔNG tự
+  gán `user_id` (chống chiếm hồ sơ), không xem được đơn/điểm/địa chỉ/SĐT, không
+  poll-hủy đơn chờ; nhân viên gán thủ công qua màn sửa khách hàng thì mới thấy;
+  chặn gán tài khoản đã có hồ sơ và tài khoản role nhân viên.
 - `LogBiMatTest` (5): log daily giữ 14 ngày, che bot token Telegram khi lỗi.
 - `LoiBTaoQrTest` (6, cherry-pick `0e8be80`): LỖI B — đủ cấu hình tạo QR thành công;
   thiếu `bank_code`/`bank_account` → 422 thân thiện, không tạo đơn rác/không trừ kho;
@@ -843,6 +857,10 @@ nằm ở nhánh `fix/loi-van-hanh-1` (chưa merge) — xem
 - `LoiBThieuCotOnlineTest` (4, `b7e5ed3`): bỏ cột M1/M3 trong SQLite — scheduler rơi về
   hạn 15 phút (hủy đơn POS quá hạn + hoàn kho + movement, không hủy trước hạn), POS tạo
   QR và POS tiền mặt vẫn chạy. TODO gỡ guard + test sau khi M1–M3 áp lên DB thật.
+- `NhatKyThieuCotTest` (3): DB thiếu cột/bảng `activity_logs` — POS, đăng nhập,
+  scheduler vẫn chạy; nhật ký ghi mức tối thiểu qua guard `KiemTraSchema`.
+- `NhatKyToanBoModelTest` (3): trait `GhiNhatKy` ghi tạo/sửa/xóa cho sản phẩm,
+  hóa đơn, khách hàng, danh mục, nhà cung cấp...
 - `NguoiDungCommandTest` (9): `nguoidung:tao`/`nguoidung:doi-matkhau`, mật khẩu nhập
   ẩn, từ chối vai trò/email/mật khẩu không hợp lệ.
 - `NhapKhoCanhBaoTest` (3): cảnh báo lệch giá nhập >10% và giá bán thấp hơn giá
@@ -884,6 +902,10 @@ nằm ở nhánh `fix/loi-van-hanh-1` (chưa merge) — xem
   id không tồn tại trả 404 trang lỗi tiếng Việt, link danh mục trên trang chủ trỏ
   đúng route; tái hiện lỗi lazy-load `loaiSanPham` ở danh sách sản phẩm liên quan.
 - `TacVuNenTest` (2): `hold:clean` chỉ xóa giỏ quá 24h, Telegram thành công.
+- `TaiKhoanGuardTest` (6): guard `/taikhoan` dùng `KiemTraSchema` (sửa lỗi 302 do
+  `array_key_exists` trên model rỗng), admin factory không refresh vào được,
+  tài khoản khóa bị đăng xuất, cờ đổi MK redirect đúng một lần, thứ tự middleware
+  khóa trước cờ đổi MK, DB thiếu cột Stage 3 vẫn đăng nhập/POS/scheduler được.
 - `ThanhToanChuyenKhoanTest` (21: T-CK01..T-CK18 + 1 test route duy nhất + 2 test
   CSRF thật): tạo QR, webhook hợp lệ/sai key/trùng lặp/dư/thiếu/out, xác nhận/hủy
   thủ công, polling, hủy lười, lệnh hủy quá hạn, in/doanh thu, webhook tới đơn đã
@@ -1401,9 +1423,15 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
   `getQr`). **Chưa implement (bước 3–4):** webhook đặt `trang_thai_giao` (D15), tra cứu hiển
   thị trạng thái giao, báo cáo tách phí ship khỏi doanh thu. Hủy đơn đã thanh toán + hoàn tiền
   thủ công (P3). Chi tiết: `docs/BAO_CAO_DAT_HANG_P2.md`.
-- **Kiểm thử hiện tại: xem mục 9** (sau bước 2 P2, 2026-11-15: **480 pass / 42 skip /
-  0 fail, 2255 assertions, 306.799s** trên sqlite `:memory:`; MySQL-copy chạy riêng
-  **42 pass / 341 assertions / 13.25s** trên `doan_cnw_copy`. Baseline trước đó: P1 419 pass/41 skip/
+- **Kiểm thử hiện tại: xem mục 9** (Stage 3-4, 2026-11-16, nhánh
+  `feat/khach-nhatky-taikhoan`: **643 pass / 42 skip / 0 fail, 2823 assertions,
+  497.88s** trên sqlite `:memory:`; MySQL-copy **42 pass / 341 assertions,
+  12.68s** trên `doan_cnw_copy`. Baseline trước đó: 624 pass / 42 skip /
+  2712 assertions — lượt chạy bị ảnh hưởng giữa chừng bởi chỉnh sửa đang làm;
+  2 fail `/taikhoan` 302 đã được chứng minh riêng trên cây trước sửa và xanh sau
+  fix `KiemTraSchema`. Mốc trước: sau bước 2 P2 (2026-11-15) 480 pass / 42 skip /
+  0 fail, 2255 assertions, 306.799s; MySQL-copy 42 pass / 341 assertions / 13.25s.
+  Baseline trước đó: P1 419 pass/41 skip/
   2007 assertions; P2 chuẩn bị 418 pass/48 skip/2042 assertions; sau merge P1+WIP 434 pass/
   42 skip/2 fail/2073 assertions — 2 fail đã sửa ở production `ec77163`; bước 1 P2 464 pass/
   42 skip/2164 assertions; tiền đề bước 2 474 pass/42 skip/2219 assertions). Skip MySQL-copy =
@@ -1518,6 +1546,23 @@ Cập nhật lần cuối: **2026-11-12**, trên nhánh `fix/anh-url-validate` (
 | `php artisan route:list` | ✅ Hoạt động | 100 routes (không đổi sau khi xóa controller legacy) |
 | `php artisan demo:kiemtra-du-lieu` | ✅ Đã chạy trên DB thật, **"Dữ liệu hợp lệ."** (exit 0) | Lệnh chỉ đọc — xem minh chứng bên dưới |
 | `php artisan demo:reset` | Không chạy | Xóa dữ liệu thật |
+
+### Đợt Stage 3-4 — Khách hàng, nhật ký toàn bộ, chốt main (2026-11-16, nhánh `feat/khach-nhatky-taikhoan`)
+
+| Kiểm tra | Kết quả | Ghi chú |
+|----------|---------|---------|
+| Lịch sử đơn khách | ✅ | Route `profile.orders.show` + trang chi tiết riêng; đơn POS không `ma_tra_cuu` vẫn xem được; check chủ sở hữu `customer_id`; eager-load chi tiết+sản phẩm |
+| SĐT hiển thị | ✅ | Bỏ mask không nhất quán ở header profile/orders — hiển thị đầy đủ cho chính chủ tài khoản |
+| SĐT mọi điểm nhập | ✅ | `SoDienThoaiHopLe` + mutator đã chặn chữ cái; DB thật 101 khách hợp lệ (dry-run) |
+| Nhật ký toàn bộ model | ✅ | `GhiNhatKy` gắn cho 14+ model nghiệp vụ; `PaymentWebhook` cố ý không gắn (đã có log đối soát riêng) |
+| Guard DB thiếu cột | ✅ | `KiemTraSchema` (cache tĩnh `Schema::hasColumn`) thay `array_key_exists` trên model rỗng — **sửa bug production: `/taikhoan` trước đây 302 vô hạn**; kèm sửa `with('customer')` → `khachHang` (500) |
+| Middleware tài khoản | ✅ | Thứ tự `khoa.luc` trước `bat.buoc.doi.mat.khau`; thiếu cột = không cờ, không redirect; test mới 6 ca |
+| Liên kết hồ sơ theo SĐT | ✅ **CÓ LỘ → ĐÃ BỊT** | Trước: đăng ký trùng SĐT khách vãng lai tự chiếm hồ sơ. Sau: không tự liên kết; admin gán thủ công ở màn sửa khách hàng; test 4 ca |
+| `DoiSoatTest` diff | ✅ | 2 assertion đổi từ đếm toàn bảng log → assert đúng action `doi_soat_danh_dau`; chứng minh đỏ (1399 dòng) → xanh |
+| Full suite | ✅ **643 pass / 42 skip / 0 fail (2823 assertions, 497.88s)** | Skip = MySQL-copy cần bản sao |
+| MySQL-copy | ✅ **42 pass / 341 assertions (12.68s)** | `--filter='MysqlCopyTest\|KhoaDongMysqlTest'` trên `doan_cnw_copy` |
+| `view:cache` | ✅ | Blade biên dịch thành công |
+| Migration mới áp DB thật | ⏳ Chưa | Guard `KiemTraSchema` + `TODO(gỡ guard)` sẵn sàng; quy trình gỡ ở `docs/BAO_CAO_STAGE3_4_KHACH_NHATKY.md` mục 7 |
 
 ### Đợt Stage 3 — Quản lý tài khoản nhân viên (2026-11-15, nhánh `feat/khach-nhatky-taikhoan`)
 

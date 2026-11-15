@@ -92,3 +92,15 @@
   - README mục 18: thêm Stage 1/2/3
   - Báo cáo: docs/BAO_CAO_STAGE3_TAIKHOAN.md
   - Vấn đề còn lại: 3 test danh sách fail do middleware redirect khi thiếu cột, 2 test DoiSoatTest lỗi cũ, migration chưa áp dụng trên MySQL thật
+
+## Stage 3-4 - Chot nhanh, chuyen sang main (2026-11-16)
+
+- Lich su don hang khach: route profile.orders.show + order_detail.blade.php, check customer_id, eager-load; don POS khong ma_tra_cuu van xem duoc.
+- UX SĐT: bo mask khong nhat quan o header profile/orders.
+- Nhat ky toan bo model: GhiNhatKy cho 14+ model; guard KiemTraSchema (cache tinh) khi DB thieu cot/bang; NhatKyService cung dung cache.
+- FIX 302 /taikhoan: array_key_exists tren (new User())->getAttributes() luon false -> 302 vo han (bug production); doi sang KiemTraSchema::coCot; kem fix with('customer')->with('khachHang') (500).
+- Middleware: khoa.luc truoc bat.buoc.doi.mat.khau; test 6 ca (TaiKhoanGuardTest).
+- LIEN KET HO SO THEO SDT - CO LO -> DA BIT: postDangKy khong con tu gan user_id vao ho so trung SDT chua lien ket; admin gan thu cong qua select user_id o man sua khach hang; test LienKetHoSoTheoSDTTest (4).
+- DoiSoatTest: 2 assertion dem toan bang log -> assert action doi_soat_danh_dau (chung minh do 1399 -> xanh).
+- Full suite: 643 pass / 42 skip / 0 fail / 2823 assertions (497.88s); MySQL-copy 42 pass / 341 assertions (12.68s) tren doan_cnw_copy.
+- Bao cao chi tiet: docs/BAO_CAO_STAGE3_4_KHACH_NHATKY.md
