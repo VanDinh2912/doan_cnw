@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\NhatKyService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -79,7 +80,16 @@ class TaiKhoanNhanVienController extends Controller
         ]);
 
         // Ghi nhật ký (không ghi mật khẩu)
-        // activity_logs sẽ được ghi tự động qua observer/trait
+        NhatKyService::ghi(
+            request(),
+            'tao',
+            'users',
+            $user->id,
+            "Tạo tài khoản nhân viên: {$user->name} ({$user->role})",
+            ['role' => $validated['role']],
+            ['role' => $validated['role'], 'bat_buoc_doi_mat_khau' => true],
+            'web'
+        );
 
         // Mật khẩu tạm chỉ hiển thị trong flash session (request kế tiếp)
         return redirect()
@@ -153,7 +163,23 @@ class TaiKhoanNhanVienController extends Controller
             ]);
         }
 
+        $oldValues = $user->only(['name', 'role']);
         $user->update($validated);
+        $newValues = $user->only(['name', 'role']);
+
+        // Ghi nhật ký nếu có thay đổi
+        if ($oldValues !== $newValues) {
+            NhatKyService::ghi(
+                request(),
+                'sua',
+                'users',
+                $user->id,
+                "Sửa tài khoản nhân viên: {$user->name}",
+                $oldValues,
+                $newValues,
+                'web'
+            );
+        }
 
         return redirect()
             ->route('taikhoan.danhsach')
@@ -191,7 +217,19 @@ class TaiKhoanNhanVienController extends Controller
             }
         }
 
+        $oldValues = ['khoa_luc' => $user->khoa_luc];
         $user->update(['khoa_luc' => now()]);
+
+        NhatKyService::ghi(
+            request(),
+            'khoa',
+            'users',
+            $user->id,
+            "Khóa tài khoản nhân viên: {$user->name}",
+            $oldValues,
+            ['khoa_luc' => now()->toDateTimeString()],
+            'web'
+        );
 
         return back()->with('success', 'Đã khóa tài khoản thành công.');
     }
@@ -209,7 +247,19 @@ class TaiKhoanNhanVienController extends Controller
             abort(403, 'Chỉ được mở khóa tài khoản nhân viên.');
         }
 
+        $oldValues = ['khoa_luc' => $user->khoa_luc];
         $user->update(['khoa_luc' => null]);
+
+        NhatKyService::ghi(
+            request(),
+            'mo_khoa',
+            'users',
+            $user->id,
+            "Mở khóa tài khoản nhân viên: {$user->name}",
+            $oldValues,
+            ['khoa_luc' => null],
+            'web'
+        );
 
         return back()->with('success', 'Đã mở khóa tài khoản thành công.');
     }
@@ -234,6 +284,17 @@ class TaiKhoanNhanVienController extends Controller
             'password' => Hash::make($tempPassword),
             'bat_buoc_doi_mat_khau' => true, // Bắt buộc đổi ở lần đăng nhập đầu
         ]);
+
+        NhatKyService::ghi(
+            request(),
+            'dat_lai_mat_khau',
+            'users',
+            $user->id,
+            "Đặt lại mật khẩu tài khoản nhân viên: {$user->name}",
+            ['bat_buoc_doi_mat_khau' => $user->getOriginal('bat_buoc_doi_mat_khau')],
+            ['bat_buoc_doi_mat_khau' => true],
+            'web'
+        );
 
         // Mật khẩu tạm chỉ hiển thị trong flash session
         return back()

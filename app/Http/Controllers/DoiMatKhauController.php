@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\NhatKyService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -59,7 +60,16 @@ class DoiMatKhauController extends Controller
         ]);
 
         // Ghi nhật ký (không ghi mật khẩu)
-        // activity_logs sẽ được ghi tự động qua observer/trait nếu có
+        NhatKyService::ghi(
+            request(),
+            'doi_mat_khau',
+            'users',
+            $user->id,
+            "Đổi mật khẩu: {$user->name} ({$user->role})",
+            ['bat_buoc_doi_mat_khau' => true],
+            ['bat_buoc_doi_mat_khau' => false],
+            'web'
+        );
 
         $isStaff = in_array($user->role, ['admin', 'thungan', 'thukho'], true);
         $redirectRoute = $isStaff ? 'tongquan' : 'storefront.home';
