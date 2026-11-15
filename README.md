@@ -681,8 +681,8 @@ php artisan test --compact
 Remove-Item Env:XDEBUG_MODE
 ```
 
-Các test nghiệp vụ hiện có (**516 test** sau tiền đề bước 2 P2, trong đó 42 skip MySQL-copy;
-474 pass / 2219 assertions / 319.84s trên sqlite `:memory:`; số chạy thật cập nhật ở mục 17/18):
+Các test nghiệp vụ hiện có (**522 test** sau bước 2 P2, trong đó 42 skip MySQL-copy;
+480 pass / 2255 assertions / 306.799s trên sqlite `:memory:`; số chạy thật cập nhật ở mục 17/18):
 
 **Unit (50 test)**
 
@@ -698,7 +698,7 @@ Các test nghiệp vụ hiện có (**516 test** sau tiền đề bước 2 P2, 
   sạch nội dung, template dự phòng.
 - `ExampleTest` Unit (1).
 
-**Feature (466 test, trong đó 42 skip)**
+**Feature (472 test, trong đó 42 skip)**
 
 Ghi chú: `LoiBTaoQrTest` (6) đã cherry-pick vào nhánh này (`0e8be80`) kèm
 `LoiBThieuCotOnlineTest` (4, `b7e5ed3`) chứng minh scheduler + POS chạy khi DB thiếu
@@ -775,6 +775,11 @@ nằm ở nhánh `fix/loi-van-hanh-1` (chưa merge) — xem
   trên bản sao MySQL (kiểm tra cột, enum/FK giữ nguyên, dữ liệu POS nguyên vẹn, down
   chặn khi còn đơn giao_tan_noi); tự dọn, chạy lại được. Chỉ chạy khi trỏ vào bản sao
   `*_copy`.
+- `DatHangP2QrOnlineTest` (6): P2 bước 2 — trang QR online: số tiền QR = `tong_thanh_toan`
+  gồm ship + nội dung = mã hóa đơn; đếm ngược theo `han_giu`; thiếu cấu hình ngân hàng →
+  thân thiện, không 500, không lộ số tài khoản; quá hạn → hủy + hoàn kho + movement
+  `dieuchinh` + thông báo rõ ràng trên thanhcong; polling POST không PII + cần bằng chứng
+  session (chưa xác thực → 403); pickup thanhcong giữ nguyên "Đặt hàng thành công".
 - `DoiSoatTest` (8): hàng chờ đối soát, phân quyền admin, đánh dấu đã xử lý, chặn
   xử lý lặp, webhook thành công không vào hàng chờ.
 - `ExampleTest` Feature (1).
@@ -1345,24 +1350,26 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
 - **`db:wipe` đã có chốt chặn production** như `migrate:fresh`: cần
   `--force-dangerous` và đúng tên database đích; `--force` đơn lẻ không đủ.
   Test chốt chặn dùng mock DB/schema/migrator, không xóa hay migrate CSDL thật.
-- **Đặt hàng online P2 (giao tận nơi) — Form + Checkout đã xong (bước 1, 2026-11-14)**:
+- **Đặt hàng online P2 (giao tận nơi) — Form + Checkout + trang QR online đã xong (bước 1–2, 2026-11-14/15)**:
   `giao_tan_noi` bắt buộc QR trả trước + tên/SĐT người nhận + địa chỉ 4 phần (số nhà/đường,
   phường/xã, quận/huyện, tỉnh/thành) ghép một cột `dia_chi_giao` ≤255; vùng giao khớp tỉnh
   chính xác theo `POS_GIAO_HANG_TINH`; phí cố định `POS_PHI_GIAO_HANG`, miễn phí khi tổng
   giá DB ≥ `POS_MIEN_PHI_GIAO_TU` (>0); tổng = tiền hàng + phí tính TRONG transaction (R1);
   honeypot trung tính `truong_phu`; prefill hồ sơ không ghi ngược (D8); D12 chạy cả luồng
   giao; D17 QR online hủy theo `han_giu` (30 phút), không hủy ở mốc 15 phút;
-  `trang_thai_giao=null` tới khi thanh toán. **Chưa implement (bước 2–4):** trang QR online
-  dùng VietQrService đúng tổng gồm ship, webhook đặt `trang_thai_giao` (D15), tra cứu hiển
-  thị trạng thái giao, báo cáo tách phí ship khỏi doanh thu. Đơn giao tạo xong chuyển trang
-  QR hiện có. Hủy đơn đã thanh toán + hoàn tiền thủ công (P3). Chi tiết:
-  `docs/BAO_CAO_DAT_HANG_P2.md`.
-- **Kiểm thử hiện tại: xem mục 9** (sau tiền đề bước 2 P2, 2026-11-15: **474 pass / 42 skip /
-  0 fail, 2219 assertions, 319.84s** trên sqlite `:memory:`; MySQL-copy chạy riêng
-  **42 pass / 341 assertions** trên `doan_cnw_copy`. Baseline trước đó: P1 419 pass/41 skip/
+  `trang_thai_giao=null` tới khi thanh toán. **Bước 2 đã xong (2026-11-15):** trang QR online
+  dùng VietQrService đúng tổng gồm ship + nội dung = mã hóa đơn, đếm ngược theo `han_giu`,
+  hết hạn → hủy + hoàn kho + thông báo rõ ràng, thiếu cấu hình ngân hàng → thân thiện không
+  500/không lộ số tài khoản, polling POST + bằng chứng session không PII (sửa lỗi kiểu trả về
+  `getQr`). **Chưa implement (bước 3–4):** webhook đặt `trang_thai_giao` (D15), tra cứu hiển
+  thị trạng thái giao, báo cáo tách phí ship khỏi doanh thu. Hủy đơn đã thanh toán + hoàn tiền
+  thủ công (P3). Chi tiết: `docs/BAO_CAO_DAT_HANG_P2.md`.
+- **Kiểm thử hiện tại: xem mục 9** (sau bước 2 P2, 2026-11-15: **480 pass / 42 skip /
+  0 fail, 2255 assertions, 306.799s** trên sqlite `:memory:`; MySQL-copy chạy riêng
+  **42 pass / 341 assertions / 13.25s** trên `doan_cnw_copy`. Baseline trước đó: P1 419 pass/41 skip/
   2007 assertions; P2 chuẩn bị 418 pass/48 skip/2042 assertions; sau merge P1+WIP 434 pass/
   42 skip/2 fail/2073 assertions — 2 fail đã sửa ở production `ec77163`; bước 1 P2 464 pass/
-  42 skip/2164 assertions). Skip MySQL-copy =
+  42 skip/2164 assertions; tiền đề bước 2 474 pass/42 skip/2219 assertions). Skip MySQL-copy =
   `KhoaDongMysqlTest` (1) + `AnhUrlMysqlCopyTest` (37) + `DatHangP0MysqlCopyTest` (1) +
   `DatHangP1MysqlCopyTest` (2) + `DatHangP2MysqlCopyTest` (1) — SQLite không có khóa
   dòng/InnoDB, không cưỡng chế độ dài VARCHAR và không phải MySQL strict để thử migration;

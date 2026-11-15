@@ -4,8 +4,88 @@
 **Ngày:** 2026-11-14
 **Phạm vi:** Bước 1 của prompt P2 — (A) merge nền P1 + WIP, (B) kiểm kê WIP + M3 + chốt chặn, (C) Form/Checkout giao_tan_noi. DỪNG sau bước 1; các bước 2–4 (QR online/webhook/tra cứu/báo cáo) để đợt sau.
 
-> **Đọc mục "Tiền đề Bước 2 — cherry-pick LỖI B (đợt 2026-11-15)" ngay dưới đây để biết trạng thái hiện tại.**
-> Các mục Bước 1 / Bước 0 / Bước 1 cũ / 1–12 bên dưới là giai đoạn trước đó (giữ lại để đối chiếu).
+> **Đọc mục "Bước 2 — Trang QR online + polling (đợt 2026-11-15)" ngay dưới đây để biết trạng thái hiện tại.**
+> Mục "Tiền đề Bước 2 — cherry-pick LỖI B" và các mục Bước 1 / Bước 0 / 1–12 bên dưới là giai đoạn trước đó (giữ lại để đối chiếu).
+
+## Bước 2 — Trang QR online + polling (đợt 2026-11-15)
+
+**Nhánh:** `feat/dat-hang-p2-giao-tan-noi`. **Phạm vi:** chỉ đường QR online (`giao_tan_noi`
+và `tai_cua_hang` trả trước), KHÔNG đổi POS ngoài phần (a) đã cherry-pick. Nền: tiền đề
+LỖI B ở dưới (HEAD `a3ea31e`). DỪNG sau Bước 2; bước 3–4 (webhook đặt `trang_thai_giao`,
+tra cứu trạng thái giao, báo cáo tách phí ship) để đợt sau.
+
+### Hiện trạng trước Bước 2 (phần lớn đã có từ WIP/P1)
+
+- `getQr` đã dùng `VietQrService::url((int) tong_thanh_toan, ma_hoadon)` → số tiền gồm ship,
+  nội dung = mã hóa đơn; `postPoll` đã POST + bằng chứng session + chỉ trả `trang_thai`
+  (không PII); `huyNeuQuaHan` đã hủy lười theo `han_giu`; view QR đã có khối thân thiện khi
+  thiếu cấu hình ngân hàng.
+- **Ba hạng mục thiếu/lỗi đã sửa ở Bước 2:**
+  1. `getQr(): View` nhưng trả `RedirectResponse` khi đơn hết hạn/đã hủy → **TypeError**.
+  2. Chưa có đếm ngược theo `han_giu` trên trang QR.
+  3. Trang `thanhcong` hiển thị "Đặt hàng thành công" cho MỌI trạng thái, kể cả `da_huy`
+     → không rõ ràng khi đơn hết hạn bị hủy.
+
+### Thay đổi (tối thiểu, đường online)
+
+| File | Thay đổi |
+|---|---|
+| `app/Http/Controllers/DatHangOnlineController.php` | `getQr(...): View` → `View\|RedirectResponse` (khớp `getTrangThai`); không đổi logic |
+| `resources/views/dathang/qr.blade.php` | Thêm `#qr-countdown[data-han-giu]` + JS đếm ngược mỗi giây; hết hạn → chuyển `dat-hang.thanhcong` (nơi hủy lười + thông báo). Giữ polling POST 5s sẵn có |
+| `resources/views/dathang/thanhcong.blade.php` | Nhánh `da_huy`: title + heading "Đơn hàng đã bị hủy", thông báo "hết hạn thanh toán… đã bị hủy, tồn kho đã được hoàn trả"; giữ nguyên nhánh pickup (`cho_thanh_toan`) + đã thanh toán |
+
+- Không POS nào đổi ngoài phần (a) (đã cherry-pick `b61c83b`). Không enum/FK mới.
+- Escape: dữ khách render bằng `{{ }}`, route trong JS bằng `@json`; không `{!! !!}`.
+  SĐT không lên URL (QR/poll chỉ dùng `ma_tra_cuu`). Poll không trả PII.
+- Thiếu cấu hình ngân hàng: `VietQrService::url` trả null → view hiện khối thân thiện,
+  không 500, không log số tài khoản (đường online không log; POS che số bằng `Str::mask`).
+
+### Test (`DatHangP2QrOnlineTest`, 6 test, 36 assertions)
+
+Đỏ trước (đúng lý do): countdown thiếu (`id="qr-countdown"` không có); hết hạn lỗi
+TypeError `getQr`. Sau khi sửa: xanh cả 6.
+1. QR hiện đúng tổng gồm ship + nội dung = mã hóa đơn (`amount=…`, `addInfo=cleanNoiDung(ma_hoadon)`).
+2. Đếm ngược theo `han_giu` (`data-han-giu="<timestamp>"`).
+3. Thiếu cấu hình ngân hàng → thân thiện, không 500, không lộ số tài khoản.
+4. Quá `han_giu` → hủy + hoàn kho + movement `dieuchinh` + thông báo rõ ràng trên thanhcong.
+5. Polling không PII + cần bằng chứng session (phiên mới chưa xác thực → 403; có bằng chứng → chỉ `trang_thai`).
+6. Pickup `thanhcong` giữ nguyên "Đặt hàng thành công".
+
+- Test 4/5 tạo đơn thẳng qua R1 (`donQrQuaR1`) để phiên KHÔNG có bằng chứng tự động
+  (postDat ghi bằng chứng cho người đặt); nhờ vậy khẳng định 403 khi chưa xác thực là đúng.
+
+### Kiểm chứng trình duyệt (SQLite tạm, KHÔNG đụng DB thật)
+
+- Dev server chạy trên SQLite tạm (`migrate --seed` riêng, env override theo tiến trình,
+  không đọc/ghi `.env`); xác minh `config('database.default')=sqlite` trước khi ghi.
+- Đặt đơn giao tận nơi (1 SP 34.000 ₫ + ship 30.000 ₫) → trang QR: tổng **64.000 ₫**,
+  đếm ngược chạy **29:56**, QR `amount=64000&addInfo=HD202611150001`, SĐT không trên URL.
+- Đẩy `han_giu` về quá khứ → reload QR: tự hủy + redirect thanhcong, heading "Đơn hàng
+  đã bị hủy", thông báo "hết hạn thanh toán… đã bị hủy, tồn kho đã được hoàn trả",
+  không còn "Đặt hàng thành công"; kho 6→7, movement `ban:-1` + `dieuchinh:+1`.
+- `invoices` 0→1 trên SQLite tạm chứng minh mọi ghi chỉ vào DB tạm. (Không chụp ảnh
+  pixel do bề mặt browser trong app ẩn; xác minh qua DOM snapshot.)
+
+### Kết quả test (số thật)
+
+- **Full suite (sqlite `:memory:`, `XDEBUG_MODE=off`):** **522 test, 480 pass / 42 skip /
+  0 fail, 2255 assertions, 306.799s.** +6 test / +36 assertions so với tiền đề
+  (474 pass / 2219); skip không đổi (42 = MySQL-copy). POS tiền mặt/QR/webhook/trả hàng
+  xanh nguyên trạng (không sửa test cũ).
+- Lượt chạy đầu (Xdebug BẬT) cho cùng kết quả 522/2255/42/0, thời gian 1244.04s (chậm do Xdebug).
+- **MySQL-copy (`doan_cnw_copy`, filter chính xác `--filter='MysqlCopyTest|KhoaDongMysqlTest'`):**
+  **42 pass / 341 assertions / 13.25s.** Đối chiếu `SHOW CREATE` chỉ đọc trước chạy: thật có
+  M1+M3, copy pre-M1. Sau chạy copy tự dọn: 5 dòng, 0 cột M1/M3, 0 migration tàn dư.
+
+### Checklist Bước 2 (tự rà §8)
+
+- [x] Chỉ đường QR online; POS không đổi ngoài phần (a); pickup/đã thanh toán giữ hiển thị.
+- [x] Đếm ngược theo han_giu; hết hạn → hủy + hoàn kho + thông báo rõ ràng.
+- [x] QR đúng tổng gồm ship, nội dung = mã hóa đơn; thiếu cấu hình thân thiện, không 500, không lộ số TK.
+- [x] Polling POST + bằng chứng session, không PII, SĐT không trên URL.
+- [x] Test đỏ trước đúng lý do rồi xanh; không giảm test/sửa test cũ; skip chỉ MySQL-copy.
+- [x] Không enum/FK mới; escape `{{ }}`/`@json`; không `.env`; không đụng DB thật (chỉ `SHOW CREATE` đọc + SQLite tạm).
+- [x] Full suite xanh + MySQL-copy filter chính xác; commit tách test → feat → docs.
 
 ## Tiền đề Bước 2 — cherry-pick LỖI B (đợt 2026-11-15)
 
