@@ -5,30 +5,10 @@ namespace App\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpFoundation\Response;
 
 class CheckKhoaLuc
 {
-    /**
-     * Cache kết quả Schema::hasColumn trong request để tránh truy vấn DB nhiều lần
-     */
-    protected static array $columnCache = [];
-
-    /**
-     * Kiểm tra cột có tồn tại trong bảng users (có cache trong request)
-     */
-    protected function columnExists(string $column): bool
-    {
-        $key = 'users.' . $column;
-
-        if (!isset(self::$columnCache[$key])) {
-            self::$columnCache[$key] = Schema::hasColumn('users', $column);
-        }
-
-        return self::$columnCache[$key];
-    }
-
     /**
      * Handle an incoming request.
      *
@@ -39,13 +19,15 @@ class CheckKhoaLuc
      * Middleware này áp dụng cho mọi vai trò (admin, thungan, thukho, khachhang)
      *
      * GUARD: Không đọc khoa_luc nếu cột chưa tồn tại (DB thật chưa áp migration)
+     * - Dùng array_key_exists trên user đã nạp thay vì Schema::hasColumn
+     * - Đúng cả khi bật preventAccessingMissingAttributes
      */
     public function handle(Request $request, Closure $next): Response
     {
         $user = Auth::user();
 
-        // Guard: Chỉ kiểm tra khóa nếu cột khoa_luc đã tồn tại
-        if ($user && $this->columnExists('khoa_luc')) {
+        // Guard: Chỉ kiểm tra khóa nếu cột khoa_luc đã tồn tại trong attributes
+        if ($user && array_key_exists('khoa_luc', $user->getAttributes())) {
             // Nếu user đã đăng nhập và bị khóa
             if ($user->khoa_luc !== null) {
                 // Đăng xuất

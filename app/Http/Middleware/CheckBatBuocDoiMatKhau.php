@@ -5,30 +5,10 @@ namespace App\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpFoundation\Response;
 
 class CheckBatBuocDoiMatKhau
 {
-    /**
-     * Cache kết quả Schema::hasColumn trong request
-     */
-    protected static array $columnCache = [];
-
-    /**
-     * Kiểm tra cột có tồn tại trong bảng users (có cache trong request)
-     */
-    protected function columnExists(string $column): bool
-    {
-        $key = 'users.' . $column;
-
-        if (!isset(self::$columnCache[$key])) {
-            self::$columnCache[$key] = Schema::hasColumn('users', $column);
-        }
-
-        return self::$columnCache[$key];
-    }
-
     /**
      * Handle an incoming request.
      *
@@ -36,13 +16,15 @@ class CheckBatBuocDoiMatKhau
      * Loại trừ: chính trang đổi mật khẩu, đăng xuất, tài nguyên tĩnh để tránh vòng lặp
      *
      * GUARD: Không đọc bat_buoc_doi_mat_khau nếu cột chưa tồn tại
+     * - Dùng array_key_exists trên user đã nạp thay vì Schema::hasColumn
+     * - Đúng cả khi bật preventAccessingMissingAttributes
      */
     public function handle(Request $request, Closure $next): Response
     {
         $user = Auth::user();
 
-        // Guard: Chỉ kiểm tra nếu cột bat_buoc_doi_mat_khau đã tồn tại
-        if ($user && $this->columnExists('bat_buoc_doi_mat_khau')) {
+        // Guard: Chỉ kiểm tra nếu cột bat_buoc_doi_mat_khau đã tồn tại trong attributes
+        if ($user && array_key_exists('bat_buoc_doi_mat_khau', $user->getAttributes())) {
             // Loại trừ các route không cần chuyển hướng
             $excludedRoutes = ['doi-mat-khau', 'doi-mat-khau.post', 'auth.dangxuat'];
             $currentRoute = $request->route()?->getName();

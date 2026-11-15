@@ -19,6 +19,11 @@ class TaiKhoanNhanVienController extends Controller
     {
         $this->authorize('admin');
 
+        // Guard: Kiểm tra xem migration đã áp chưa
+        if (!array_key_exists('khoa_luc', (new User())->getAttributes())) {
+            return back()->with('error', 'Cần áp migration Stage 3 trước khi sử dụng tính năng tài khoản.');
+        }
+
         $query = User::whereIn('role', ['admin', 'thungan', 'thukho'])
             ->with('customer'); // Eager load để tránh N+1
 
@@ -117,7 +122,7 @@ class TaiKhoanNhanVienController extends Controller
 
         // QUY TẮC BẮT BUỘC:
         // 1. Admin không tự khóa mình
-        if ($user->id === Auth::id() && $user->khoa_luc !== null) {
+        if ($user->id === Auth::id() && array_key_exists('khoa_luc', $user->getAttributes()) && $user->khoa_luc !== null) {
             return back()->with('error', 'Không thể tự sửa tài khoản đã bị khóa.');
         }
 
@@ -128,10 +133,11 @@ class TaiKhoanNhanVienController extends Controller
 
         // 3. Luôn còn ít nhất một admin hoạt động
         if ($user->role === 'admin' && $validated['role'] !== 'admin') {
-            $adminCount = User::where('role', 'admin')
-                ->where('khoa_luc', null)
-                ->where('id', '!=', $user->id)
-                ->count();
+            $query = User::where('role', 'admin')->where('id', '!=', $user->id);
+            if (array_key_exists('khoa_luc', (new User())->getAttributes())) {
+                $query->where('khoa_luc', null);
+            }
+            $adminCount = $query->count();
 
             if ($adminCount === 0) {
                 return back()->with('error', 'Phải còn ít nhất một admin hoạt động.');
@@ -172,10 +178,11 @@ class TaiKhoanNhanVienController extends Controller
 
         // Không khóa admin cuối cùng
         if ($user->role === 'admin') {
-            $adminCount = User::where('role', 'admin')
-                ->where('khoa_luc', null)
-                ->where('id', '!=', $user->id)
-                ->count();
+            $query = User::where('role', 'admin')->where('id', '!=', $user->id);
+            if (array_key_exists('khoa_luc', (new User())->getAttributes())) {
+                $query->where('khoa_luc', null);
+            }
+            $adminCount = $query->count();
 
             if ($adminCount === 0) {
                 return back()->with('error', 'Không thể khóa admin cuối cùng.');
