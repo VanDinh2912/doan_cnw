@@ -55,6 +55,10 @@ class AuthFlowTest extends TestCase
 
     public function test_registration_links_existing_walkin_customer(): void
     {
+        // Thay đổi hành vi (Stage 3-4, Bước 2): đăng ký KHÔNG còn tự động
+        // liên kết hồ sơ khách trùng SĐT — trước đây ai biết SĐT đều chiếm
+        // được hồ sơ (đơn hàng, điểm, địa chỉ). Giờ tài khoản tạo thành công
+        // nhưng user_id vẫn NULL; nhân viên gán liên kết thủ công.
         $existing = KhachHang::create([
             'ho_ten' => 'Walk-in',
             'so_dienthoai' => '0987654321',
@@ -70,9 +74,14 @@ class AuthFlowTest extends TestCase
             'password_confirmation' => 'password123',
         ])->assertRedirect(route('storefront.home'));
 
+        $userB = User::where('email', 'khach.b@test.local')->firstOrFail();
+        $this->assertAuthenticatedAs($userB);
+
+        // Hồ sơ walk-in KHÔNG bị chiếm: user_id vẫn null, điểm giữ nguyên.
         $existing->refresh();
-        $this->assertNotNull($existing->user_id);
+        $this->assertNull($existing->user_id);
         $this->assertSame(50, $existing->diem_tichluy);
+        $this->assertNull($userB->khachHang);
     }
 
     public function test_registration_rejects_phone_already_linked(): void

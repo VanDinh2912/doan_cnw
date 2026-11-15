@@ -261,6 +261,10 @@ class KhachHangSoDienThoaiTest extends TestCase
 
     public function test_dang_ky_link_khach_vang_lai_sau_chuan_hoa(): void
     {
+        // Stage 3-4 Bước 2: đăng ký trùng SĐT khách vãng lai KHÔNG còn tự động
+        // liên kết (chống chiếm hồ sơ). Chuẩn hóa vẫn đúng: +84 → 0 khi so
+        // khớp hồ sơ; tài khoản tạo được nhưng user_id giữ NULL chờ nhân viên
+        // gán thủ công. Điểm tích lũy hồ sơ cũ giữ nguyên.
         $existing = $this->khach('0912345678', ['diem_tichluy' => 50]);
 
         $this->post('/dang-ky', [
@@ -272,7 +276,7 @@ class KhachHangSoDienThoaiTest extends TestCase
         ])->assertRedirect(route('storefront.home'));
 
         $existing->refresh();
-        $this->assertNotNull($existing->user_id);
+        $this->assertNull($existing->user_id);
         $this->assertSame(50, $existing->diem_tichluy);
         $this->assertDatabaseCount('customers', 1);
     }
