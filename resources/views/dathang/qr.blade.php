@@ -17,6 +17,12 @@
                 <tr><td style="padding:6px 0;color:var(--sf-fg-muted);">Tổng thanh toán</td><td style="padding:6px 0;font-weight:700;color:var(--sf-accent);">{{ number_format((float) $don->tong_thanh_toan, 0, ',', '.') }} ₫</td></tr>
             </table>
 
+            <div id="qr-countdown" data-han-giu="{{ $don->han_giu?->timestamp }}"
+                 style="margin-top:12px;padding:12px;background:var(--sf-bg);border-radius:8px;text-align:center;">
+                <span style="color:var(--sf-fg-muted);">Thời gian còn lại để thanh toán:</span>
+                <b id="qr-countdown-text" style="color:var(--sf-accent);">--:--</b>
+            </div>
+
             @if ($don->hinh_thuc_nhan === 'giao_tan_noi')
                 <div style="margin-top:12px;padding:12px;background:var(--sf-bg);border-radius:8px;">
                     <div style="color:var(--sf-fg-muted);font-size:var(--sf-text-sm);">Phí giao hàng</div>
@@ -60,6 +66,30 @@
                         })
                         .catch(function () {});
                 }, 5000);
+            })();
+
+            (function () {
+                var el = document.getElementById('qr-countdown');
+                if (!el) { return; }
+                var han = parseInt(el.getAttribute('data-han-giu'), 10);
+                if (!han) { return; }
+                var text = document.getElementById('qr-countdown-text');
+                var thanhcong = @json(route('dat-hang.thanhcong', $don->ma_tra_cuu));
+                function tick() {
+                    var con = han - Math.floor(Date.now() / 1000);
+                    if (con <= 0) {
+                        if (text) { text.textContent = '00:00'; }
+                        window.location.href = thanhcong;
+                        return;
+                    }
+                    var phut = Math.floor(con / 60);
+                    var giay = con % 60;
+                    if (text) {
+                        text.textContent = (phut < 10 ? '0' : '') + phut + ':' + (giay < 10 ? '0' : '') + giay;
+                    }
+                }
+                tick();
+                setInterval(tick, 1000);
             })();
         </script>
     @endif

@@ -1,15 +1,26 @@
 @extends('storefront.layouts.app')
 
-@section('title', 'Đặt hàng thành công — PhoneShop')
+@section('title', $don->trang_thai === 'da_huy' ? 'Đơn hàng đã hủy — PhoneShop' : 'Đặt hàng thành công — PhoneShop')
 
 @section('content')
     <div class="sf-container" style="padding-top:20px;">
         <div class="sf-section-head">
-            <h1 class="sf-section-title">Đặt hàng thành công</h1>
+            @if ($don->trang_thai === 'da_huy')
+                <h1 class="sf-section-title">Đơn hàng đã bị hủy</h1>
+            @else
+                <h1 class="sf-section-title">Đặt hàng thành công</h1>
+            @endif
         </div>
 
         <div style="background:var(--sf-surface);border:1px solid var(--sf-border);border-radius:12px;padding:20px;">
-            <p style="margin-top:0;">Cảm ơn bạn đã đặt hàng. Vui lòng giữ <b>mã tra cứu</b> để theo dõi đơn và nhận hàng tại quầy.</p>
+            @if ($don->trang_thai === 'da_huy')
+                <p style="margin-top:0;color:var(--sf-stock-out);">
+                    Đơn hàng đã hết hạn thanh toán và đã bị hủy, tồn kho đã được hoàn trả.
+                    Vui lòng đặt lại đơn mới nếu bạn vẫn muốn mua.
+                </p>
+            @else
+                <p style="margin-top:0;">Cảm ơn bạn đã đặt hàng. Vui lòng giữ <b>mã tra cứu</b> để theo dõi đơn và nhận hàng tại quầy.</p>
+            @endif
 
             <table style="width:100%;border-collapse:collapse;">
                 <tr><td style="padding:6px 0;color:var(--sf-fg-muted);">Mã tra cứu</td><td style="padding:6px 0;font-weight:700;">{{ $don->ma_tra_cuu }}</td></tr>

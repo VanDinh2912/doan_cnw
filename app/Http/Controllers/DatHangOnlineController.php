@@ -254,7 +254,7 @@ class DatHangOnlineController extends Controller
         );
     }
 
-    public function getQr(string $ma_tra_cuu, ThanhToanChuyenKhoanService $service, VietQrService $vietQr): View
+    public function getQr(string $ma_tra_cuu, ThanhToanChuyenKhoanService $service, VietQrService $vietQr): View|RedirectResponse
     {
         $don = DonHang::where('ma_tra_cuu', $ma_tra_cuu)->firstOrFail();
         $don = $this->huyNeuQuaHan($don, $service);
