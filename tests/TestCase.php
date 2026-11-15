@@ -2,6 +2,7 @@
 
 namespace Tests;
 
+use App\Support\KiemTraSchema;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Foundation\Testing\DatabaseTruncation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -10,6 +11,16 @@ use RuntimeException;
 
 abstract class TestCase extends BaseTestCase
 {
+    protected function setUp(): void
+    {
+        // Cache schema (KiemTraSchema) không được sót giữa các test:
+        // RefreshDatabase dựng lại schema mỗi test, test bỏ cột giữa chừng
+        // phải tự gọi KiemTraSchema::datLai() sau khi đổi schema.
+        KiemTraSchema::datLai();
+
+        parent::setUp();
+    }
+
     /**
      * T3 (P1) + BƯỚC B (P2) — chốt chặn mọi trait tự migrate/truncate:
      * RefreshDatabase, DatabaseMigrations, DatabaseTruncation chỉ được chạy

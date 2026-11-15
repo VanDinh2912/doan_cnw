@@ -3,8 +3,8 @@
 namespace App\Services;
 
 use App\Models\NhatKyHoatDong;
+use App\Support\KiemTraSchema;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Schema;
 
 class NhatKyService
 {
@@ -19,6 +19,12 @@ class NhatKyService
         ?string $nguon = null,
         ?string $nhomId = null
     ): void {
+        // Guard "code đi trước migration": thiếu bảng nhật ký thì bỏ qua,
+        // không làm hỏng luồng nghiệp vụ. Cache tĩnh qua KiemTraSchema.
+        // TODO(gỡ guard): xóa sau khi migration nhật ký áp lên DB thật.
+        if (! KiemTraSchema::coBang('activity_logs')) {
+            return;
+        }
         $data = [
             'user_id' => $request->user()?->id,
             'hanh_dong' => $hanhDong,
@@ -36,7 +42,7 @@ class NhatKyService
             'nhom_id' => $nhomId,
         ];
         foreach ($extra as $column => $value) {
-            if (Schema::hasColumn('activity_logs', $column)) {
+            if (KiemTraSchema::coCot('activity_logs', $column)) {
                 $data[$column] = $value;
             }
         }
