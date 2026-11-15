@@ -681,8 +681,8 @@ php artisan test --compact
 Remove-Item Env:XDEBUG_MODE
 ```
 
-Các test nghiệp vụ hiện có (**506 test** sau bước 1 P2, trong đó 42 skip MySQL-copy;
-464 pass / 2164 assertions / 550.75s trên sqlite `:memory:`; số chạy thật cập nhật ở mục 17/18):
+Các test nghiệp vụ hiện có (**516 test** sau tiền đề bước 2 P2, trong đó 42 skip MySQL-copy;
+474 pass / 2219 assertions / 319.84s trên sqlite `:memory:`; số chạy thật cập nhật ở mục 17/18):
 
 **Unit (50 test)**
 
@@ -698,11 +698,13 @@ Các test nghiệp vụ hiện có (**506 test** sau bước 1 P2, trong đó 42
   sạch nội dung, template dự phòng.
 - `ExampleTest` Unit (1).
 
-**Feature (456 test, trong đó 42 skip)**
+**Feature (466 test, trong đó 42 skip)**
 
-Ghi chú: 5 bộ test lỗi vận hành 1 (`LoiADungDiemTest`, `LoiBTaoQrTest`,
-`LoiCSoDienThoaiKhachTest`, `LoiDDashboardTonKhoTest`, `SanPhamAnhUrlTest`) hiện chỉ
-nằm ở nhánh `fix/loi-van-hanh-1` (chưa merge vào nhánh này) — xem
+Ghi chú: `LoiBTaoQrTest` (6) đã cherry-pick vào nhánh này (`0e8be80`) kèm
+`LoiBThieuCotOnlineTest` (4, `b7e5ed3`) chứng minh scheduler + POS chạy khi DB thiếu
+cột online M1/M3. Các bộ lỗi vận hành 1 còn lại (`LoiADungDiemTest`,
+`LoiCSoDienThoaiKhachTest`, `LoiDDashboardTonKhoTest`, `SanPhamAnhUrlTest`) vẫn chỉ
+nằm ở nhánh `fix/loi-van-hanh-1` (chưa merge) — xem
 `docs/BAO_CAO_LOI_VAN_HANH_1.md` trên `wip/p2-giao-tan-noi`.
 
 - `AnhUrlMysqlCopyTest` (37, **skip trên SQLite**): sweep 35 URL lạ qua thêm+sửa trên
@@ -795,6 +797,12 @@ nằm ở nhánh `fix/loi-van-hanh-1` (chưa merge vào nhánh này) — xem
   chuyển tiếp lệnh con và không tái sử dụng xác nhận. Dùng mock DB/schema/migrator,
   không xóa bảng hay chạy migration thật.
 - `LogBiMatTest` (5): log daily giữ 14 ngày, che bot token Telegram khi lỗi.
+- `LoiBTaoQrTest` (6, cherry-pick `0e8be80`): LỖI B — đủ cấu hình tạo QR thành công;
+  thiếu `bank_code`/`bank_account` → 422 thân thiện, không tạo đơn rác/không trừ kho;
+  POS tiền mặt + đơn chờ `$online` rỗng không ghi cột online; log không lộ số tài khoản đầy đủ.
+- `LoiBThieuCotOnlineTest` (4, `b7e5ed3`): bỏ cột M1/M3 trong SQLite — scheduler rơi về
+  hạn 15 phút (hủy đơn POS quá hạn + hoàn kho + movement, không hủy trước hạn), POS tạo
+  QR và POS tiền mặt vẫn chạy. TODO gỡ guard + test sau khi M1–M3 áp lên DB thật.
 - `NguoiDungCommandTest` (9): `nguoidung:tao`/`nguoidung:doi-matkhau`, mật khẩu nhập
   ẩn, từ chối vai trò/email/mật khẩu không hợp lệ.
 - `NhapKhoCanhBaoTest` (3): cảnh báo lệch giá nhập >10% và giá bán thấp hơn giá
@@ -1349,11 +1357,12 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
   thị trạng thái giao, báo cáo tách phí ship khỏi doanh thu. Đơn giao tạo xong chuyển trang
   QR hiện có. Hủy đơn đã thanh toán + hoàn tiền thủ công (P3). Chi tiết:
   `docs/BAO_CAO_DAT_HANG_P2.md`.
-- **Kiểm thử hiện tại: xem mục 9** (sau bước 1 P2, 2026-11-14: **464 pass / 42 skip /
-  0 fail, 2164 assertions, 550.75s** trên sqlite `:memory:`; MySQL-copy chạy riêng
+- **Kiểm thử hiện tại: xem mục 9** (sau tiền đề bước 2 P2, 2026-11-15: **474 pass / 42 skip /
+  0 fail, 2219 assertions, 319.84s** trên sqlite `:memory:`; MySQL-copy chạy riêng
   **42 pass / 341 assertions** trên `doan_cnw_copy`. Baseline trước đó: P1 419 pass/41 skip/
   2007 assertions; P2 chuẩn bị 418 pass/48 skip/2042 assertions; sau merge P1+WIP 434 pass/
-  42 skip/2 fail/2073 assertions — 2 fail đã sửa ở production `ec77163`). Skip MySQL-copy =
+  42 skip/2 fail/2073 assertions — 2 fail đã sửa ở production `ec77163`; bước 1 P2 464 pass/
+  42 skip/2164 assertions). Skip MySQL-copy =
   `KhoaDongMysqlTest` (1) + `AnhUrlMysqlCopyTest` (37) + `DatHangP0MysqlCopyTest` (1) +
   `DatHangP1MysqlCopyTest` (2) + `DatHangP2MysqlCopyTest` (1) — SQLite không có khóa
   dòng/InnoDB, không cưỡng chế độ dài VARCHAR và không phải MySQL strict để thử migration;
@@ -1387,11 +1396,22 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
   Bằng chứng: `RefreshDatabaseGuardTest`, `DatabaseMigrationsGuardTest`,
   `DatabaseTruncationGuardTest` (mô phỏng cấu hình mysql, không kết nối thật).
   Test MySQL-copy không dùng ba trait này nên không bị ảnh hưởng.
-- **CSDL thật `doan_cnw` đã áp M1+M2+M3 ngoài phiên 2026-11-14** (quan sát chỉ đọc
-  `SHOW CREATE TABLE invoices`); bản sao `doan_cnw_copy` giữ trạng thái pre-M1 để harness
-  tự áp + rollback. Không migrate/seed/rollback trên DB thật trong phiên này.
-- **LỖI B (tạo QR) fix `987d06b` chỉ ở `fix/loi-van-hanh-1`, chưa merge** vào nhánh P2 —
-  không xây bước 2 (QR online) trên nền này cho tới khi merge fix đó.
+- **CSDL thật `doan_cnw` ĐÃ áp M1+M3** (quan sát chỉ đọc `SHOW CREATE TABLE invoices`
+  2026-11-14, tái xác nhận 2026-11-15: có `kenh/hinh_thuc_nhan/han_giu/phi_giao_hang`,
+  `user_id` nullable); bản sao `doan_cnw_copy` giữ trạng thái pre-M1 (`user_id NOT NULL`,
+  5 dòng) để harness tự áp + rollback. **Lưu ý mâu thuẫn tiền đề:** người dùng nêu "DB thật
+  chưa có M1/M2/M3" nhưng bằng chứng chỉ đọc cho thấy đã có; guard `Schema::hasColumn`
+  vẫn an toàn ở cả hai giả định nên được GIỮ theo chỉ đạo. **TODO: gỡ guard (b, c, M3) +
+  `LoiBThieuCotOnlineTest` sau khi người dùng xác nhận M1–M3 đã áp.** Không migrate/seed/
+  rollback trên DB thật trong phiên này (chỉ `SHOW CREATE` chỉ đọc).
+- **LỖI B (tạo QR) đã cherry-pick vào nhánh P2 (2026-11-15)**: `0e8be80` (test `987d06b`)
+  + `b61c83b` (fix `aae9ae8`) + `b7e5ed3` (test thiếu cột). Chỉ LỖI B, KHÔNG kéo LỖI A/C/D.
+  Fix gồm: (a) `postTaoQr` thiếu cấu hình ngân hàng → 422 thân thiện + `Str::mask` số tài
+  khoản khi log (xử lý LỖI B-POS); (b) `scopeQuaHanCho` guard `hasColumn('kenh')` → fallback
+  15 phút khi thiếu cột, còn không giữ logic D17; (c) R1 chỉ ghi cột online M1 khi `$online`
+  khác rỗng, cột M3 chỉ ghi khi `hasColumn('hinh_thuc_nhan')`. Xung đột chỉ ở
+  `ThanhToanChuyenKhoanService.php` (R1), giải quyết giữ cả hai; controller/model auto-merge.
+  Nền QR đã hết lỗi → được phép dựng bước 2. Chi tiết: `docs/BAO_CAO_DAT_HANG_P2.md`.
 - **Mã phiếu trả chống trùng trong cùng giây (đã sửa 2026-11-12)**: `sinhMaPhieuTra`
   (`TraHangController.php:152-171`) dò hậu tố đã dùng của giây hiện tại rồi quét tiến
   từ điểm ngẫu nhiên, kèm vòng thử lại tối đa 5 lần khi vi phạm unique do giao dịch

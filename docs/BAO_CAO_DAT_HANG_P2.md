@@ -4,8 +4,91 @@
 **Ngày:** 2026-11-14
 **Phạm vi:** Bước 1 của prompt P2 — (A) merge nền P1 + WIP, (B) kiểm kê WIP + M3 + chốt chặn, (C) Form/Checkout giao_tan_noi. DỪNG sau bước 1; các bước 2–4 (QR online/webhook/tra cứu/báo cáo) để đợt sau.
 
-> **Đọc mục "Bước 1 — đợt 2026-11-14" ngay dưới đây để biết trạng thái hiện tại.**
-> Các mục Bước 0 / Bước 1 cũ / 1–12 bên dưới là giai đoạn chuẩn bị trước đó (giữ lại để đối chiếu).
+> **Đọc mục "Tiền đề Bước 2 — cherry-pick LỖI B (đợt 2026-11-15)" ngay dưới đây để biết trạng thái hiện tại.**
+> Các mục Bước 1 / Bước 0 / Bước 1 cũ / 1–12 bên dưới là giai đoạn trước đó (giữ lại để đối chiếu).
+
+## Tiền đề Bước 2 — cherry-pick LỖI B (đợt 2026-11-15)
+
+**Nhánh:** `feat/dat-hang-p2-giao-tan-noi`. **Mục đích:** sửa lỗi tạo QR (LỖI B) trước khi dựng
+trang QR online (Bước 2), theo đúng chỉ đạo của người dùng: chỉ cherry-pick 2 commit LỖI B,
+KHÔNG kéo LỖI A/C/D; giữ guard code-đi-trước-schema; hợp nhất để cả hai phía cùng chạy.
+
+### Commit (tách bạch test → fix → test)
+
+| Commit | Nội dung |
+|---|---|
+| `0e8be80` | cherry-pick `987d06b` — test: tạo QR đủ/thiếu cấu hình + không phụ thuộc cột online (`LoiBTaoQrTest`, 6 test) |
+| `b61c83b` | cherry-pick `aae9ae8` — fix: thiếu cấu hình QR trả 422 thân thiện + che số tài khoản + guard fallback cột online |
+| `b7e5ed3` | test mới: `LoiBThieuCotOnlineTest` (4 test) — bỏ cột M1/M3 trong SQLite, chứng minh scheduler + POS QR/tiền mặt vẫn chạy |
+
+- Đã kiểm tra: 6 commit LỖI A/C/D (`003714a dfd4009 c2083cb e5f0d1c 7d5dedf 46bb0bc`) **không** nằm trong HEAD.
+- Nhánh `wip/p2-giao-tan-noi` giữ nguyên, không xóa.
+
+### Ba phần của fix `aae9ae8` và cách hợp nhất
+
+- **(a) `DonHangController::postTaoQr`** — thiếu cấu hình ngân hàng (`! $vietQr->enabled()`) → trả
+  422 thân thiện (không tạo đơn rác, không trừ kho), `Log::warning` với số tài khoản che bằng
+  `Str::mask` (chỉ hở 4 số cuối). **Đây là phần xử lý LỖI B-POS.** Thêm `use Illuminate\Support\Str;`.
+- **(b) `DonHang::scopeQuaHanCho`** — thêm guard `if (! Schema::hasColumn('invoices','kenh'))` →
+  rơi về hạn `created_at + cho_thanh_toan_phut` (15 phút) khi DB chưa có cột online; ngược lại
+  giữ nguyên logic D17 (đơn `kenh=online` có `han_giu` hủy theo `han_giu`). Thêm `use ...Schema;`.
+- **(c) `ThanhToanChuyenKhoanService::taoHoaDonChoThanhToan` (R1)** — chỉ ghi cột online M1 khi
+  `! empty($online)`; POS (`$online` rỗng) không ghi/không đọc cột mới.
+
+### File xung đột và cách giải quyết (cherry-pick `aae9ae8`)
+
+| File | Trạng thái | Giải quyết |
+|---|---|---|
+| `app/Http/Controllers/DonHangController.php` | auto-merge sạch | Nhận phần (a) nguyên trạng (import `Str` + nhánh `enabled()`), không xung đột |
+| `app/Models/DonHang.php` | auto-merge sạch | Guard `hasColumn('kenh')` chèn ĐẦU `scopeQuaHanCho`, logic D17 giữ nguyên bên dưới |
+| `app/Services/ThanhToanChuyenKhoanService.php` | **XUNG ĐỘT** (khối `DonHang::create` R1) | Giữ cả hai: tách mảng `$duLieuDonHang` cơ sở; cột M1 chỉ ghi khi `! empty($online) && Schema::hasColumn('invoices','kenh')`; cột M3 (`hinh_thuc_nhan`...) chỉ ghi khi `Schema::hasColumn('invoices','hinh_thuc_nhan')`; rồi `DonHang::create($duLieuDonHang)`. Thêm `use ...Schema;`. Phí D13 + D12 giữ nguyên |
+
+- **Bổ sung so với `aae9ae8` gốc:** guard `hasColumn('hinh_thuc_nhan')` cho cột M3 (gốc chỉ guard M1).
+  Lý do: HEAD đã có cột M3 ghi vô điều kiện; nếu DB thật chưa áp M3 thì POS tạo QR sẽ lỗi SQL.
+  Guard này giúp POS chạy trước khi áp M3, và không đổi hành vi khi cột đã có (test POS xanh nguyên trạng).
+
+### Test mô phỏng DB thiếu cột (`LoiBThieuCotOnlineTest`)
+
+Bỏ mọi index người dùng của `invoices` rồi `ALTER TABLE ... DROP COLUMN` (SQLite 3.35+) 12 cột
+M1 (`kenh, ma_tra_cuu, ten_khach_dat, so_dienthoai_dat, ghi_chu_khach, han_giu`) + M3
+(`hinh_thuc_nhan, ten_nguoi_nhan, sdt_nguoi_nhan, dia_chi_giao, phi_giao_hang, trang_thai_giao`);
+giữ cột cũ (`ghi_chu, ma_giao_dich, diem_*`). 4 test xanh (27 assertions):
+scheduler hủy đơn POS quá 15 phút (hoàn kho + movement `dieuchinh`), scheduler KHÔNG hủy trước
+15 phút, POS tạo QR (`donhang.taoqr`) và POS tiền mặt (`donhang.thanhtoan`) vẫn chạy.
+
+### Sai khác thực tế cần người dùng xác nhận (quan trọng)
+
+Đối chiếu **chỉ đọc** `SHOW CREATE TABLE invoices` (mysql 8.4.7, `--default-character-set=utf8mb4`):
+- **`doan_cnw` (DB thật) ĐÃ CÓ M1 + M3**: `kenh, ma_tra_cuu, ... han_giu, hinh_thuc_nhan, ... trang_thai_giao`;
+  `user_id` nullable; index `invoices_kenh_index`, `invoices_ma_tra_cuu_unique`,
+  `invoices_so_dienthoai_dat_index`, `invoices_trang_thai_giao_index`; `AUTO_INCREMENT=15`.
+- **`doan_cnw_copy` là snapshot TRƯỚC M1**: không có cột M1/M3; `user_id NOT NULL`; `AUTO_INCREMENT=33`; 5 dòng.
+
+→ Mâu thuẫn với tiền đề "DB thật chưa có M1/M2/M3". **Guard vẫn an toàn ở cả hai giả định**
+(có cột → hành vi D17/M3 bình thường; thiếu cột → fallback), nên giữ nguyên guard đúng như chỉ đạo,
+không tự ý gỡ. **TODO: gỡ guard `hasColumn` (b, c, M3) + `LoiBThieuCotOnlineTest` sau khi người dùng
+xác nhận M1–M3 đã áp lên `doan_cnw`** (bằng chứng hiện tại cho thấy đã áp). Không đụng DB thật (chỉ đọc).
+
+### Kết quả test (số thật)
+
+- **Baseline (Bước 1, `f3ab937`):** 464 passed / 42 skipped / 2164 assertions / 550.75s.
+- **Sau cherry-pick (sqlite `:memory:`, `XDEBUG_MODE=off php artisan test`):**
+  **474 passed / 42 skipped / 2219 assertions / 319.84s, 0 failed.**
+  +10 test = 6 `LoiBTaoQrTest` + 4 `LoiBThieuCotOnlineTest`; +55 assertions; skip không đổi (42 = test MySQL-copy).
+  POS tiền mặt/QR/webhook/trả hàng xanh nguyên trạng (không sửa test cũ).
+- **MySQL-copy (`doan_cnw_copy`, filter chính xác `--filter='MysqlCopyTest|KhoaDongMysqlTest'`):**
+  **42 passed / 341 assertions / 11.17s.** Sau chạy: copy tự dọn về 5 dòng, 0 cột M1/M3, 0 migration tàn dư.
+  Đối chiếu `SHOW CREATE` trước chạy: copy khác DB thật đúng ở cột M1/M3 + `user_id` nullability (snapshot trước M1).
+
+### Checklist tiền đề (tự rà)
+
+- [x] Chỉ cherry-pick LỖI B; A/C/D không vào HEAD; wip giữ nguyên; không push/merge main.
+- [x] Không enum mới, không FK mới; guard chỉ đọc schema, không đổi cấu trúc DB.
+- [x] POS cũ không đổi hành vi (test POS xanh nguyên trạng); phần (a) chỉ thêm nhánh thiếu cấu hình.
+- [x] Không đọc/ghi/in `.env`; không đụng DB thật (chỉ `SHOW CREATE` chỉ đọc); copy chạy đúng filter.
+- [x] Test mới đỏ trước (3 test thiếu cấu hình đỏ vì trả 200 thay vì 422) rồi xanh sau fix.
+- [x] Full suite xanh, không giảm test, skip chỉ là MySQL-copy; không file tạm/secret lọt commit.
+- [ ] **Chờ người dùng xác nhận** tình trạng M1–M3 trên DB thật để quyết định gỡ guard (TODO ở trên).
 
 ## Bước 1 — đợt 2026-11-14 (A merge + B kiểm kê + C form/checkout)
 
