@@ -7,6 +7,7 @@ use App\Models\DonHang;
 use App\Models\LoaiSanPham;
 use App\Models\SanPham;
 use App\Models\User;
+use App\Rules\AnhSanPhamUrl;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
@@ -66,6 +67,14 @@ class SanPhamAnhUrlTest extends TestCase
             'soluong_toithieu' => 5,
             'trang_thai' => 1,
         ], $them);
+    }
+
+    public function test_gioi_han_do_dai_url_anh_theo_cot_that_va_khong_bao_gio_500(): void
+    {
+        // SQLite không ghi độ dài varchar → rule lùi về fallback 150 (an toàn,
+        // trùng DB thật đang VARCHAR(150)). Đường 500 chỉ kiểm trên MySQL-copy.
+        $this->assertSame(AnhSanPhamUrl::MAX_DO_DAI, AnhSanPhamUrl::gioiHanDoDai());
+        $this->assertStringContainsString('150', AnhSanPhamUrl::thongBaoQuaDai());
     }
 
     public function test_them_san_pham_bang_url_https_hop_le(): void
