@@ -17,7 +17,7 @@
                 <div style="flex:1;">
                     <h2 style="margin:0 0 4px 0;font-size:20px;">{{ auth()->user()->name }}</h2>
                     <p style="margin:0;font-size:14px;opacity:0.9;">
-                        {{ $khachHang ? substr($khachHang->so_dienthoai, 0, 3) . '****' . substr($khachHang->so_dienthoai, -2) : 'Chưa cập nhật' }}
+                        {{ $khachHang ? $khachHang->so_dienthoai : 'Chưa cập nhật' }}
                     </p>
                 </div>
             </div>

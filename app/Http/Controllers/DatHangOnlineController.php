@@ -313,13 +313,9 @@ class DatHangOnlineController extends Controller
 
     public function getTrangThai(Request $request, string $ma_tra_cuu, ThanhToanChuyenKhoanService $service): View|RedirectResponse
     {
-        if (! $this->coBangChung($request, $ma_tra_cuu)) {
-            return redirect()->route('don-hang.tracuu');
-        }
-
         $don = DonHang::where('ma_tra_cuu', $ma_tra_cuu)->first();
-        if (! $don) {
-            return redirect()->route('don-hang.tracuu')->with('error', 'Không tìm thấy đơn hàng');
+        if (! $don || ! $this->coQuyenXem($request, $don)) {
+            return redirect()->route('don-hang.tracuu');
         }
 
         $don = $this->huyNeuQuaHan($don, $service);
@@ -329,11 +325,10 @@ class DatHangOnlineController extends Controller
 
     public function postPoll(Request $request, string $ma_tra_cuu, ThanhToanChuyenKhoanService $service): JsonResponse
     {
-        if (! $this->coBangChung($request, $ma_tra_cuu)) {
+        $don = DonHang::where('ma_tra_cuu', $ma_tra_cuu)->firstOrFail();
+        if (! $this->coQuyenXem($request, $don)) {
             abort(403);
         }
-
-        $don = DonHang::where('ma_tra_cuu', $ma_tra_cuu)->firstOrFail();
         $don = $this->huyNeuQuaHan($don, $service);
 
         // Polling chỉ trả trạng thái, không kèm SĐT / thông tin khách (T5).
@@ -342,13 +337,9 @@ class DatHangOnlineController extends Controller
 
     public function postHuy(Request $request, string $ma_tra_cuu, ThanhToanChuyenKhoanService $service): RedirectResponse
     {
-        if (! $this->coBangChung($request, $ma_tra_cuu)) {
-            return redirect()->route('don-hang.tracuu');
-        }
-
         $don = DonHang::where('ma_tra_cuu', $ma_tra_cuu)->first();
-        if (! $don) {
-            return redirect()->route('don-hang.tracuu')->with('error', 'Không tìm thấy đơn hàng');
+        if (! $don || ! $this->coQuyenXem($request, $don)) {
+            return redirect()->route('don-hang.tracuu');
         }
 
         if ($don->trang_thai !== 'cho_thanh_toan') {
@@ -401,6 +392,21 @@ class DatHangOnlineController extends Controller
         $evidence = $request->session()->get(self::EVIDENCE_KEY, []);
 
         return ! empty($evidence[$ma]);
+    }
+
+    /**
+     * Được xem đơn khi có bằng chứng tra cứu trong session HOẶC là chủ đơn
+     * đã đăng nhập (customer_id khớp hồ sơ khách của user hiện tại).
+     */
+    private function coQuyenXem(Request $request, DonHang $don): bool
+    {
+        if ($this->coBangChung($request, $don->ma_tra_cuu)) {
+            return true;
+        }
+
+        $khachHang = $request->user()?->khachHang;
+
+        return $khachHang !== null && $don->customer_id === $khachHang->id;
     }
 
     private function taoMaTraCuu(): string

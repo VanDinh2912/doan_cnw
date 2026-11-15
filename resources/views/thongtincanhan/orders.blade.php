@@ -17,7 +17,7 @@
                 <div style="flex:1;">
                     <h2 style="margin:0 0 4px 0;font-size:20px;">{{ auth()->user()->name }}</h2>
                     <p style="margin:0;font-size:14px;opacity:0.9;">
-                        {{ $khachHang ? substr($khachHang->so_dienthoai, 0, 3) . '****' . substr($khachHang->so_dienthoai, -2) : 'Chưa cập nhật' }}
+                        {{ $khachHang ? $khachHang->so_dienthoai : 'Chưa cập nhật' }}
                     </p>
                 </div>
             </div>
@@ -74,7 +74,7 @@
                                 @endif
                             </div>
                             <div style="margin-top:8px;">
-                                <a href="{{ route('don-hang.trangthai', $don->ma_tra_cuu) }}" class="sf-icon-btn" style="height:32px;padding:0 12px;font-size:var(--sf-text-sm);">
+                                <a href="{{ route('profile.orders.show', $don) }}" class="sf-icon-btn" style="height:32px;padding:0 12px;font-size:var(--sf-text-sm);">
                                     <i class="fa-solid fa-eye"></i> Xem chi tiết
                                 </a>
                             </div>

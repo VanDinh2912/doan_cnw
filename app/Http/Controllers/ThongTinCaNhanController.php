@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\DonHang;
 use App\Models\KhachHang;
 use App\Rules\SoDienThoaiHopLe;
 use Illuminate\Http\RedirectResponse;
@@ -64,11 +65,31 @@ class ThongTinCaNhanController extends Controller
     public function getOrders(): View
     {
         $khachHang = Auth::user()->khachHang ?? null;
-        $donHangs = $khachHang ? $khachHang->donHangs()->latest()->paginate(10) : collect();
+        $donHangs = $khachHang
+            ? $khachHang->donHangs()->with('chiTietDonHangs.sanPham')->latest()->paginate(10)
+            : collect();
 
         return view('thongtincanhan.orders', [
             'khachHang' => $khachHang,
             'donHangs' => $donHangs,
+        ]);
+    }
+
+    public function getOrderDetail(DonHang $donHang): View
+    {
+        $khachHang = Auth::user()->khachHang;
+
+        abort_if(
+            $khachHang === null || $donHang->customer_id !== $khachHang->id,
+            403,
+            'Bạn không có quyền xem đơn hàng này.'
+        );
+
+        $donHang->load('chiTietDonHangs.sanPham');
+
+        return view('thongtincanhan.order_detail', [
+            'khachHang' => $khachHang,
+            'don' => $donHang,
         ]);
     }
 }
