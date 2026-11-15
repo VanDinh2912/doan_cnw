@@ -14,12 +14,10 @@ class TaiKhoanNhanVienController extends Controller
 {
     /**
      * Danh sách tài khoản nhân viên (admin, thungan, thukho)
-     * Chỉ admin được truy cập
+     * Chỉ admin được truy cập (qua middleware role:admin)
      */
     public function index(Request $request)
     {
-        $this->authorize('admin');
-
         // Guard: Kiểm tra xem migration đã áp chưa
         if (!array_key_exists('khoa_luc', (new User())->getAttributes())) {
             return back()->with('error', 'Cần áp migration Stage 3 trước khi sử dụng tính năng tài khoản.');
@@ -45,23 +43,19 @@ class TaiKhoanNhanVienController extends Controller
 
     /**
      * Form tạo tài khoản nhân viên mới
-     * Chỉ admin được truy cập
+     * Chỉ admin được truy cập (qua middleware role:admin)
      */
     public function create()
     {
-        $this->authorize('admin');
-
         return view('taikhoan.them');
     }
 
     /**
      * Lưu tài khoản nhân viên mới
-     * Chỉ admin được truy cập
+     * Chỉ admin được truy cập (qua middleware role:admin)
      */
     public function store(Request $request)
     {
-        $this->authorize('admin');
-
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
@@ -100,12 +94,10 @@ class TaiKhoanNhanVienController extends Controller
 
     /**
      * Form sửa tài khoản nhân viên
-     * Chỉ admin được truy cập
+     * Chỉ admin được truy cập (qua middleware role:admin)
      */
     public function edit(User $user)
     {
-        $this->authorize('admin');
-
         // Chỉ cho phép sửa nhân viên, không sửa khách hàng
         if (!in_array($user->role, ['admin', 'thungan', 'thukho'])) {
             abort(403, 'Chỉ được sửa tài khoản nhân viên.');
@@ -116,12 +108,10 @@ class TaiKhoanNhanVienController extends Controller
 
     /**
      * Cập nhật tài khoản nhân viên
-     * Chỉ admin được truy cập
+     * Chỉ admin được truy cập (qua middleware role:admin)
      */
     public function update(Request $request, User $user)
     {
-        $this->authorize('admin');
-
         // Chỉ cho phép sửa nhân viên
         if (!in_array($user->role, ['admin', 'thungan', 'thukho'])) {
             abort(403, 'Chỉ được sửa tài khoản nhân viên.');
@@ -129,6 +119,7 @@ class TaiKhoanNhanVienController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email,' . $user->id,
             'role' => 'required|in:admin,thungan,thukho',
         ]);
 
@@ -188,12 +179,10 @@ class TaiKhoanNhanVienController extends Controller
 
     /**
      * Khóa tài khoản nhân viên
-     * Chỉ admin được truy cập
+     * Chỉ admin được truy cập (qua middleware role:admin)
      */
     public function khoa(User $user)
     {
-        $this->authorize('admin');
-
         // Chỉ khóa nhân viên
         if (!in_array($user->role, ['admin', 'thungan', 'thukho'])) {
             abort(403, 'Chỉ được khóa tài khoản nhân viên.');
@@ -236,12 +225,10 @@ class TaiKhoanNhanVienController extends Controller
 
     /**
      * Mở khóa tài khoản nhân viên
-     * Chỉ admin được truy cập
+     * Chỉ admin được truy cập (qua middleware role:admin)
      */
     public function moKhoa(User $user)
     {
-        $this->authorize('admin');
-
         // Chỉ mở khóa nhân viên
         if (!in_array($user->role, ['admin', 'thungan', 'thukho'])) {
             abort(403, 'Chỉ được mở khóa tài khoản nhân viên.');
@@ -266,12 +253,10 @@ class TaiKhoanNhanVienController extends Controller
 
     /**
      * Đặt lại mật khẩu tài khoản nhân viên
-     * Chỉ admin được truy cập
+     * Chỉ admin được truy cập (qua middleware role:admin)
      */
     public function datLaiMatKhau(User $user)
     {
-        $this->authorize('admin');
-
         // Chỉ đặt lại mật khẩu nhân viên
         if (!in_array($user->role, ['admin', 'thungan', 'thukho'])) {
             abort(403, 'Chỉ được đặt lại mật khẩu tài khoản nhân viên.');
