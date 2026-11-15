@@ -526,7 +526,7 @@ Các email trên trùng với tài khoản được tạo trong `database/seeder
 - Tính giảm giá, tiền khách đưa và tiền thừa.
 - Thanh toán bằng tiền mặt hoặc chuyển khoản.
 - Hiển thị VietQR động khi đã cấu hình ngân hàng trong `.env`; thu ngân vẫn xác nhận thủ công.
-- Quản lý khách hàng theo số điện thoại và tích điểm: 100.000 đ được 1 điểm, 1 điểm giảm 1.000 đ.
+- Quản lý khách hàng theo số điện thoại và tích điểm: 100.000 đ được 1 điểm, 1 điểm giảm 1.000 đ. SĐT phải hợp lệ theo quy tắc chung (xem mục Quản lý khách hàng bên dưới).
 - Không cho bán vượt tồn kho.
 
 Thanh toán sử dụng một transaction duy nhất:
@@ -537,6 +537,32 @@ Thanh toán sử dụng một transaction duy nhất:
 4. Trừ tồn kho.
 5. Ghi biến động kho loại `ban`.
 6. Rollback toàn bộ nếu có lỗi.
+
+### Quản lý khách hàng
+
+- Thêm/sửa/tìm/xóa khách tại `/khachhang` (admin, thu ngân); thủ kho 403, khách
+  hàng bị chuyển về storefront.
+- **Quy tắc SĐT dùng chung** `App\Rules\SoDienThoaiHopLe` (`app/Rules/SoDienThoaiHopLe.php`),
+  áp ở MỌI điểm nhập: form thêm/sửa khách, POS thêm khách nhanh, tìm khách theo
+  SĐT, đăng ký storefront, import xlsx và seeder:
+  1. Chuẩn hóa trước: `trim`, bỏ khoảng trắng/dấu chấm/gạch ngang/ngoặc đơn,
+     đổi đầu `+84` hoặc `84` thành `0`.
+  2. Hợp lệ khi khớp `/^0(3|5|7|8|9)\d{8}$/` — di động VN 10 chữ số, đầu
+     03/05/07/08/09. Từ chối chữ, ký tự lạ, sai độ dài, số cố định, mảng.
+  3. Thông báo lỗi tiếng Việt: "Số điện thoại không hợp lệ. Nhập 10 chữ số, bắt
+     đầu bằng 0."
+  4. Lưu DB dạng đã chuẩn hóa; chống trùng bằng `unique` (bỏ qua bản ghi đang
+     sửa) + unique index sẵn có trên `customers.so_dienthoai`.
+- Server là nguồn đúng: ô nhập có `type=tel`, `inputmode`, `pattern`, `maxlength`
+  và JS lọc ký tự chỉ là tiện ích; tắt JS vẫn không nhập được chữ. Form giữ
+  `old()` và hiện lỗi từng trường.
+- Xóa khách đã có hóa đơn bị chặn (không xóa được, không 500); khách chưa có hóa
+  đơn xóa được, tham chiếu ở phiếu trả/hóa đơn (nếu có) được đặt null theo khóa
+  ngoại `nullOnDelete`.
+- Đăng ký storefront tự liên kết khách vãng lai theo SĐT đã chuẩn hóa; từ chối
+  SĐT đã gắn tài khoản khác; điểm khởi tạo 0, không nhận `role`/`diem_tichluy`
+  từ client.
+- Chi tiết rà soát và dữ liệu hiện có: [docs/BAO_CAO_KHACH_HANG.md](docs/BAO_CAO_KHACH_HANG.md).
 
 ### Hóa đơn
 
@@ -681,16 +707,19 @@ php artisan test --compact
 Remove-Item Env:XDEBUG_MODE
 ```
 
-Các test nghiệp vụ hiện có (**522 test** sau bước 2 P2, trong đó 42 skip MySQL-copy;
-480 pass / 2255 assertions / 306.799s trên sqlite `:memory:`; số chạy thật cập nhật ở mục 17/18):
+Các test nghiệp vụ hiện có (**571 test** sau merge nhánh SĐT khách hàng, trong đó 42 skip
+MySQL-copy; số chạy thật cập nhật ở mục 17/18):
 
-**Unit (50 test)**
+**Unit (66 test)**
 
 - `AnhSanPhamTest` (33): rule URL ảnh (6 hợp lệ gồm CDN không đuôi/đúng 150 ký tự, 13
   lỗi gồm javascript/data/http/userinfo/khoảng trắng/mảng/quá 150), accessor `anh_url`
   (https/tệp tải lên/legacy/rỗng), xóa tệp an toàn (chỉ thư mục ảnh, chặn
   traversal/backslash/URL, legacy `upload/` với tệp thật tạm).
 - `ChanLenhPhaHuyTest` (5): chốt chặn production cho lệnh phá hủy dữ liệu.
+- `SoDienThoaiHopLeTest` (16): chuẩn hóa SĐT (7 biến thể: `+84`/`84`, khoảng trắng,
+  gạch, chấm, ngoặc), giữ nguyên giá trị không phải chuỗi, rule chấp nhận/từ chối
+  đúng thông báo tiếng Việt.
 - `SoDienThoaiTest` (6): chuẩn hóa SĐT (`SoDienThoai::chuanHoa`) — giữ dạng 0,
   `+84`/`84` đầu → 0, bỏ khoảng trắng/chấm/gạch/ngoặc, null → rỗng, chuỗi ngắn
   không phải 84 giữ nguyên.
@@ -698,7 +727,7 @@ Các test nghiệp vụ hiện có (**522 test** sau bước 2 P2, trong đó 42
   sạch nội dung, template dự phòng.
 - `ExampleTest` Unit (1).
 
-**Feature (472 test, trong đó 42 skip)**
+**Feature (505 test, trong đó 42 skip)**
 
 Ghi chú: `LoiBTaoQrTest` (6) đã cherry-pick vào nhánh này (`0e8be80`) kèm
 `LoiBThieuCotOnlineTest` (4, `b7e5ed3`) chứng minh scheduler + POS chạy khi DB thiếu
@@ -793,6 +822,12 @@ nằm ở nhánh `fix/loi-van-hanh-1` (chưa merge) — xem
   tự hủy vẫn hoạt động; chạy lệnh 2 lần idempotent; webhook đơn QR quá hạn như cũ
   (T-CK18); POS poll không hủy nhầm pickup còn hạn + hủy khi quá `han_giu`;
   health-check không báo quá hạn pickup còn hạn.
+- `KhachHangSoDienThoaiTest` (33): chuẩn hóa + validate SĐT ở mọi điểm nhập khách
+  hàng (thêm/sửa form, POS thêm nhanh, tìm khách POS, đăng ký storefront): 6 biến
+  thể hợp lệ, 9 ca từ chối (chữ, sai độ dài, đầu số cố định, mảng), trùng thô và
+  trùng sau chuẩn hóa, sửa bỏ qua self, `old()` + lỗi tiếng Việt, escape LIKE,
+  phân quyền (thukho 403, thungan được, khachhang chuyển hướng), xóa khách có hóa
+  đơn không 500.
 - `KhoaDongMysqlTest` (1, **skip trên SQLite**): khóa dòng `SELECT ... FOR UPDATE`
   thật trên MySQL/InnoDB — chỉ chạy khi trỏ vào bản sao MySQL (xem bên dưới).
 - `KiemTraHeThongTest` (13): từng mục của `he-thong:kiem-tra`, gồm scheduler,
@@ -1013,6 +1048,8 @@ app/
 │   ├── PhieuTra.php
 │   ├── SanPham.php
 │   └── User.php
+├── Rules/
+│   └── SoDienThoaiHopLe.php
 ├── Services/
 │   ├── HoaDonNhapService.php
 │   ├── NhatKyService.php
@@ -1443,6 +1480,16 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
   tệp/xóa ảnh mới lưu được; chưa dọn dữ liệu legacy. Chi tiết + phương án
   Content-Type phía server (kèm chống SSRF) chờ xác nhận:
   [docs/BAO_CAO_ANH_URL_VALIDATE.md](docs/BAO_CAO_ANH_URL_VALIDATE.md).
+- **SĐT khách hàng đã siết chặt** (nhánh `fix/khach-hang-so-dien-thoai`, **đã merge vào
+  nhánh `feat/khach-nhatky-taikhoan` ngày 2026-11-15**): mọi điểm nhập dùng chung
+  `App\Rules\SoDienThoaiHopLe` — chuẩn hóa (`+84`/`84` → `0`, bỏ khoảng trắng/dấu
+  chấm/gạch/ngoặc) rồi mới validate `/^0(3|5|7|8|9)\d{8}$/`. Bản ghi thật từng có SĐT
+  là tên người (báo cáo 2026-11-11) **đã được sửa** — khảo sát chỉ đọc 2026-11-15:
+  101 khách, 0 rỗng/NULL/sai định dạng/trùng. Lệnh dry-run liệt kê bản ghi sai và
+  phương án xử lý ở [docs/BAO_CAO_KHACH_HANG.md](docs/BAO_CAO_KHACH_HANG.md), chờ
+  người dùng xác nhận.
+- **Danh sách khách hàng tải toàn bộ**, phân trang chỉ phía client (DataTables);
+  endpoint POS thêm khách nhanh (`postTaoNhanh`) đã validate nhưng chưa có UI gọi.
 - **Test khói route GET phủ 61/62 route GET**: đủ 4 vai trò (khách, thu ngân, thủ
   kho, admin), mọi route không/ có tham số `{id}` dùng id thật đều trả 200/302/403
   hợp lệ, không 500. Route duy nhất chưa phủ là `storage/{path}` — route phục vụ
@@ -1551,6 +1598,23 @@ không thêm migration/slug, không merge/push.
 
 Chi tiết khảo sát, nguyên nhân dashboard sai định nghĩa và bằng chứng từng nghiệp vụ:
 [docs/BAO_CAO_ANH_URL_TONG_QUAN.md](docs/BAO_CAO_ANH_URL_TONG_QUAN.md).
+
+### Đợt chuẩn hóa SĐT khách hàng (2026-11-11, nhánh `fix/khach-hang-so-dien-thoai`)
+
+| Kiểm tra | Kết quả | Ghi chú |
+|----------|---------|---------|
+| Test mới trước khi sửa (đỏ trước) | **35 failed, 14 passed** (89 assertions), 6.94s | `SoDienThoaiHopLeTest` + `KhachHangSoDienThoaiTest` — chứng minh lỗi nhận chữ/sai định dạng |
+| Test mới sau khi sửa | **49 passed** (140 assertions), 1.96s | 16 Unit + 33 Feature |
+| `XDEBUG_MODE=off php artisan test` (lượt 1) | 1 failed, 1 skipped, 223 passed (1207 assertions), 257.36s | Fail là flake có sẵn `returns.ma_phieu` (trùng mã phiếu trả cùng giây), không do thay đổi khách hàng |
+| `php artisan test tests/Feature/PosWorkflowTest.php` (chạy lại lớp flake) | **32 passed** (195 assertions), 58.26s | Xác nhận flake; không sửa mã phiếu trả trong đợt này |
+| `XDEBUG_MODE=off php artisan test` (lượt 2, sạch) | **224 passed, 1 skipped (1208 assertions), 214.82s**, exit 0 | 225 ca: 27 Unit + 198 Feature; skip duy nhất `KhoaDongMysqlTest` |
+| `php artisan view:cache` | ✅ Thành công | Toàn bộ view biên dịch được |
+| Kiểm tra dữ liệu thật `doan_cnw` (CHỈ ĐỌC) | 101 khách; 0 rỗng; 0 trùng; **1 SĐT sai** ("Lê Văn Định") | 100/101 khớp quy tắc chặt ⇒ áp quy tắc chặt; bản ghi sai giữ nguyên, đề xuất dry-run ở mục 8 báo cáo |
+| Migration mới | **Không thêm** | Unique index `customers.so_dienthoai` đã có sẵn |
+| `.env` / migrate/seed/demo:reset trên DB thật | **Không đọc/ghi; không chạy** | Không merge/push |
+
+Chi tiết lỗi trước/sau, test chứng minh và mục chờ xác nhận:
+[docs/BAO_CAO_KHACH_HANG.md](docs/BAO_CAO_KHACH_HANG.md).
 
 ### Đợt sửa trùng mã phiếu trả (2026-11-12, nhánh `fix/ma-phieu-tra-hang`)
 
