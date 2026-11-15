@@ -46,7 +46,7 @@ Route::prefix('dat-hang')->name('dat-hang.')->group(function (): void {
     Route::get('/thanh-cong/{ma_tra_cuu}', [\App\Http\Controllers\DatHangOnlineController::class, 'getThanhCong'])->name('thanhcong');
 });
 
-Route::middleware(['auth'])->group(function (): void {
+Route::middleware(['auth', 'khoa.luc'])->group(function (): void {
     Route::get('/thong-tin-ca-nhan', [\App\Http\Controllers\ThongTinCaNhanController::class, 'getProfile'])->name('profile.show');
     Route::post('/thong-tin-ca-nhan', [\App\Http\Controllers\ThongTinCaNhanController::class, 'postProfile'])->name('profile.update');
     Route::get('/thong-tin-ca-nhan/don-hang', [\App\Http\Controllers\ThongTinCaNhanController::class, 'getOrders'])->name('profile.orders');
@@ -119,6 +119,17 @@ Route::middleware(['auth', 'staff.only'])->group(function (): void {
     });
 
     Route::middleware('role:admin,thukho')->group(function (): void {
+        // Quản lý tài khoản nhân viên (chỉ admin)
+        Route::prefix('taikhoan')->name('taikhoan.')->middleware('role:admin')->group(function (): void {
+            Route::get('/', [\App\Http\Controllers\TaiKhoanNhanVienController::class, 'index'])->name('danhsach');
+            Route::get('/them', [\App\Http\Controllers\TaiKhoanNhanVienController::class, 'create'])->name('them');
+            Route::post('/', [\App\Http\Controllers\TaiKhoanNhanVienController::class, 'store'])->name('store');
+            Route::get('/sua/{user}', [\App\Http\Controllers\TaiKhoanNhanVienController::class, 'edit'])->name('sua');
+            Route::put('/sua/{user}', [\App\Http\Controllers\TaiKhoanNhanVienController::class, 'update'])->name('update');
+            Route::post('/khoa/{user}', [\App\Http\Controllers\TaiKhoanNhanVienController::class, 'khoa'])->name('khoa');
+            Route::post('/mo-khoa/{user}', [\App\Http\Controllers\TaiKhoanNhanVienController::class, 'moKhoa'])->name('mokhoa');
+            Route::post('/dat-lai-mat-khau/{user}', [\App\Http\Controllers\TaiKhoanNhanVienController::class, 'datLaiMatKhau'])->name('datlaimatkhau');
+        });
         Route::get('/hoadonnhap', [\App\Http\Controllers\HoaDonNhapController::class, 'getDanhSach'])->name('hoadonnhap.danhsach');
         Route::get('/hoadonnhap/them', [\App\Http\Controllers\HoaDonNhapController::class, 'getThem'])->name('hoadonnhap.them');
         Route::post('/hoadonnhap/them', [\App\Http\Controllers\HoaDonNhapController::class, 'postThem'])->name('hoadonnhap.postthem');
