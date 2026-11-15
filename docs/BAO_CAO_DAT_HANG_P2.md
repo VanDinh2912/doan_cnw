@@ -777,3 +777,103 @@ P2 cần tiếp tục với:
 - Báo cáo/dashboard (phi_giao_hang tách doanh thu)
 - Test đỏ (test từng kịch bản)
 - Test MySQL copy (migration M3)
+
+---
+
+# PHẦN BỔ SUNG — Bước 3 + cờ bật/tắt (2026-11-15, làm trực tiếp trên main)
+
+## B1. Cờ bật/tắt đặt hàng online
+
+- `config/pos.php`: `dat_hang_online_bat` (`POS_DAT_HANG_ONLINE_BAT`, mặc định `false`),
+  `giao_tan_noi_bat` (`POS_GIAO_TAN_NOI_BAT`, mặc định `false`).
+- Middleware `app/Http/Middleware/ChanDatHangOnline.php` (alias `dat.hang.online`)
+  gắn vào 2 nhóm route `dat-hang.*` và `don-hang.*` trong `routes/web.php`:
+  cờ tắt → **404** toàn bộ (form, POST đặt, QR, thành công, tra cứu GET/POST,
+  trạng thái, polling, hủy). Không route nào 500.
+- `DatHangOnlineController::postDat` từ chối `giao_tan_noi` ở server khi
+  `POS_GIAO_TAN_NOI_BAT=false` (lỗi field `hinh_thuc_nhan`); `getForm` truyền
+  `giaoTanNoiBat` để view ẩn radio. `storefront/cart.blade.php` ẩn nút
+  "Đặt hàng" khi cờ tắt (giỏ hàng vẫn xem/cập nhật bình thường).
+- `he-thong:kiem-tra` báo 2 dòng trạng thái cờ + WARN khi bật mà thiếu
+  `POS_BANK_*` hoặc `POS_GIAO_TAN_NOI_BAT` bật trong khi cờ chính tắt.
+- Đơn online ĐÃ tồn tại không bị ảnh hưởng: webhook `api/webhook/thanhtoan`,
+  scheduler `donhang:huy-qua-han`, `postGiaHan` không đi qua middleware cờ.
+- Test mặc định: `tests/TestCase.php::setUp` `Config::set` bật cả hai cờ
+  (giá trị production là TẮT) — mọi test P1/P2 cũ giữ nguyên hành vi;
+  `phpunit.xml` cũng khai báo 2 env tương ứng.
+- Test mới `tests/Feature/DatHangCoBatTest.php` (7 test): 9 route 404 khi tắt,
+  giỏ hàng vẫn xem được + nút ẩn, form ẩn `giao_tan_noi`, server từ chối
+  `giao_tan_noi`, `he-thong:kiem-tra` có dòng báo.
+
+## B2. P2 bước 3 — webhook + trạng thái giao + tra cứu + Telegram (D14–D17)
+
+### Trước
+- Webhook hoàn tất đơn online nhưng `trang_thai_giao` luôn `null` — không có
+  trạng thái giao; `POS_ONLINE_TU_DONG_XAC_NHAN` đã có trong config nhưng chưa
+  được dùng ở đâu.
+- Trang trạng thái chỉ hiện trạng thái thanh toán; không có nhãn trạng thái giao,
+  không có thông tin giao hàng.
+- Telegram chỉ báo "đã nhận tiền" generic, không phân biệt đơn giao.
+
+### Sau
+- `ThanhToanChuyenKhoanService::hoanTatThanhToan` (đường chung webhook + thu ngân
+  xác nhận thủ công): đơn `kenh=online` + `hinh_thuc_nhan=giao_tan_noi` +
+  `trang_thai_giao` đang null → đặt `da_xac_nhan` khi
+  `POS_ONLINE_TU_DONG_XAC_NHAN=true`, ngược lại `cho_xac_nhan` (D15).
+  Guard `KiemTraSchema::coCot('invoices','trang_thai_giao')`: DB thiếu cột thì
+  bỏ qua, vẫn hoàn tất đơn. Chỉ ghi khi null → idempotent, không ghi đè trạng
+  thái nhân viên (P3) đã cập nhật; `invoices.trang_thai` không đổi (vẫn 3 giá trị).
+- `ThongBaoService::thongBaoDonGiaoDaThanhToan`: Telegram "ĐƠN GIAO TẬN NƠI ĐÃ
+  THANH TOÁN" gồm mã đơn, tổng, hình thức, người nhận + SĐT **che**
+  (`CheThongTin::soDienThoai` → `090****567`); **không** địa chỉ đầy đủ;
+  `e()` escape tên người nhận/ghi chú. Gọi sau `DB::afterCommit` trong
+  `WebhookController` và `DonHangController::postXacNhanThanhToan`.
+- `DonHang` thêm accessor `hinh_thuc_nhan_tieng_viet`,
+  `trang_thai_giao_tieng_viet` (map D14: cho_xac_nhan/da_xac_nhan/dang_giao/
+  da_giao/da_huy_giao).
+- `dathang/trangthai.blade.php`: hiện hình thức nhận + trạng thái giao (nhãn TV)
+  + khối thông tin giao (người nhận, SĐT che, địa chỉ đầy đủ) — trang này đã
+  bắt buộc bằng chứng session (`coQuyenXem`) hoặc chủ đơn đăng nhập nên địa chỉ
+  chỉ lộ cho người đã xác thực. `postPoll` trả thêm `trang_thai_giao` (không PII).
+
+### So khớp tiền
+- Webhook so `transferAmount` với `tong_thanh_toan` (đã gồm `phi_giao_hang` do
+  server tính trong R1) — không đổi. Thiếu tiền → `can_doi_soat/thieu_tien`,
+  không hoàn tất (như cũ). **Chuyển dư vẫn hoàn tất + ghi chú "chuyển dư"**
+  (hành vi hiện có, không đổi T-CK18) — xem "Sai khác/điểm cần xác nhận".
+
+### Test
+- `tests/Feature/DatHangP2Buoc3Test.php` (12 test): cờ on/off → `cho_xac_nhan`/
+  `da_xac_nhan`; webhook lặp (cùng `id` và `id` khác) không đổi trạng thái giao
+  đã có; thiếu tiền → đối soát không hoàn tất; thừa tiền → hoàn tất như cũ;
+  pickup online + đơn POS không bị đặt `trang_thai_giao`; DB thiếu cột vẫn hoàn
+  tất; đơn `da_huy` webhook không đổi; thu ngân xác nhận thủ công cũng đặt trạng
+  thái; Telegram escape + che SĐT + không địa chỉ; trang trạng thái không lộ địa
+  chỉ khi chưa có bằng chứng, lộ khi đã tra cứu đúng; polling trả trạng thái giao
+  không PII.
+- `tests/Feature/DatHangP2MysqlCopyTest.php` +1 test: hoàn tất đơn giao trên
+  `doan_cnw_copy` (MySQL strict) → `da_thanh_toan` + `cho_xac_nhan`, gọi lại
+  idempotent.
+
+## B3. Việc còn lại
+
+- **P2 bước 4 — báo cáo/dashboard**: `phi_giao_hang` phải tách khỏi doanh thu
+  hàng hóa trong báo cáo/bán hàng (doanh thu = tổng − phí ship).
+- **P3 — màn hình quản lý đơn online cho nhân viên**: danh sách/lọc theo
+  `trang_thai_giao`; chuyển `cho_xac_nhan → da_xac_nhan → dang_giao → da_giao`;
+  hủy đơn **đã thanh toán** + hoàn tiền thủ công (D16); gia hạn giữ; cộng điểm
+  khi giao xong; trả hàng đơn online; màn hình bật/tắt cờ.
+- **SePay đối soát**: nhánh `feat/sepay-doi-soat` chưa merge.
+- Quy trình áp migration M1–M3 + Stage 3-4 lên `doan_cnw` (xem mục 10 và
+  `docs/BAO_CAO_VAN_HANH_2.md` mục 7).
+
+## B4. Sai khác so với thiết kế / cần người dùng xác nhận
+
+- Thiết kế/test-list nhắc "thiếu/thừa tiền vào đối soát và không hoàn tất", nhưng
+  code hiện có (T-CK18) **hoàn tất khi chuyển dư** kèm ghi chú — giữ nguyên hành
+  vi, không đổi. Nếu muốn đổi (dư cũng phải đối soát thủ công) cần quyết định riêng.
+- **Giá trị phí ship thật** (`POS_PHI_GIAO_HANG` đang 30000), **vùng giao**
+  (`POS_GIAO_HANG_TINH`), **định nghĩa doanh thu** (có/không gồm phí ship) —
+  chờ chủ cửa hàng xác nhận.
+- `POS_ONLINE_TU_DONG_XAC_NHAN` parse nghiêm `=== true` (giống các cờ boolean
+  khác): `.env` phải ghi đúng `true`, `1`/`yes` không có tác dụng.

@@ -186,6 +186,12 @@ Lệnh kiểm tra số lượng bản ghi, tổng hóa đơn, tồn kho và move
 | `POS_ONLINE_MAX_SOLUONG` | Không | 10 | Số lượng tối đa mỗi dòng hàng online | Đặt hàng online |
 | `POS_ONLINE_GIU_TOI_DA_PHAN_TRAM` | Không | 50 | Trần giữ pickup: % tồn gốc mỗi sản phẩm | Đặt hàng online |
 | `POS_ONLINE_THROTTLE_DAT` | Không | 5,1 | Rate limit checkout mỗi IP (số đơn,phút) | Đặt hàng online |
+| `POS_PHI_GIAO_HANG` | Không | 30000 | Phí giao tận nơi cố định (VNĐ), server tính | Đặt hàng online |
+| `POS_MIEN_PHI_GIAO_TU` | Không | 0 | Miễn phí ship khi tiền hàng ≥ ngưỡng (0 = tắt) | Đặt hàng online |
+| `POS_ONLINE_TU_DONG_XAC_NHAN` | Không | false | `true` → đơn giao tự `da_xac_nhan` khi tiền về; `false` → `cho_xac_nhan` | Đặt hàng online |
+| `POS_GIAO_HANG_TINH` | Không | (rỗng) | Vùng giao, phân tách dấu phẩy (rỗng = không giới hạn) | Đặt hàng online |
+| `POS_DAT_HANG_ONLINE_BAT` | Không | **false** | Bật đặt hàng online; tắt → mọi route `/dat-hang`, `/don-hang` trả 404 | Đặt hàng online |
+| `POS_GIAO_TAN_NOI_BAT` | Không | **false** | Bật hình thức giao tận nơi (chỉ có ý nghĩa khi cờ trên bật) | Đặt hàng online |
 | `LOG_STACK` | Không | daily | Kênh trong stack log; đặt `daily` để log xoay vòng | Ghi log |
 | `LOG_DAILY_DAYS` | Không | 14 | Số ngày giữ log daily | Ghi log |
 | `BACKUP_DISK` | Không | backups | Đĩa lưu bản sao lưu (khai báo trong `config/filesystems.php`) | Sao lưu |
@@ -434,6 +440,10 @@ có thể; **luôn sao lưu trước khi chạy migration**.
    `SEPAY_WEBHOOK_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`,
    `BACKUP_DISK`, `BACKUP_GIU_BAN`, `BACKUP_TIMEOUT`, `DB_DUMP_BINARY` (xem bảng biến
    môi trường ở mục 3.4).
+   **Đặt hàng online**: `POS_DAT_HANG_ONLINE_BAT` và `POS_GIAO_TAN_NOI_BAT` mặc định
+   `false` — chỉ bật sau khi nhân viên đã có màn hình xử lý đơn online (P3);
+   bật sớm sẽ có đơn mà không ai xử lý. Khi tắt, khách không đặt được đơn mới
+   nhưng đơn cũ vẫn được webhook/scheduler xử lý bình thường.
 3. **Cài dependency và build asset**: `composer install --no-dev --optimize-autoloader`
    và `npm ci && npm run build` (phải có `public/build/manifest.json`).
 4. **Chạy migration**: `php artisan migrate --force`. Lần triển khai đầu tiên có
@@ -721,9 +731,9 @@ php artisan test --compact
 Remove-Item Env:XDEBUG_MODE
 ```
 
-Các test nghiệp vụ hiện có (**698 test** sau Vận hành 2, trong đó 43 skip
-MySQL-copy; số chạy thật: **655 pass / 43 skip / 0 fail, 2895 assertions**
-trên sqlite `:memory:`, MySQL-copy **43 pass / 356 assertions** trên
+Các test nghiệp vụ hiện có (**718 test** sau P2 bước 3 + cờ đặt hàng, trong đó
+44 skip MySQL-copy; số chạy thật: **674 pass / 44 skip / 0 fail, 2972 assertions**
+trên sqlite `:memory:`, MySQL-copy **44 pass / 364 assertions** trên
 `doan_cnw_copy` — cập nhật ở mục 17/18):
 
 **Unit (66 test)**
@@ -743,7 +753,7 @@ trên sqlite `:memory:`, MySQL-copy **43 pass / 356 assertions** trên
   sạch nội dung, template dự phòng.
 - `ExampleTest` Unit (1).
 
-**Feature (632 test, trong đó 43 skip)**
+**Feature (652 test, trong đó 44 skip)**
 
 Ghi chú: `LoiBTaoQrTest` (6), `LoiBThieuCotOnlineTest` (4), `LoiADungDiemTest`
 (10) và `LoiDDashboardTonKhoTest` (1) đã cherry-pick vào `main` trong đợt
@@ -824,6 +834,17 @@ tương đương).
   thân thiện, không 500, không lộ số tài khoản; quá hạn → hủy + hoàn kho + movement
   `dieuchinh` + thông báo rõ ràng trên thanhcong; polling POST không PII + cần bằng chứng
   session (chưa xác thực → 403); pickup thanhcong giữ nguyên "Đặt hàng thành công".
+- `DatHangCoBatTest` (7): cờ `POS_DAT_HANG_ONLINE_BAT`/`POS_GIAO_TAN_NOI_BAT` — tắt →
+  404 cả 9 route đặt hàng online (không 500), giỏ hàng vẫn xem được + nút "Đặt hàng"
+  và radio `giao_tan_noi` bị ẩn, server từ chối `giao_tan_noi`, `he-thong:kiem-tra`
+  báo trạng thái cờ. Test mặc định bật cờ trong `tests/TestCase.php`.
+- `DatHangP2Buoc3Test` (12): P2 bước 3 — webhook đơn giao tận nơi đặt
+  `trang_thai_giao` theo `POS_ONLINE_TU_DONG_XAC_NHAN` (cho_xac_nhan/da_xac_nhan),
+  idempotent không ghi đè trạng thái đã có, thiếu tiền → đối soát, thừa tiền →
+  hoàn tất như cũ, pickup/POS không đổi, DB thiếu cột vẫn hoàn tất, đơn hủy không
+  đổi, xác nhận thủ công cũng đặt trạng thái, Telegram escape + che SĐT + không
+  địa chỉ, trang trạng thái chỉ lộ địa chỉ cho người đã xác thực, polling trả
+  `trang_thai_giao` không PII.
 - `DoiSoatTest` (8): hàng chờ đối soát, phân quyền admin, đánh dấu đã xử lý, chặn
   xử lý lặp, webhook thành công không vào hàng chờ — assert đúng action
   `doi_soat_danh_dau` (không đếm toàn bảng log vì model event đã ghi thêm).
@@ -1433,14 +1454,20 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
   dùng VietQrService đúng tổng gồm ship + nội dung = mã hóa đơn, đếm ngược theo `han_giu`,
   hết hạn → hủy + hoàn kho + thông báo rõ ràng, thiếu cấu hình ngân hàng → thân thiện không
   500/không lộ số tài khoản, polling POST + bằng chứng session không PII (sửa lỗi kiểu trả về
-  `getQr`). **Chưa implement (bước 3–4):** webhook đặt `trang_thai_giao` (D15), tra cứu hiển
-  thị trạng thái giao, báo cáo tách phí ship khỏi doanh thu. Hủy đơn đã thanh toán + hoàn tiền
-  thủ công (P3). Chi tiết: `docs/BAO_CAO_DAT_HANG_P2.md`.
-- **Kiểm thử hiện tại: xem mục 9** (Vận hành 2, 2026-11-16, `main`:
-  **655 pass / 43 skip / 0 fail, 2895 assertions, 982.53s** trên sqlite
-  `:memory:`; MySQL-copy **43 pass / 356 assertions, 17.14s** trên
-  `doan_cnw_copy`. Trước đó Stage 3-4: 643 pass / 42 skip / 0 fail,
-  2823 assertions; MySQL-copy 42 pass / 341 assertions.
+  `getQr`). **Bước 3 đã xong (2026-11-15):** cờ `POS_DAT_HANG_ONLINE_BAT`/
+  `POS_GIAO_TAN_NOI_BAT` (mặc định tắt → 404 mọi route đặt hàng, ẩn nút/lựa chọn);
+  webhook + xác nhận thủ công đặt `trang_thai_giao` theo `POS_ONLINE_TU_DONG_XAC_NHAN`
+  (D15, idempotent, guard thiếu cột); trang trạng thái hiện trạng thái giao + thông
+  tin giao chỉ cho người đã xác thực; Telegram đơn giao đã thanh toán che SĐT,
+  không địa chỉ, escape HTML. **Chưa implement (bước 4 + P3):** báo cáo tách phí
+  ship khỏi doanh thu; màn hình nhân viên xử lý đơn online (xác nhận/đang giao/đã
+  giao, hủy đơn đã thanh toán + hoàn tiền thủ công, gia hạn, cộng điểm khi giao,
+  trả hàng online, bật cờ). Chi tiết: `docs/BAO_CAO_DAT_HANG_P2.md`.
+- **Kiểm thử hiện tại: xem mục 9** (P2 bước 3 + cờ đặt hàng, 2026-11-15, `main`:
+  **674 pass / 44 skip / 0 fail, 2972 assertions, 1565.55s** trên sqlite
+  `:memory:`; MySQL-copy **44 pass / 364 assertions, 15.52s** trên
+  `doan_cnw_copy`. Trước đó Vận hành 2: 655 pass / 43 skip / 0 fail,
+  2895 assertions; MySQL-copy 43 pass / 356 assertions.
   Baseline Stage 3-4 trước sửa: 624 pass / 42 skip /
   2712 assertions — lượt chạy bị ảnh hưởng giữa chừng bởi chỉnh sửa đang làm;
   2 fail `/taikhoan` 302 đã được chứng minh riêng trên cây trước sửa và xanh sau
@@ -1451,7 +1478,7 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
   42 skip/2 fail/2073 assertions — 2 fail đã sửa ở production `ec77163`; bước 1 P2 464 pass/
   42 skip/2164 assertions; tiền đề bước 2 474 pass/42 skip/2219 assertions). Skip MySQL-copy =
   `KhoaDongMysqlTest` (1) + `AnhUrlMysqlCopyTest` (37) + `AnhUrlDoDaiMysqlCopyTest` (1) +
-  `DatHangP0MysqlCopyTest` (1) + `DatHangP1MysqlCopyTest` (2) + `DatHangP2MysqlCopyTest` (1) — SQLite không có khóa
+  `DatHangP0MysqlCopyTest` (1) + `DatHangP1MysqlCopyTest` (2) + `DatHangP2MysqlCopyTest` (2) — SQLite không có khóa
   dòng/InnoDB, không cưỡng chế độ dài VARCHAR và không phải MySQL strict để thử migration;
   cần trỏ vào bản sao MySQL để chạy (mục 9). Các nhóm này phải chạy thật trên
   `doan_cnw_copy` bằng filter chính xác (mục 17). Số pass không thay thế kiểm tra đó.
@@ -1581,6 +1608,18 @@ Cập nhật lần cuối: **2026-11-12**, trên nhánh `fix/anh-url-validate` (
 | Full suite | ✅ **655 pass / 43 skip / 0 fail (2895 assertions, 982.53s)** | 1 fail `PosWorkflowTest` do assertion cũ → đã cập nhật sang errors bag (`3c45de9`), chạy lại xanh |
 | MySQL-copy | ✅ **43 pass / 356 assertions (17.14s)** | Filter chính xác trên `doan_cnw_copy` |
 | Migration cần áp | ⏳ Chưa | Thứ tự 6 migration + gỡ guard ở `docs/BAO_CAO_VAN_HANH_2.md` mục 7 |
+
+### Đợt P2 bước 3 + cờ bật/tắt đặt hàng online — `main` (2026-11-15)
+
+| Kiểm tra | Kết quả | Ghi chú |
+|----------|---------|---------|
+| Cờ `POS_DAT_HANG_ONLINE_BAT` / `POS_GIAO_TAN_NOI_BAT` | ✅ | Mặc định `false`; middleware `dat.hang.online` → 404 toàn bộ route `/dat-hang`,`/don-hang`; ẩn nút "Đặt hàng" + radio `giao_tan_noi`; server từ chối `giao_tan_noi` khi cờ 2 tắt; `he-thong:kiem-tra` báo trạng thái + WARN; đơn cũ vẫn webhook/scheduler xử lý; `DatHangCoBatTest` 7 test |
+| Webhook → `trang_thai_giao` (D15) | ✅ | `hoanTatThanhToan` đặt `da_xac_nhan`/`cho_xac_nhan` theo `POS_ONLINE_TU_DONG_XAC_NHAN` cho đơn `kenh=online`+`giao_tan_noi`; chỉ khi đang null (idempotent, không ghi đè P3); guard `KiemTraSchema::coCot` khi DB thiếu cột; `DatHangP2Buoc3Test` 12 test |
+| Telegram đơn giao đã thanh toán | ✅ | `thongBaoDonGiaoDaThanhToan`: mã đơn+tổng+hình thức, SĐT che `090****567`, không địa chỉ, `e()` escape; gọi sau commit ở webhook + xác nhận thủ công |
+| Tra cứu/trạng thái giao | ✅ | Trang trạng thái (đã yêu cầu bằng chứng session/chủ đơn) hiện trạng thái giao + thông tin giao, SĐT che; polling trả `trang_thai_giao` không PII; sai mã/SĐT → thông báo chung |
+| Full suite | ✅ **674 pass / 44 skip / 0 fail (2972 assertions, 1565.55s)** | +19 test mới; 3 assertion `assertExactJson` cũ cập nhật thêm field `trang_thai_giao` |
+| MySQL-copy | ✅ **44 pass / 364 assertions (15.52s)** | +1 test đường hoàn tất trên `doan_cnw_copy` |
+| Tag backup | ✅ | `backup/main-truoc-p2-buoc3-co-dat-hang-20261115` |
 
 ### Đợt Stage 3-4 — Khách hàng, nhật ký toàn bộ, chốt main (2026-11-16, nhánh `feat/khach-nhatky-taikhoan`)
 
