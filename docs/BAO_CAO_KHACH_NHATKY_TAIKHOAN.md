@@ -277,3 +277,139 @@ không còn trong cây.
    tự liên kết). Ghi trước/sau trong báo cáo Stage 4; người dùng có thể yêu cầu khác.
 4. **SEPAY_WEBHOOK_API_KEY** đang thiếu (FAIL he-thong:kiem-tra) — người dùng tự xoay
    token rồi bật webhook (đã ghi nhớ từ đợt đối soát); không thuộc phạm vi prompt này.
+
+## Stage 1 — Kiểm soát SĐT (merge nhánh cũ + bổ sung spec mới)
+
+### 1.1. Tóm tắt
+
+- Nhánh `feat/khach-nhatky-taikhoan`. Merge `fix/khach-hang-so-dien-thoai`
+  (`2ead5af`, giữ nguyên test hai phía, chỉ xung đột README đã giải quyết) rồi bổ
+  sung phần spec mới còn thiếu: **test `8957c9b` → feat `a220ca6` → docs (commit này)**.
+- Một Rule/hàm chuẩn hóa dùng chung MỌI điểm nhập; **bail định dạng trước unique**;
+  mutator model làm chốt cuối; lệnh chuẩn hóa **dry-run mặc định**. Không migration
+  mới; không đổi nghiệp vụ POS/webhook/đặt hàng online.
+
+### 1.2. Kiểm thử (số thật, Xdebug off)
+
+| Mốc | Tests | Pass | Skip | Assertions | Thời gian |
+|---|---|---|---|---|---|
+| Baseline nền (Stage 0) | 522 | 480 | 42 | 2255 | 477.59s |
+| Sau merge nhánh SĐT | 571 | 529 | 42 | 2395 | 320.79s |
+| **Sau Stage 1 (full suite)** | **622** | **580** | **42** | **2584** | **341.19s** |
+
+- Test mới `SoDienThoaiStage1Test` **51 ca**; chạy trước triển khai **đỏ 19 failed /
+  32 passed (148 assertions), 2.24s** (đúng lý do: hồ sơ chưa dùng Rule chung, chưa
+  bail, chưa mutator, form thiếu `tel`); sau triển khai **51/51 xanh**.
+- Bộ SĐT gộp (`SoDienThoaiStage1Test|SoDienThoaiHopLeTest|KhachHangSoDienThoaiTest|SoDienThoaiTest`):
+  **106 passed (336 assertions), 2.46s**.
+- **MySQL-copy chạy thật** trên `doan_cnw_copy`, filter chính xác
+  `--filter='MysqlCopyTest|KhoaDongMysqlTest'`: **42 passed (341 assertions), 9.92s,
+  0 skip**. Đối chiếu `SHOW CREATE TABLE customers` (CHỈ ĐỌC) thật vs copy: **giống
+  hệt** (`so_dienthoai` varchar(15) NOT NULL UNIQUE, `dia_chi` varchar(150),
+  `user_id` nullable UNIQUE). Copy tự hoàn nguyên sau test: cột `kenh` đã gỡ (về
+  trước M1), 0 đơn `P2-%`, 0 sản phẩm `SWEEP%`.
+- **42 skip phân loại**: toàn bộ MySQL-copy — `AnhUrlMysqlCopyTest` (37) +
+  `DatHangP0MysqlCopyTest` (1) + `DatHangP1MysqlCopyTest` (2) + `DatHangP2MysqlCopyTest`
+  (1) + `KhoaDongMysqlTest` (1); chỉ chạy khi trỏ bản sao `*_copy`.
+- `php artisan view:cache` ✅; `php -l` 7 tệp PHP thay đổi ✅. **Không giảm số test;
+  không sửa test cũ** (522 nền + 49 merge giữ nguyên trạng).
+
+### 1.3. Thay đổi theo file
+
+| File | Thay đổi |
+|---|---|
+| `app/Rules/SoDienThoaiHopLe.php` | `chuanHoa()` ủy quyền cho `App\Support\SoDienThoai::chuanHoa` (giữ guard không-phải-chuỗi) — một nguồn chuẩn hóa |
+| `app/Models/KhachHang.php` | Thêm mutator `soDienThoai()` (set → `SoDienThoai::chuanHoa`) — chốt chuẩn hóa mọi đường ghi |
+| `app/Http/Controllers/KhachHangController.php` | `bail` + thông báo `string` tiếng Việt ở `validated()` (thêm/sửa) và `postTaoNhanh()` |
+| `app/Http/Controllers/AuthController.php` | `bail` + thông báo `string` ở `postDangKy()` |
+| `app/Http/Controllers/ThongTinCaNhanController.php` | `postProfile()` bỏ regex cũ `/^0\d{9,10}$/`, dùng chuẩn hóa + Rule chung + `unique()->ignore(hồ sơ)`; thông báo trùng chung |
+| `resources/views/thongtincanhan/profile.blade.php` | Ô SĐT `type=tel/inputmode=numeric/maxlength=20/pattern` + JS nhẹ chặn chữ + hint; giữ `old()` |
+| `app/Console/Commands/ChuanHoaSdtKhachHang.php` | **Mới** — `khachhang:chuan-hoa-sdt` dry-run mặc định, `--ap-dung` mới ghi |
+| `tests/Feature/SoDienThoaiStage1Test.php` | **Mới** — 51 ca |
+
+`app/Support/SoDienThoai.php` giữ nguyên (nguồn chuẩn hóa duy nhất, luồng online D12
+đang dùng). Import `NhapDuLieuTaiLieu` đã chuẩn hóa từ nhánh merge + nay thêm mutator
+model; seeder được mutator bao phủ.
+
+### 1.4. Điểm nhập đã phủ
+
+| Điểm nhập | Chuẩn hóa | Định dạng (bail) | Trùng (bỏ qua self/rỗng) |
+|---|---|---|---|
+| Admin thêm/sửa khách | ✅ merge + mutator | ✅ bail | ✅ `unique()->ignore` |
+| POS thêm nhanh (`postTaoNhanh`) | ✅ merge + mutator | ✅ bail | ✅ unique (tạo mới) |
+| POS tìm khách (`getTimKiem`) | ✅ merge (escape LIKE) | — (tìm kiếm) | — |
+| Đăng ký storefront | ✅ merge + mutator | ✅ bail | (tự liên kết — Stage 4 đổi) |
+| Hồ sơ khách (`postProfile`) | ✅ **mới** + mutator | ✅ **mới** | ✅ **mới** `ignore` + câu chung |
+| Import xlsx / seeder | ✅ merge + mutator | (mutator chuẩn hóa) | — |
+| Online checkout / webhook | ✅ `Support` (không đổi nghiệp vụ) | — | — |
+
+Kịch bản **khách SĐT rỗng legacy** (`''`): đăng ký số hợp lệ không đụng độ; sửa khách
+rỗng thành số hợp lệ được; thêm/POS nhanh/hồ sơ với `''` báo `required` (không báo
+trùng). Chữ/ký tự lạ (`abcdef`, `09123abc78`, `+84 abc`, mảng...) → đúng
+`Số điện thoại không hợp lệ. Nhập 10 chữ số, bắt đầu bằng 0.`, **không bao giờ**
+"đã tồn tại" (test bail với bản ghi legacy `abcdef` tồn tại sẵn).
+
+### 1.5. Migration
+
+**Không thêm migration.** `customers.so_dienthoai` varchar(15) NOT NULL UNIQUE đã có
+sẵn; đối chiếu `SHOW CREATE` thật vs copy giống hệt (mục 1.2). Không enum/FK mới.
+
+### 1.6. Sai lệch spec / điểm dừng (ghi trung thực)
+
+1. **Giả thuyết "chữ → đã tồn tại"** không tái hiện trên nền (Stage 0). Sau merge,
+   Laravel **đã tự bỏ qua rule `unique` khi định dạng fail** — các test bail xanh
+   ngay cả trước khi thêm `bail`. Vẫn thêm `bail` tường minh theo spec để bảo đảm
+   thứ tự định-dạng-trước-trùng không phụ thuộc hành vi ngầm.
+2. **Thông báo trùng ở hồ sơ khách** dùng câu chung `Số điện thoại này không thể sử
+   dụng.` (khác câu `Số điện thoại đã tồn tại.` của admin) để không lộ việc SĐT tồn
+   tại — đúng ràng buộc tuyệt đối. Stage 4 sẽ chuyển sang flow đổi SĐT có mật khẩu
+   hiện tại + throttle.
+3. **`customers.dia_chi` varchar(150) vs validate max:255**: ngoài phạm vi SĐT, giữ
+   nguyên, chờ xác nhận (mục 0.14).
+4. **Lệnh dry-run**: viết sẵn + chứng minh trên SQLite, **KHÔNG chạy trên DB thật**
+   (kể cả dry-run) theo ràng buộc; chỉ đề xuất để người dùng tự chạy sau xác nhận.
+
+### 1.7. Số liệu dữ liệu cũ (CHỈ ĐỌC) + đề xuất lệnh chuẩn hóa
+
+- Stage 0 đã đếm trên `doan_cnw` (chỉ đọc): **101 khách, 0 rỗng/NULL/sai định
+  dạng/trùng** (bản ghi sai "Lê Văn Định" trong báo cáo 11-11 đã được sửa). Stage 1
+  **không sửa/xóa dữ liệu khách hiện có**.
+- Đề xuất quy trình (người dùng tự chạy, agent không chạy):
+  1. `php artisan khachhang:chuan-hoa-sdt` — **DRY-RUN**, chỉ liệt kê (che SĐT),
+     phân loại "cần chuẩn hóa" / "sai định dạng" / "hợp lệ", không ghi.
+  2. Rà kết quả; nếu đồng ý: `php artisan khachhang:chuan-hoa-sdt --ap-dung` — chỉ
+     chuẩn hóa bản ghi hợp lệ hóa được (vd `+84…` → `0…`), **giữ nguyên** bản ghi sai
+     định dạng (cần người thật cung cấp số đúng), **bỏ qua** bản ghi xung đột unique.
+
+### 1.8. Checklist §5 (từng dòng)
+
+- [x] Không enum mới; không migration; không FK mới; không áp lên DB thật; không cột
+  mới nên không cần guard; POS + scheduler chạy bình thường (full suite xanh).
+- [x] Hành vi POS/webhook/trả hàng/đặt hàng online/báo cáo không đổi; test hiện có
+  xanh nguyên trạng (522 nền + 49 merge không sửa).
+- [x] Không mật khẩu/token/SĐT-email-địa chỉ đầy đủ/`ma_tra_cuu`/số tài khoản trong
+  log/JSON/HTML; lệnh che SĐT (`CheThongTin`); thông báo trùng hồ sơ dùng câu chung.
+- [x] Escape đầu ra (Blade `{{ }}`); đăng ký giữ CSRF (throttle thêm ở Stage 4);
+  route quản trị trong `auth + staff.only + role`; hồ sơ khách truy vấn theo chủ sở
+  hữu (`Auth::user()->khachHang`).
+- [x] Server kiểm mọi ràng buộc (chuẩn hóa + Rule + bail + unique + mutator); JS chỉ
+  hỗ trợ, không phụ thuộc cho tính đúng đắn.
+- [x] Test mới đỏ trước (19 failed) rồi xanh; full suite xanh 622; không giảm test;
+  MySQL-copy chạy thật bằng filter chính xác (42 pass).
+- [x] Không file tạm/secret/.env lọt commit; không xóa nhánh `wip/*`; cây sạch cuối
+  stage; file tiến độ cập nhật.
+
+### 1.9. Việc dở / rủi ro / câu hỏi
+
+- **Stage 4 sẽ làm**: bỏ prefill SĐT đầy đủ ở form hồ sơ (Stage 1 mới siết validate,
+  chưa đổi hiển thị che), flow "Đổi số điện thoại" (mật khẩu hiện tại + throttle),
+  nhất quán một định dạng che `CheThongTin`, đổi mặc định đăng ký không tự liên kết.
+- **Rủi ro còn lại**: đăng ký vẫn tự liên kết hồ sơ theo SĐT (lộ điểm/lịch sử — Stage 4
+  xử lý); bản ghi SĐT sai định dạng legacy (nếu phát sinh) cần người thật sửa.
+- **Câu hỏi chờ xác nhận**: giữ ở mục 0.14 (gỡ guard, `dia_chi` 150/255, hành vi đăng
+  ký, SEPAY key) — không chặn Stage 2–3.
+
+### 1.10. Git cuối Stage 1
+
+Cây sạch. Chuỗi commit: `2ead5af` (merge) → `8957c9b` (test) → `a220ca6` (feat) →
+docs (commit này). Không merge `main`, không push, không đụng `wip/*`.
