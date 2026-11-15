@@ -22,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => \App\Http\Middleware\CheckRole::class,
             'staff.only' => \App\Http\Middleware\RedirectKhachhangFromStaff::class,
             'khoa.luc' => \App\Http\Middleware\CheckKhoaLuc::class,
+            'bat.buoc.doi.mat.khau' => \App\Http\Middleware\CheckBatBuocDoiMatKhau::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

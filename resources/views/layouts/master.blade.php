@@ -85,6 +85,9 @@
                 <a class="app-nav-link {{ request()->routeIs('nhatky.*') ? 'active' : '' }}" href="{{ route('nhatky.index') }}">
                     <i class="fa-solid fa-clock-rotate-left"></i><span>Nhật ký hoạt động</span>
                 </a>
+                <a class="app-nav-link {{ request()->routeIs('taikhoan.*') ? 'active' : '' }}" href="{{ route('taikhoan.danhsach') }}">
+                    <i class="fa-solid fa-users-gear"></i><span>Tài khoản</span>
+                </a>
                 <a class="app-nav-link {{ request()->routeIs('doisoat.*') ? 'active' : '' }}" href="{{ route('doisoat.index') }}">
                     <i class="fa-solid fa-scale-balanced"></i><span>Đối soát thanh toán</span>
                 </a>

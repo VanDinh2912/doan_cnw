@@ -46,7 +46,7 @@ Route::prefix('dat-hang')->name('dat-hang.')->group(function (): void {
     Route::get('/thanh-cong/{ma_tra_cuu}', [\App\Http\Controllers\DatHangOnlineController::class, 'getThanhCong'])->name('thanhcong');
 });
 
-Route::middleware(['auth', 'khoa.luc'])->group(function (): void {
+Route::middleware(['auth', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->group(function (): void {
     Route::get('/thong-tin-ca-nhan', [\App\Http\Controllers\ThongTinCaNhanController::class, 'getProfile'])->name('profile.show');
     Route::post('/thong-tin-ca-nhan', [\App\Http\Controllers\ThongTinCaNhanController::class, 'postProfile'])->name('profile.update');
     Route::get('/thong-tin-ca-nhan/don-hang', [\App\Http\Controllers\ThongTinCaNhanController::class, 'getOrders'])->name('profile.orders');

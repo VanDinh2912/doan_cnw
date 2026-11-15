@@ -12,7 +12,7 @@
 | 0 | Nền + khảo sát chỉ đọc (triệu chứng 1–3, schema, nhật ký, users) | **XONG** | `0dc99ad` |
 | 1 | Kiem soat SDT | **XONG** | `a220ca6` + docs |
 | 2 | Nhat ky kiem toan append-only | **XONG** | `d840509` + feat/docs |
-| 3 | Tài khoản nhân viên tối thiểu (khóa, bắt đổi mật khẩu, /taikhoan) | Chưa bắt đầu | — |
+| 3 | Tài khoản nhân viên tối thiểu (khóa, bắt đổi mật khẩu, /taikhoan) | ĐANG LÀM PHẦN 2 (migration + middleware + controller xong, còn views + test + doi mat khau tu + guard DB) | `ee05ca1` + commit guard |
 | 4 | Hồ sơ khách + lịch sử đơn + tài khoản khách + chống đăng ký rác | Chưa bắt đầu | — |
 | 5 | Hợp nhất + báo cáo tổng + README | Chưa bắt đầu | — |
 
@@ -59,8 +59,34 @@
 
 - Migration viet san 2026_11_15_000001_extend_activity_logs_for_audit: them diff truoc/sau, nguon, user agent, nhom va loai doi tuong; khong enum/FK. Model nhat ky chan update/delete.
 - Them trait ghi tao/sua/xoa cho ho so khach; du lieu nhay cam duoc che. /nhatky co loc, phan trang, gio Viet Nam va xuat CSV.
-- Them 
-hatky:don-cu dry-run mac dinh, --ap-dung moi xoa.
+- Them nhatky:don-cu dry-run mac dinh, --ap-dung moi xoa.
 - Test NhatKyStage2Test: 4/4, 13 assertions; hoi quy RouteKhoiTest|PosWorkflowTest: 36/36, 439 assertions; SoDienThoaiStage1Test: 51/51.
 - Chua chay full suite/MySQL-copy sau Stage 2; chua ap migration len DB that. Cac duong ghi query-builder/nghiep vu con lai can bo sung ghi tuong minh.
 
+## Stage 3 - Tai khoan nhan vien
+
+### Phần 1 (Đã xong commit ee05ca1)
+- Migration 2026_11_15_000002_add_khoa_luc_and_bat_buoc_doi_mat_khau_to_users_table: them khoa_luc (timestamp nullable) + bat_buoc_doi_mat_khau (boolean default false); down() co guard Schema::hasColumn.
+- Middleware CheckKhoaLuc: kiem tra khoa luc cho moi vai tro, logout neu bi khoa, chuyen huong ve dang nhap voi thong bao.
+- Controller TaiKhoanNhanVienController: CRUD tai khoan nhan vien (admin only)
+  - Danh sach (admin, thungan, thukho), tim kiem, phan trang
+  - Tao tai khoan (mat khau tam sinh ngau nhien, bat buoc doi lan dau)
+  - Sua ten/vai tro (khong tu khoa/hang quyen admin, khong khoa admin cuoi)
+  - Khoa/mo khoa (khong tu khoa, khong khoa admin cuoi)
+  - Dat lai mat khau (mat khau tam moi, bat buoc doi)
+- Routes: /taikhoan voi middleware role:admin
+- Apply middleware khoa.luc vao nhom auth trong web.php
+- Menu "Tài khoản" trong layouts/master.blade.php
+
+### Phần 2 (Đang làm)
+- Middleware CheckBatBuocDoiMatKhau: moi file da tao (chua add vao route)
+- Guard DB: thay Schema::hasColumn trong middleware bang kiem tra tren user da nạp (array_key_exists)
+- Stage 2 (nhat ky kiem toan) ĐÃ TỒN TẠI: NhatKyService + trait GhiNhatKy + migration extend_activity_logs
+- CON THIEU:
+  - A. ƯU TIÊN AN TOÀN: route + controller đổi mật khẩu tự (/doi-mat-khau) cho mọi vai trò, views (danhsach, them, sua, doi-mat-khau)
+  - B. Guard DB: CheckKhoaLuc và CheckBatBuocDoiMatKhau dùng array_key_exists thay vì Schema::hasColumn
+  - C. Mật khẩu tạm: chỉ hiển thị một lần qua flash session, Cache-Control: no-store
+  - D. Thứ tự middleware & vòng lặp: khóa trước, cờ đổi mật khẩu sau, loại trừ trang đổi mật khẩu/đăng xuất/tài nguyên tĩnh
+  - E. Nhật ký: ghi thao tác tài khoản bằng NhatKyService
+  - F. Test: TaiKhoanNhanVienStage3Test đầy đủ
+  - G. Hoàn tất: full suite + MySQL-copy, README, báo cáo
