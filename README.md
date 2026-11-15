@@ -559,9 +559,23 @@ Thanh toán sử dụng một transaction duy nhất:
 - Xóa khách đã có hóa đơn bị chặn (không xóa được, không 500); khách chưa có hóa
   đơn xóa được, tham chiếu ở phiếu trả/hóa đơn (nếu có) được đặt null theo khóa
   ngoại `nullOnDelete`.
-- Đăng ký storefront tự liên kết khách vãng lai theo SĐT đã chuẩn hóa; từ chối
-  SĐT đã gắn tài khoản khác; điểm khởi tạo 0, không nhận `role`/`diem_tichluy`
-  từ client.
+- Đăng ký storefront **không tự liên kết** hồ sơ khách vãng lai theo SĐT
+  (vá lỗ hổng chiếm hồ sơ 2026-11-16): đăng ký trùng SĐT đã có hồ sơ chưa
+  liên kết vẫn tạo tài khoản mới nhưng hồ sơ cũ giữ nguyên; đăng ký trùng
+  SĐT đã liên kết tài khoản khác bị từ chối thông báo chung. Điểm khởi tạo
+  0, không nhận `role`/`diem_tichluy` từ client.
+- **Quy trình nhân viên liên kết tài khoản khách với hồ sơ mua tại quầy**
+  (màn `/khachhang/sua/{id}`, chỉ admin/thu ngân):
+  1. Xác minh danh tính NGOÀI hệ thống: yêu cầu khách đăng nhập tài khoản
+     của họ trên chính thiết bị của khách + đưa hóa đơn gần nhất (hoặc đọc
+     mã hóa đơn) để đối chiếu SĐT/tên với hồ sơ.
+  2. Vào form sửa khách hàng → ô "Tài khoản khách hàng" → chọn tài khoản
+     role `khachhang` chưa liên kết → Lưu. Tài khoản đã gắn hồ sơ khác
+     không xuất hiện; gán trùng bị chặn.
+  3. Mọi gán/gỡ liên kết ghi `activity_logs` (trait `GhiNhatKy` trên
+     `KhachHang`, có diff `truoc`/`sau`).
+  4. Gỡ liên kết nhầm: chọn "— Chưa liên kết —" → Lưu. Không gán chỉ vì
+     trùng SĐT — đó là lý do auto-link đã bị gỡ.
 - Chi tiết rà soát và dữ liệu hiện có: [docs/BAO_CAO_KHACH_HANG.md](docs/BAO_CAO_KHACH_HANG.md).
 
 ### Hóa đơn
@@ -707,9 +721,9 @@ php artisan test --compact
 Remove-Item Env:XDEBUG_MODE
 ```
 
-Các test nghiệp vụ hiện có (**685 test** sau Stage 3-4, trong đó 42 skip
-MySQL-copy; số chạy thật: **643 pass / 42 skip / 0 fail, 2823 assertions**
-trên sqlite `:memory:`, MySQL-copy **42 pass / 341 assertions** trên
+Các test nghiệp vụ hiện có (**698 test** sau Vận hành 2, trong đó 43 skip
+MySQL-copy; số chạy thật: **655 pass / 43 skip / 0 fail, 2895 assertions**
+trên sqlite `:memory:`, MySQL-copy **43 pass / 356 assertions** trên
 `doan_cnw_copy` — cập nhật ở mục 17/18):
 
 **Unit (66 test)**
@@ -729,14 +743,13 @@ trên sqlite `:memory:`, MySQL-copy **42 pass / 341 assertions** trên
   sạch nội dung, template dự phòng.
 - `ExampleTest` Unit (1).
 
-**Feature (619 test, trong đó 42 skip)**
+**Feature (632 test, trong đó 43 skip)**
 
-Ghi chú: `LoiBTaoQrTest` (6) đã cherry-pick vào nhánh này (`0e8be80`) kèm
-`LoiBThieuCotOnlineTest` (4, `b7e5ed3`) chứng minh scheduler + POS chạy khi DB thiếu
-cột online M1/M3. Các bộ lỗi vận hành 1 còn lại (`LoiADungDiemTest`,
-`LoiCSoDienThoaiKhachTest`, `LoiDDashboardTonKhoTest`, `SanPhamAnhUrlTest`) vẫn chỉ
-nằm ở nhánh `fix/loi-van-hanh-1` (chưa merge) — xem
-`docs/BAO_CAO_LOI_VAN_HANH_1.md` trên `wip/p2-giao-tan-noi`.
+Ghi chú: `LoiBTaoQrTest` (6), `LoiBThieuCotOnlineTest` (4), `LoiADungDiemTest`
+(10) và `LoiDDashboardTonKhoTest` (1) đã cherry-pick vào `main` trong đợt
+Vận hành 2 (2026-11-16) — xem `docs/BAO_CAO_VAN_HANH_2.md`. `LoiCSoDienThoaiKhachTest`
+vẫn chỉ nằm ở nhánh `fix/loi-van-hanh-1` (nội dung SĐT đã được Stage 1/3-4 xử lý
+tương đương).
 
 - `AnhUrlMysqlCopyTest` (37, **skip trên SQLite**): sweep 35 URL lạ qua thêm+sửa trên
   bản sao MySQL strict mode (không `RefreshDatabase` để giữ cột VARCHAR(150) thật,
@@ -1423,10 +1436,12 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
   `getQr`). **Chưa implement (bước 3–4):** webhook đặt `trang_thai_giao` (D15), tra cứu hiển
   thị trạng thái giao, báo cáo tách phí ship khỏi doanh thu. Hủy đơn đã thanh toán + hoàn tiền
   thủ công (P3). Chi tiết: `docs/BAO_CAO_DAT_HANG_P2.md`.
-- **Kiểm thử hiện tại: xem mục 9** (Stage 3-4, 2026-11-16, nhánh
-  `feat/khach-nhatky-taikhoan`: **643 pass / 42 skip / 0 fail, 2823 assertions,
-  497.88s** trên sqlite `:memory:`; MySQL-copy **42 pass / 341 assertions,
-  12.68s** trên `doan_cnw_copy`. Baseline trước đó: 624 pass / 42 skip /
+- **Kiểm thử hiện tại: xem mục 9** (Vận hành 2, 2026-11-16, `main`:
+  **655 pass / 43 skip / 0 fail, 2895 assertions, 982.53s** trên sqlite
+  `:memory:`; MySQL-copy **43 pass / 356 assertions, 17.14s** trên
+  `doan_cnw_copy`. Trước đó Stage 3-4: 643 pass / 42 skip / 0 fail,
+  2823 assertions; MySQL-copy 42 pass / 341 assertions.
+  Baseline Stage 3-4 trước sửa: 624 pass / 42 skip /
   2712 assertions — lượt chạy bị ảnh hưởng giữa chừng bởi chỉnh sửa đang làm;
   2 fail `/taikhoan` 302 đã được chứng minh riêng trên cây trước sửa và xanh sau
   fix `KiemTraSchema`. Mốc trước: sau bước 2 P2 (2026-11-15) 480 pass / 42 skip /
@@ -1435,8 +1450,8 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
   2007 assertions; P2 chuẩn bị 418 pass/48 skip/2042 assertions; sau merge P1+WIP 434 pass/
   42 skip/2 fail/2073 assertions — 2 fail đã sửa ở production `ec77163`; bước 1 P2 464 pass/
   42 skip/2164 assertions; tiền đề bước 2 474 pass/42 skip/2219 assertions). Skip MySQL-copy =
-  `KhoaDongMysqlTest` (1) + `AnhUrlMysqlCopyTest` (37) + `DatHangP0MysqlCopyTest` (1) +
-  `DatHangP1MysqlCopyTest` (2) + `DatHangP2MysqlCopyTest` (1) — SQLite không có khóa
+  `KhoaDongMysqlTest` (1) + `AnhUrlMysqlCopyTest` (37) + `AnhUrlDoDaiMysqlCopyTest` (1) +
+  `DatHangP0MysqlCopyTest` (1) + `DatHangP1MysqlCopyTest` (2) + `DatHangP2MysqlCopyTest` (1) — SQLite không có khóa
   dòng/InnoDB, không cưỡng chế độ dài VARCHAR và không phải MySQL strict để thử migration;
   cần trỏ vào bản sao MySQL để chạy (mục 9). Các nhóm này phải chạy thật trên
   `doan_cnw_copy` bằng filter chính xác (mục 17). Số pass không thay thế kiểm tra đó.
@@ -1476,14 +1491,16 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
   vẫn an toàn ở cả hai giả định nên được GIỮ theo chỉ đạo. **TODO: gỡ guard (b, c, M3) +
   `LoiBThieuCotOnlineTest` sau khi người dùng xác nhận M1–M3 đã áp.** Không migrate/seed/
   rollback trên DB thật trong phiên này (chỉ `SHOW CREATE` chỉ đọc).
-- **LỖI B (tạo QR) đã cherry-pick vào nhánh P2 (2026-11-15)**: `0e8be80` (test `987d06b`)
-  + `b61c83b` (fix `aae9ae8`) + `b7e5ed3` (test thiếu cột). Chỉ LỖI B, KHÔNG kéo LỖI A/C/D.
-  Fix gồm: (a) `postTaoQr` thiếu cấu hình ngân hàng → 422 thân thiện + `Str::mask` số tài
+- **LỖI B (tạo QR) — xác nhận trên `main` trong Vận hành 2 (2026-11-16)**:
+  nội dung fix `aae9ae8` đã nằm trong main qua merge P2 (không cần cherry-pick);
+  `LoiBTaoQrTest` 6/6 + `LoiBThieuCotOnlineTest` 4/4 xanh — 422 thân thiện khi
+  thiếu `POS_BANK_*` (log chỉ `Str::mask` số TK), POS/scheduler chạy khi DB
+  thiếu cột online M1/M3, log không chứa số tài khoản đầy đủ. Không còn
+  khoảng hở so với commit gốc. Fix gồm: (a) `postTaoQr` thiếu cấu hình ngân hàng → 422 thân thiện + `Str::mask` số tài
   khoản khi log (xử lý LỖI B-POS); (b) `scopeQuaHanCho` guard `hasColumn('kenh')` → fallback
   15 phút khi thiếu cột, còn không giữ logic D17; (c) R1 chỉ ghi cột online M1 khi `$online`
-  khác rỗng, cột M3 chỉ ghi khi `hasColumn('hinh_thuc_nhan')`. Xung đột chỉ ở
-  `ThanhToanChuyenKhoanService.php` (R1), giải quyết giữ cả hai; controller/model auto-merge.
-  Nền QR đã hết lỗi → được phép dựng bước 2. Chi tiết: `docs/BAO_CAO_DAT_HANG_P2.md`.
+  khác rỗng, cột M3 chỉ ghi khi `hasColumn('hinh_thuc_nhan')`. Chi tiết:
+  `docs/BAO_CAO_VAN_HANH_2.md` mục 4.
 - **Mã phiếu trả chống trùng trong cùng giây (đã sửa 2026-11-12)**: `sinhMaPhieuTra`
   (`TraHangController.php:152-171`) dò hậu tố đã dùng của giây hiện tại rồi quét tiến
   từ điểm ngẫu nhiên, kèm vòng thử lại tối đa 5 lần khi vi phạm unique do giao dịch
@@ -1497,16 +1514,21 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
   tuần tự theo ngày có `lockForUpdate` (`DonHangController.php:322-333`,
   `ThanhToanChuyenKhoanService.php:309-320`), khác mẫu ngẫu nhiên. Chi tiết:
   [docs/BAO_CAO_MA_PHIEU_TRA_HANG.md](docs/BAO_CAO_MA_PHIEU_TRA_HANG.md).
-- **URL ảnh đã hết lỗi 500 do quá dài (sửa 2026-11-12)**: cột thật `products.hinh_anh`
-  là VARCHAR(150) utf8mb4 (migration khai 255 nhưng chưa áp lên DB thật), rule cũ
-  cho lọt URL 151–255 ký tự → `SQLSTATE[22001] 1406` → 500. `AnhSanPhamUrl` nay
-  giới hạn **150 ký tự** với 2 thông báo tiếng Việt riêng (không hợp lệ / quá dài);
-  có tệp tải lên thì URL hỏng không chặn lưu tệp. JS form kiểm tra ảnh phía trình
-  duyệt (debounce 500ms + blur, `Image()` no-referrer, timeout 8s, chặn nút Lưu)
-  **chỉ là UX, không phải bảo mật** và chưa có test tự động; server vẫn là nguồn sự
-  thật. URL legacy >150 ký tự vẫn hiển thị nhưng khi sửa phải xóa trắng ô URL/chọn
-  tệp/xóa ảnh mới lưu được; chưa dọn dữ liệu legacy. Chi tiết + phương án
-  Content-Type phía server (kèm chống SSRF) chờ xác nhận:
+- **URL ảnh đã hết lỗi 500 do quá dài; giới hạn nay theo cột thật (Vận hành
+  2, 2026-11-16)**: cột thật `products.hinh_anh` là VARCHAR(150) utf8mb4 trên
+  `doan_cnw` (migration `2026_11_13_000002` nới lên 500 đã viết sẵn, chưa áp).
+  `AnhSanPhamUrl::gioiHanDoDai()` đọc độ dài cột thật qua
+  `KiemTraSchema::doDaiCotVarchar` (information_schema/PRAGMA, cache tĩnh,
+  fallback 150 khi không đọc được) → sau khi migrate rule tự cho phép tới
+  500 mà không cần sửa code; thông báo "quá dài" in đúng giới hạn hiện hành.
+  Có tệp tải lên thì URL hỏng không chặn lưu tệp. JS form kiểm tra ảnh phía
+  trình duyệt (debounce 500ms + blur, `Image()` no-referrer, timeout 8s) nay
+  chỉ **cảnh báo + ô "Vẫn lưu liên kết này"** thay vì khóa cứng nút Lưu —
+  server vẫn là nguồn sự thật duy nhất. Test biên 500/501 trên
+  `doan_cnw_copy` (`AnhUrlDoDaiMysqlCopyTest`). URL legacy >150 ký tự vẫn hiển
+  thị nhưng khi sửa phải xóa trắng ô URL/chọn tệp/xóa ảnh mới lưu được; chưa
+  dọn dữ liệu legacy. Chi tiết:
+  [docs/BAO_CAO_VAN_HANH_2.md](docs/BAO_CAO_VAN_HANH_2.md) mục 3,
   [docs/BAO_CAO_ANH_URL_VALIDATE.md](docs/BAO_CAO_ANH_URL_VALIDATE.md).
 - **SĐT khách hàng đã siết chặt** (nhánh `fix/khach-hang-so-dien-thoai`, **đã merge vào
   nhánh `feat/khach-nhatky-taikhoan` ngày 2026-11-15**): mọi điểm nhập dùng chung
@@ -1546,6 +1568,19 @@ Cập nhật lần cuối: **2026-11-12**, trên nhánh `fix/anh-url-validate` (
 | `php artisan route:list` | ✅ Hoạt động | 100 routes (không đổi sau khi xóa controller legacy) |
 | `php artisan demo:kiemtra-du-lieu` | ✅ Đã chạy trên DB thật, **"Dữ liệu hợp lệ."** (exit 0) | Lệnh chỉ đọc — xem minh chứng bên dưới |
 | `php artisan demo:reset` | Không chạy | Xóa dữ liệu thật |
+
+### Đợt Vận hành 2 — Lỗi A/D/E trên `main` (2026-11-16)
+
+| Kiểm tra | Kết quả | Ghi chú |
+|----------|---------|---------|
+| Lỗi A — dùng điểm sai quy định | ✅ | Cherry-pick `dfd4009`+`003714a` → `ce5cfec`/`9ed15b1`: 422 `ValidationException` tiếng Việt theo trường `diem_su_dung` ở cả tiền mặt lẫn QR, `lockForUpdate` trong transaction, UI POS disable/max/kẹp; `LoiADungDiemTest` 10/10 |
+| Lỗi D — dashboard tồn kho | ✅ | Cherry-pick `46bb0bc`+`7d5dedf` → `6ed1db3`/`fad78ff`: 4 chỉ số "mặt hàng KD / tồn khả dụng / đang giữ / tổng thực tế" + chú thích, cảnh báo lỗi mạng; `LoiDDashboardTonKhoTest` xanh |
+| Lỗi B — tạo QR | ✅ Xác nhận | Đã có tương đương `aae9ae8` trong main; `LoiBTaoQrTest` 6/6 + `LoiBThieuCotOnlineTest` 4/4 |
+| Lỗi E — URL ảnh | ✅ | `77a6ac6`: rule theo độ dài cột thật qua `KiemTraSchema::doDaiCotVarchar` (fallback 150), JS cảnh báo + "Vẫn lưu liên kết này" thay vì khóa nút; `AnhUrlDoDaiMysqlCopyTest` biên 500/501 trên `doan_cnw_copy` |
+| Liên kết hồ sơ theo SĐT | ✅ Chỉ đọc | `doan_cnw`: 101 khách, 1 liên kết (hợp lệ), 0 nghi vấn auto-link → không cần gỡ hàng loạt; quy trình nhân viên ở mục 7 |
+| Full suite | ✅ **655 pass / 43 skip / 0 fail (2895 assertions, 982.53s)** | 1 fail `PosWorkflowTest` do assertion cũ → đã cập nhật sang errors bag (`3c45de9`), chạy lại xanh |
+| MySQL-copy | ✅ **43 pass / 356 assertions (17.14s)** | Filter chính xác trên `doan_cnw_copy` |
+| Migration cần áp | ⏳ Chưa | Thứ tự 6 migration + gỡ guard ở `docs/BAO_CAO_VAN_HANH_2.md` mục 7 |
 
 ### Đợt Stage 3-4 — Khách hàng, nhật ký toàn bộ, chốt main (2026-11-16, nhánh `feat/khach-nhatky-taikhoan`)
 
