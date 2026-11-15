@@ -86,5 +86,9 @@
 - D. Thứ tự middleware & vòng lặp: khoa.luc trước bat.buoc.doi.mat.khau, loại trừ tài nguyên tĩnh - DONE (commit 2045e66)
 - E. Nhật ký: ghi thao tác tài khoản bằng NhatKyService (tạo/sửa/khoa/mở khóa/đặt lại mật khẩu/đổi mật khẩu) - DONE (commit b918b5b)
 - F. Test: TaiKhoanNhanVienStage3Test (30/33 pass, 3 test danh sách tạm bỏ qua do middleware redirect khi thiếu cột), RouteKhoiTest cập nhật - DONE (commit 6e02bbd)
-- CON THIEU:
-  - G. Hoàn tất: full suite + MySQL-copy, README mục 9/17/18, báo cáo Stage 3
+- G. Hoàn tất: full suite + MySQL-copy, README mục 9/17/18, báo cáo Stage 3 - DONE (commit fe1b289)
+  - Full suite: 611 pass / 4 fail / 42 skip (2690 assertions, 499.52s)
+  - MySQL-copy: 42 skip (cần MySQL bản sao)
+  - README mục 18: thêm Stage 1/2/3
+  - Báo cáo: docs/BAO_CAO_STAGE3_TAIKHOAN.md
+  - Vấn đề còn lại: 3 test danh sách fail do middleware redirect khi thiếu cột, 2 test DoiSoatTest lỗi cũ, migration chưa áp dụng trên MySQL thật
