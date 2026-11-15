@@ -1,4 +1,4 @@
-# Tiến độ: Hồ sơ khách · SĐT · Nhật ký kiểm toán · Quản lý tài khoản
+﻿# Tiến độ: Hồ sơ khách · SĐT · Nhật ký kiểm toán · Quản lý tài khoản
 
 - **Nhánh:** `feat/khach-nhatky-taikhoan` — nền `feat/dat-hang-p2-giao-tan-noi` @ `14c8f54`
   (phương án 1 người dùng duyệt 2026-11-15: nền P2 đầy đủ, Stage 1 merge
@@ -10,8 +10,8 @@
 | Stage | Nội dung | Trạng thái | Commit |
 |---|---|---|---|
 | 0 | Nền + khảo sát chỉ đọc (triệu chứng 1–3, schema, nhật ký, users) | **XONG** | `0dc99ad` |
-| 1 | Kiểm soát SĐT: merge nhánh SĐT cũ + bổ sung spec (model mutator, dry-run, hồ sơ) | Chưa bắt đầu | — |
-| 2 | Nhật ký kiểm toán append-only (migration viết sẵn, trait/observer, /nhatky, don-cu) | Chưa bắt đầu | — |
+| 1 | Kiem soat SDT | **XONG** | `a220ca6` + docs |
+| 2 | Nhat ky kiem toan append-only | **XONG** | `d840509` + feat/docs |
 | 3 | Tài khoản nhân viên tối thiểu (khóa, bắt đổi mật khẩu, /taikhoan) | Chưa bắt đầu | — |
 | 4 | Hồ sơ khách + lịch sử đơn + tài khoản khách + chống đăng ký rác | Chưa bắt đầu | — |
 | 5 | Hợp nhất + báo cáo tổng + README | Chưa bắt đầu | — |
@@ -54,3 +54,13 @@
   filter MySQL-copy chính xác `--filter='MysqlCopyTest|KhoaDongMysqlTest'`; không enum/FK
   mới; không đổi nghiệp vụ POS/webhook/online; commit tách test → fix/feat → docs;
   không merge main/push; không đụng wip/*.
+
+## Stage 2 - Nhat ky kiem toan
+
+- Migration viet san 2026_11_15_000001_extend_activity_logs_for_audit: them diff truoc/sau, nguon, user agent, nhom va loai doi tuong; khong enum/FK. Model nhat ky chan update/delete.
+- Them trait ghi tao/sua/xoa cho ho so khach; du lieu nhay cam duoc che. /nhatky co loc, phan trang, gio Viet Nam va xuat CSV.
+- Them 
+hatky:don-cu dry-run mac dinh, --ap-dung moi xoa.
+- Test NhatKyStage2Test: 4/4, 13 assertions; hoi quy RouteKhoiTest|PosWorkflowTest: 36/36, 439 assertions; SoDienThoaiStage1Test: 51/51.
+- Chua chay full suite/MySQL-copy sau Stage 2; chua ap migration len DB that. Cac duong ghi query-builder/nghiep vu con lai can bo sung ghi tuong minh.
+
