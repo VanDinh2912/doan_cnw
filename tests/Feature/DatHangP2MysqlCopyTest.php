@@ -153,6 +153,72 @@ class DatHangP2MysqlCopyTest extends TestCase
         }
     }
 
+    /**
+     * P2 BƯỚC 3 — đường hoàn tất thanh toán trên MySQL strict: đơn online
+     * giao_tan_noi → da_thanh_toan + trang_thai_giao theo POS_ONLINE_TU_DONG_XAC_NHAN.
+     * Tự áp M1/M3 nếu bản sao chưa có, tự gỡ sau test.
+     */
+    public function test_hoan_tat_thanh_toan_don_giao_dat_trang_thai_giao(): void
+    {
+        $this->chiChayTrenBanSaoMysql();
+
+        $tuApDung = [];
+        if (! Schema::hasColumn('invoices', 'kenh')) {
+            $this->assertSame(0, Artisan::call('migrate', ['--path' => self::M1, '--force' => true]));
+            $tuApDung[] = self::M1;
+        }
+        if (! Schema::hasColumn('invoices', 'trang_thai_giao')) {
+            $this->assertSame(0, Artisan::call('migrate', ['--path' => self::MIGRATION, '--force' => true]));
+            $tuApDung[] = self::MIGRATION;
+        }
+
+        $maDon = 'HD'.now()->format('Ymd').'-'.random_int(8000, 8999);
+        try {
+            \Illuminate\Support\Facades\Config::set('pos.online_tu_dong_xac_nhan', false);
+
+            DB::table('invoices')->insert([
+                'ma_hoadon' => $maDon,
+                'user_id' => null,
+                'tong_tien' => 20000,
+                'tong_thanh_toan' => 50000,
+                'phuong_thuc' => 'chuyenkhoan',
+                'trang_thai' => 'cho_thanh_toan',
+                'kenh' => 'online',
+                'ma_tra_cuu' => 'TC-'.uniqid(),
+                'ten_khach_dat' => 'Khách P2B3',
+                'so_dienthoai_dat' => '0901234567',
+                'hinh_thuc_nhan' => 'giao_tan_noi',
+                'phi_giao_hang' => 30000,
+                'trang_thai_giao' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $don = DonHang::where('ma_hoadon', $maDon)->firstOrFail();
+            $res = app(\App\Services\ThanhToanChuyenKhoanService::class)
+                ->hoanTatThanhToan($don, null, null, null);
+
+            $this->assertTrue($res['success'], $res['message'] ?? '');
+            $don->refresh();
+            $this->assertSame('da_thanh_toan', $don->trang_thai);
+            $this->assertSame('cho_xac_nhan', $don->trang_thai_giao);
+
+            // Gọi lại lần nữa → idempotent, không đổi trạng thái giao.
+            $don->update(['trang_thai_giao' => 'dang_giao']);
+            $res2 = app(\App\Services\ThanhToanChuyenKhoanService::class)
+                ->hoanTatThanhToan($don->fresh(), null, null, null);
+            $this->assertFalse($res2['success']);
+            $this->assertTrue($res2['already_processed']);
+            $this->assertSame('dang_giao', $don->fresh()->trang_thai_giao);
+        } finally {
+            DB::table('invoices')->where('ma_hoadon', $maDon)->delete();
+            foreach (array_reverse($tuApDung) as $migration) {
+                (require base_path($migration))->down();
+                DB::table('migrations')->where('migration', basename($migration, '.php'))->delete();
+            }
+        }
+    }
+
     private function cotInvoices(): array
     {
         return collect(DB::select(

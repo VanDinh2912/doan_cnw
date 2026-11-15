@@ -19,6 +19,11 @@ abstract class TestCase extends BaseTestCase
         KiemTraSchema::datLai();
 
         parent::setUp();
+
+        // Cờ đặt hàng online: mặc định BẬT trong test để giữ hành vi P1/P2
+        // (giá trị production là TẮT). Test cờ riêng Config::set ghi đè sau setUp.
+        config()->set('pos.dat_hang_online_bat', true);
+        config()->set('pos.giao_tan_noi_bat', true);
     }
 
     /**

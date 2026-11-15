@@ -29,6 +29,9 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
+        <!-- Test mặc định bật cờ đặt hàng online để giữ hành vi P1/P2; test cờ riêng sẽ Config::set tắt. -->
+        <env name="POS_DAT_HANG_ONLINE_BAT" value="true"/>
+        <env name="POS_GIAO_TAN_NOI_BAT" value="true"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
     </php>
 </phpunit>
