@@ -74,10 +74,11 @@ class KhachHangController extends Controller
 
         $validated = $request->validate([
             'ho_ten' => ['required', 'string', 'max:100'],
-            'so_dienthoai' => ['required', 'string', new SoDienThoaiHopLe(), 'unique:customers,so_dienthoai'],
+            'so_dienthoai' => ['bail', 'required', 'string', new SoDienThoaiHopLe(), 'unique:customers,so_dienthoai'],
         ], [
             'ho_ten.required' => 'Vui lòng nhập họ tên.',
             'so_dienthoai.required' => 'Vui lòng nhập số điện thoại.',
+            'so_dienthoai.string' => SoDienThoaiHopLe::THONG_BAO,
             'so_dienthoai.unique' => 'Số điện thoại đã tồn tại.',
         ]);
 
@@ -92,11 +93,12 @@ class KhachHangController extends Controller
 
         return $request->validate([
             'ho_ten' => ['required', 'string', 'max:100'],
-            'so_dienthoai' => ['required', 'string', new SoDienThoaiHopLe(), Rule::unique('customers', 'so_dienthoai')->ignore($khachHang)],
+            'so_dienthoai' => ['bail', 'required', 'string', new SoDienThoaiHopLe(), Rule::unique('customers', 'so_dienthoai')->ignore($khachHang)],
             'dia_chi' => ['nullable', 'string', 'max:255'],
         ], [
             'ho_ten.required' => 'Vui lòng nhập họ tên.',
             'so_dienthoai.required' => 'Vui lòng nhập số điện thoại.',
+            'so_dienthoai.string' => SoDienThoaiHopLe::THONG_BAO,
             'so_dienthoai.unique' => 'Số điện thoại đã tồn tại.',
         ]);
     }

@@ -69,9 +69,12 @@
 
                 <div style="margin-bottom:12px;">
                     <label for="so_dienthoai" style="display:block;margin-bottom:4px;">Số điện thoại</label>
-                    <input id="so_dienthoai" name="so_dienthoai" type="text" value="{{ old('so_dienthoai', $khachHang?->so_dienthoai) }}" required
+                    <input id="so_dienthoai" name="so_dienthoai" type="tel" inputmode="numeric" autocomplete="tel" maxlength="20"
+                           pattern="[0-9+\-.\s\(\)]{10,20}"
+                           value="{{ old('so_dienthoai', $khachHang?->so_dienthoai) }}" required
                            style="width:100%;height:40px;border:1px solid var(--sf-border-strong);border-radius:8px;padding:0 10px;">
                     @error('so_dienthoai')<div style="color:var(--sf-stock-out);font-size:var(--sf-text-sm);">{{ $message }}</div>@enderror
+                    <small style="color:var(--sf-text-muted,#6b7280);font-size:12px;">10 chữ số, bắt đầu bằng 0. Có thể nhập +84, khoảng trắng, dấu chấm/gạch ngang.</small>
                 </div>
 
                 <div style="margin-bottom:12px;">
@@ -87,4 +90,13 @@
             </form>
         </div>
     </div>
+
+    <script>
+        const sdtInput = document.getElementById('so_dienthoai');
+        if (sdtInput) {
+            sdtInput.addEventListener('input', () => {
+                sdtInput.value = sdtInput.value.replace(/[^0-9+\-.\s()]/g, '').slice(0, 20);
+            });
+        }
+    </script>
 @endsection

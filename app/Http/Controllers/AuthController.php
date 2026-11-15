@@ -84,7 +84,7 @@ class AuthController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:100'],
             'email' => ['required', 'email', 'max:150', 'unique:users,email'],
-            'so_dienthoai' => ['required', 'string', new SoDienThoaiHopLe()],
+            'so_dienthoai' => ['bail', 'required', 'string', new SoDienThoaiHopLe()],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ], [
             'name.required' => 'Vui lòng nhập họ tên.',
@@ -93,6 +93,7 @@ class AuthController extends Controller
             'email.email' => 'Email không hợp lệ.',
             'email.unique' => 'Email đã được sử dụng.',
             'so_dienthoai.required' => 'Vui lòng nhập số điện thoại.',
+            'so_dienthoai.string' => SoDienThoaiHopLe::THONG_BAO,
             'password.required' => 'Vui lòng nhập mật khẩu.',
             'password.min' => 'Mật khẩu phải có ít nhất 8 ký tự.',
             'password.confirmed' => 'Xác nhận mật khẩu không khớp.',
