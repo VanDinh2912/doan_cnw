@@ -9,7 +9,7 @@
 
 | Stage | Nội dung | Trạng thái | Commit |
 |---|---|---|---|
-| 0 | Nền + khảo sát chỉ đọc (triệu chứng 1–3, schema, nhật ký, users) | **XONG** (chờ commit docs) | — |
+| 0 | Nền + khảo sát chỉ đọc (triệu chứng 1–3, schema, nhật ký, users) | **XONG** | `0dc99ad` |
 | 1 | Kiểm soát SĐT: merge nhánh SĐT cũ + bổ sung spec (model mutator, dry-run, hồ sơ) | Chưa bắt đầu | — |
 | 2 | Nhật ký kiểm toán append-only (migration viết sẵn, trait/observer, /nhatky, don-cu) | Chưa bắt đầu | — |
 | 3 | Tài khoản nhân viên tối thiểu (khóa, bắt đổi mật khẩu, /taikhoan) | Chưa bắt đầu | — |
