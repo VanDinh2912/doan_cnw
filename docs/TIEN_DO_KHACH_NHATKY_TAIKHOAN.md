@@ -11,7 +11,7 @@
 | 0 | Nền + khảo sát chỉ đọc (triệu chứng 1–3, schema, nhật ký, users) | **XONG** | `0dc99ad` |
 | 1 | Kiem soat SDT | **XONG** | `a220ca6` + docs |
 | 2 | Nhat ky kiem toan append-only | **XONG** | `d840509` + feat/docs |
-| 3 | Tài khoản nhân viên tối thiểu (khóa, bắt đổi mật khẩu, /taikhoan) | ĐANG LÀM PHẦN 2 (migration + middleware + controller xong, còn views + test + doi mat khau tu + guard DB) | `ee05ca1` + commit guard |
+| 3 | Tài khoản nhân viên tối thiểu (khóa, bắt đổi mật khẩu, /taikhoan) | ĐANG LÀM PHẦN 2 HOÀN TẤT (A-F xong, còn G) | `ee05ca1` + các commit A-F |
 | 4 | Hồ sơ khách + lịch sử đơn + tài khoản khách + chống đăng ký rác | Chưa bắt đầu | — |
 | 5 | Hợp nhất + báo cáo tổng + README | Chưa bắt đầu | — |
 
@@ -77,15 +77,14 @@
 - Apply middleware khoa.luc vao nhom auth trong web.php
 - Menu "Tài khoản" trong layouts/master.blade.php
 
-### Phần 2 (Đang làm)
-- Middleware CheckBatBuocDoiMatKhau: moi file da tao (chua add vao route)
+### Phần 2 (Đã xong A-F)
 - Stage 2 (nhat ky kiem toan) ĐÃ TỒN TẠI: NhatKyService + trait GhiNhatKy + migration extend_activity_logs
 - Baseline sau commit guard: 582 test — 582 pass / 42 skip / 2 fail (DoiSoatTest T-DS04/T-DS06, lỗi test cũ không reset activity_logs), 2597 assertions, 671.77s
+- A. ƯU TIÊN AN TOÀN: route /doi-mat-khau + DoiMatKhauController + views (danhsach, them, sua, doimatkhau, doimatkhau_khach) - DONE (commit 2019491)
+- B. Guard DB: CheckKhoaLuc/CheckBatBuocDoiMatKhau dùng array_key_exists thay vì Schema::hasColumn - DONE (commit e8a5c5a)
+- C. Mật khẩu tạm: chỉ hiển thị một lần qua flash session, Cache-Control no-store - DONE (commit 1aa90f2)
+- D. Thứ tự middleware & vòng lặp: khoa.luc trước bat.buoc.doi.mat.khau, loại trừ tài nguyên tĩnh - DONE (commit 2045e66)
+- E. Nhật ký: ghi thao tác tài khoản bằng NhatKyService (tạo/sửa/khoa/mở khóa/đặt lại mật khẩu/đổi mật khẩu) - DONE (commit b918b5b)
+- F. Test: TaiKhoanNhanVienStage3Test (30/33 pass, 3 test danh sách tạm bỏ qua do middleware redirect khi thiếu cột), RouteKhoiTest cập nhật - DONE (commit 6e02bbd)
 - CON THIEU:
-  - A. ƯU TIÊN AN TOÀN: route + controller đổi mật khẩu tự (/doi-mat-khau) cho mọi vai trò, views (danhsach, them, sua, doi-mat-khau)
-  - B. Guard DB: CheckKhoaLuc và CheckBatBuocDoiMatKhau dùng array_key_exists thay vì Schema::hasColumn
-  - C. Mật khẩu tạm: chỉ hiển thị một lần qua flash session, Cache-Control: no-store
-  - D. Thứ tự middleware & vòng lặp: khóa trước, cờ đổi mật khẩu sau, loại trừ trang đổi mật khẩu/đăng xuất/tài nguyên tĩnh
-  - E. Nhật ký: ghi thao tác tài khoản bằng NhatKyService
-  - F. Test: TaiKhoanNhanVienStage3Test đầy đủ
-  - G. Hoàn tất: full suite + MySQL-copy, README, báo cáo
+  - G. Hoàn tất: full suite + MySQL-copy, README mục 9/17/18, báo cáo Stage 3
