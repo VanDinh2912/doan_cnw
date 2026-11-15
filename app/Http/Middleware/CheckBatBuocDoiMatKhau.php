@@ -26,10 +26,12 @@ class CheckBatBuocDoiMatKhau
         // Guard: Chỉ kiểm tra nếu cột bat_buoc_doi_mat_khau đã tồn tại trong attributes
         if ($user && array_key_exists('bat_buoc_doi_mat_khau', $user->getAttributes())) {
             // Loại trừ các route không cần chuyển hướng
+            // Bao gồm: trang đổi mật khẩu, đăng xuất, tài nguyên tĩnh (đường dẫn asset)
             $excludedRoutes = ['doi-mat-khau', 'doi-mat-khau.post', 'auth.dangxuat'];
             $currentRoute = $request->route()?->getName();
+            $isAsset = $request->is('api/*') || $request->is('storage/*') || str_starts_with($request->path(), 'assets/');
 
-            if ($user->bat_buoc_doi_mat_khau === true && !in_array($currentRoute, $excludedRoutes, true)) {
+            if ($user->bat_buoc_doi_mat_khau === true && !in_array($currentRoute, $excludedRoutes, true) && !$isAsset) {
                 return redirect()->route('doi-mat-khau')
                     ->with('warning', 'Bạn cần đổi mật khẩu trước khi tiếp tục.');
             }

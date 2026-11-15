@@ -18,6 +18,9 @@ class CheckKhoaLuc
      *
      * Middleware này áp dụng cho mọi vai trò (admin, thungan, thukho, khachhang)
      *
+     * QUAN TRỌNG: Middleware này PHẢI chạy trước CheckBatBuocDoiMatKhau
+     * để tài khoản bị khóa không thể dùng cờ bat_buoc_doi_mat_khau để thoát.
+     *
      * GUARD: Không đọc khoa_luc nếu cột chưa tồn tại (DB thật chưa áp migration)
      * - Dùng array_key_exists trên user đã nạp thay vì Schema::hasColumn
      * - Đúng cả khi bật preventAccessingMissingAttributes
