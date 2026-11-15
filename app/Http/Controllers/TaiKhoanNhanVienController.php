@@ -81,9 +81,11 @@ class TaiKhoanNhanVienController extends Controller
         // Ghi nhật ký (không ghi mật khẩu)
         // activity_logs sẽ được ghi tự động qua observer/trait
 
+        // Mật khẩu tạm chỉ hiển thị trong flash session (request kế tiếp)
         return redirect()
             ->route('taikhoan.danhsach')
-            ->with('success', "Đã tạo tài khoản thành công. Mật khẩu tạm: {$tempPassword} (chỉ hiển thị một lần)");
+            ->with('temp_password', $tempPassword)
+            ->with('success', 'Đã tạo tài khoản thành công. Mật khẩu tạm hiển thị bên dưới (chỉ hiện một lần).');
     }
 
     /**
@@ -233,6 +235,9 @@ class TaiKhoanNhanVienController extends Controller
             'bat_buoc_doi_mat_khau' => true, // Bắt buộc đổi ở lần đăng nhập đầu
         ]);
 
-        return back()->with('success', "Đã đặt lại mật khẩu. Mật khẩu tạm mới: {$tempPassword} (chỉ hiển thị một lần)");
+        // Mật khẩu tạm chỉ hiển thị trong flash session
+        return back()
+            ->with('temp_password', $tempPassword)
+            ->with('success', 'Đã đặt lại mật khẩu. Mật khẩu tạm mới hiển thị bên dưới (chỉ hiện một lần).');
     }
 }

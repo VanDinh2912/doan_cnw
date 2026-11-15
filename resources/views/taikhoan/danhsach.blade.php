@@ -3,6 +3,7 @@
 @section('title', 'Tài khoản nhân viên')
 
 @section('content')
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h3 mb-0">Tài khoản nhân viên</h1>
     <a class="btn btn-primary" href="{{ route('taikhoan.them') }}">Thêm tài khoản</a>
@@ -20,6 +21,15 @@
         </div>
     @endif
 </form>
+@if (session('temp_password'))
+    <div class="alert alert-warning d-flex align-items-center gap-2 mb-3" role="alert">
+        <i class="fa-solid fa-key"></i>
+        <div>
+            <strong>Mật khẩu tạm:</strong> <code>{{ session('temp_password') }}</code>
+            <small class="d-block text-muted mt-1">Chỉ hiển thị một lần. Lưu lại ngay!</small>
+        </div>
+    </div>
+@endif
 <div class="card">
     <div class="table-responsive">
         <table class="table table-striped mb-0">
