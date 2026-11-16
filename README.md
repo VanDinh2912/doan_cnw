@@ -198,6 +198,7 @@ Lệnh kiểm tra số lượng bản ghi, tổng hóa đơn, tồn kho và move
 | `POS_GIAO_HANG_TINH` | Không | (rỗng) | Vùng giao, phân tách dấu phẩy (rỗng = không giới hạn) | Đặt hàng online |
 | `POS_DAT_HANG_ONLINE_BAT` | Không | **false** | Bật đặt hàng online; tắt → mọi route `/dat-hang`, `/don-hang` trả 404 | Đặt hàng online |
 | `POS_GIAO_TAN_NOI_BAT` | Không | **false** | Bật hình thức giao tận nơi (chỉ có ý nghĩa khi cờ trên bật) | Đặt hàng online |
+| `HOTLINE` | Không | 1900 0000 | Hotline hiển thị storefront (footer, thanh tin cậy, thông báo giỏ hàng khi cờ tắt) — nguồn `config/storefront.php` | Storefront |
 | `LOG_STACK` | Không | daily | Kênh trong stack log; đặt `daily` để log xoay vòng | Ghi log |
 | `LOG_DAILY_DAYS` | Không | 14 | Số ngày giữ log daily | Ghi log |
 | `BACKUP_DISK` | Không | backups | Đĩa lưu bản sao lưu (khai báo trong `config/filesystems.php`) | Sao lưu |
@@ -827,7 +828,7 @@ song bằng `vendor/bin/paratest` — ~9 phút thay ~39 phút):
   sạch nội dung, template dự phòng.
 - `ExampleTest` Unit (1).
 
-**Feature (652 test, trong đó 44 skip)**
+**Feature (726 test, trong đó 45 skip)**
 
 Ghi chú: `LoiBTaoQrTest` (6), `LoiBThieuCotOnlineTest` (4), `LoiADungDiemTest`
 (10) và `LoiDDashboardTonKhoTest` (1) đã cherry-pick vào `main` trong đợt
@@ -1433,8 +1434,14 @@ IP và mô tả. Permission động vẫn chờ chốt ma trận quyền (Pha 23
 ### Pha 18 — Đổi/trả hàng — Đã hoàn thành một phần
 
 - Đã có tạo phiếu trả, trả hàng tốt/hỏng, kiểm tra hạn và số lượng cộng dồn.
-- Đã hoàn tiền theo tỷ lệ `tong_thanh_toan/tong_tien` (phân bổ cả giảm giá % lẫn
-  giảm giá điểm), cập nhật tồn/kho lỗi, thu hồi điểm và ghi nhật ký.
+- **Đã hoàn tiền theo tỷ lệ trên TIỀN HÀNG sau giảm giá** (quy tắc 2026-11-16):
+  tỷ lệ = `(tong_thanh_toan − phi_giao_hang)/tong_tien` — đơn có phí ship không
+  còn bị hoàn ship theo tỷ lệ; chỉ admin tick "Hoàn cả phí giao" (bắt buộc lý
+  do, một lần/đơn, vai trò khác 403) mới cộng thêm `phi_giao_hang`. Tổng hoàn
+  tích lũy kẹp ≤ `tong_thanh_toan`; điểm thu hồi tính trên phần tiền hàng hoàn.
+  Báo cáo có dòng riêng `hoan_phi_giao_hang`. Đơn không ship/thiếu cột giữ hành
+  vi cũ. Chi tiết: `docs/BAO_CAO_HOAN_TIEN_SHIP.md`; `TraHangPhiGiaoTest` 10 +
+  `TraHangPhiGiaoMysqlCopyTest` 1.
 - Điểm thu hồi = `floor(tong_hoan / POS_DIEM_MOI_DONG)`, không vượt số dư hiện
   tại; phiếu vượt `POS_NGUONG_TRA_KHONG_DUYET` phải chờ admin duyệt.
 - Đã hoàn `diem_su_dung` theo tỷ lệ giá trị hàng trả cộng dồn, làm tròn xuống;
@@ -1525,10 +1532,12 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
   ràng, không âm thầm gọi endpoint cũ. API v2 giới hạn khoảng 3 request/giây;
   client giữ khoảng cách tối thiểu 350 ms và đọc `Retry-After` khi gặp 429, tối
   đa `SEPAY_API_RETRIES` lần; cửa sổ lớn có thể cần nhiều trang (tối đa 1000).
-- **Migration `ma_tham_chieu` chưa áp lên CSDL thật**: migration mới chỉ được viết
-  và kiểm trên SQLite `:memory:` trong test; chưa chạy `migrate` trên `doan_cnw`.
-  Trước khi dùng đối soát trên máy cửa hàng phải sao lưu rồi `migrate --force`
-  theo mục 5A (cần người dùng xác nhận thời điểm).
+- **Đã áp migration lên `doan_cnw` (2026-11-16 ~22:3x)**: cả 5 migration pending
+  (`ma_tham_chieu`, audit log, khóa/đổi mật khẩu, `can_hoan_tien`,
+  `tien_hoan_phi_giao`) đã chạy thành công sau khi sao lưu + diễn tập trên
+  `doan_cnw_dev`; số dòng mọi bảng không đổi, engine InnoDB. `migrate:status`
+  hiện **0 pending**. Chi tiết: `docs/BAO_CAO_AP_MIGRATION.md`,
+  `docs/SO_TAY_TRIEN_KHAI.md` mục 1b, `docs/HUONG_DAN_XU_LY_SAU_MIGRATE.md`.
 - **Không đọc barcode bằng webcam** (chỉ hỗ trợ máy quét USB HID/keyboard wedge).
 - **Không in tự động** không qua hộp thoại trình duyệt (cần QZ Tray hoặc print server).
 - **Không có ứng dụng mobile / API REST** (chỉ web POS).
@@ -1561,9 +1570,9 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
   Phân tích hợp nhất (cột chuẩn, độ lệch dữ liệu, kế hoạch migration) ở
   [docs/BAO_CAO_SAN_SANG_VAN_HANH.md](docs/BAO_CAO_SAN_SANG_VAN_HANH.md); chưa thực
   hiện vì cần người dùng xác nhận.
-- **CSDL thật `doan_cnw` chưa được migrate trong đợt này**: ngày 2026-11-10 vẫn là
-  26 migration (MyISAM). 6 migration mới chỉ được thử trên bản sao `doan_cnw_copy`;
-  xem checklist triển khai ở mục 5A.
+- **CSDL thật `doan_cnw` đã migrate đủ (2026-11-16)**: 41 migration đã áp, toàn
+  bộ InnoDB; 5 migration cuối áp trong đợt có sao lưu + diễn tập
+  (`docs/BAO_CAO_AP_MIGRATION.md`). Guard schema giữ nguyên chờ ổn định.
 - **Múi giờ vẫn là UTC**: không đổi `config/app.php`. Phương án chuyển sang
   `Asia/Ho_Chi_Minh`, tác động dữ liệu cũ, kiểm tra và hoàn tác được ghi ở mục 6.2
   của [báo cáo vận hành](docs/BAO_CAO_SAN_SANG_VAN_HANH.md); chờ người dùng quyết định.
@@ -1595,12 +1604,13 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
   hủy đơn đã thanh toán chỉ admin + cờ `can_hoan_tien` + danh sách hoàn tiền,
   phiếu giao hàng in, trả hàng online an toàn null, báo cáo/dashboard/export tách
   phí ship). Chi tiết: `docs/BAO_CAO_DAT_HANG_P3.md`.
-- **Kiểm thử hiện tại: xem mục 9** (quy tắc hoàn phí giao hàng,
-  2026-11-16, `main`: **747 pass / 45 skip / 0 fail, 3461 assertions, 871.33s**
+- **Kiểm thử hiện tại: xem mục 9** (test lại toàn bộ luồng + áp migration,
+  2026-11-16, `main`: **747 pass / 45 skip / 0 fail, 3461 assertions, 594.47s**
   bằng `vendor/bin/paratest` 16 tiến trình — tương đương `php artisan test`;
-  MySQL-copy **45 pass / 373 assertions, 23.37s** trên `doan_cnw_copy`.
-  `migrate:status`: 5 migration pending theo thứ tự ở `docs/SO_TAY_TRIEN_KHAI.md`).
-  Trước đó thông báo giỏ hàng khi cờ đặt hàng tắt:
+  MySQL-copy **45 pass / 373 assertions** trên `doan_cnw_copy`.
+  `migrate:status` trên `doan_cnw`: **0 pending** — 5 migration cuối đã áp
+  2026-11-16, xem `docs/BAO_CAO_AP_MIGRATION.md`).
+  Trước đó quy tắc hoàn phí giao + thông báo giỏ hàng:
   **737 pass / 44 skip / 0 fail, 3423 assertions, 445.80s** paratest;
   MySQL-copy 44 pass / 364 assertions, 15.59s.
   Chốt triển khai + merge SePay đối soát:
@@ -1687,7 +1697,8 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
   [docs/BAO_CAO_MA_PHIEU_TRA_HANG.md](docs/BAO_CAO_MA_PHIEU_TRA_HANG.md).
 - **URL ảnh đã hết lỗi 500 do quá dài; giới hạn nay theo cột thật (Vận hành
   2, 2026-11-16)**: cột thật `products.hinh_anh` là VARCHAR(150) utf8mb4 trên
-  `doan_cnw` (migration `2026_11_13_000002` nới lên 500 đã viết sẵn, chưa áp).
+  `doan_cnw` (migration `2026_11_13_000002` nới lên 500 **đã áp** cùng các
+  migration khác ngày 2026-11-16 — rule tự cho phép tới 500 trên DB thật).
   `AnhSanPhamUrl::gioiHanDoDai()` đọc độ dài cột thật qua
   `KiemTraSchema::doDaiCotVarchar` (information_schema/PRAGMA, cache tĩnh,
   fallback 150 khi không đọc được) → sau khi migrate rule tự cho phép tới
@@ -1791,6 +1802,19 @@ Cập nhật lần cuối: **2026-11-16**, trên `main` (sau merge `feat/sepay-d
 | MySQL-copy | ✅ **44 pass / 364 assertions (14.23s)** | Filter chính xác trên `doan_cnw_copy` |
 | Sổ tay triển khai | ✅ | `docs/SO_TAY_TRIEN_KHAI.md`: migration chờ áp theo thứ tự, quy trình backup→dev→migrate, biến môi trường, gỡ guard, dựng máy, bật cờ online 8 bước |
 | Cờ đặt hàng online | ⏸️ Giữ `false` | Bật sau kiểm tra tay 8 bước (mục 6 sổ tay) |
+
+### Đợt Áp migration + hoàn phí giao + thông báo giỏ — `main` (2026-11-16)
+
+| Kiểm tra | Kết quả | Ghi chú |
+|----------|---------|---------|
+| Thông báo giỏ hàng khi cờ tắt | ✅ | `/gio-hang` hiện "Đặt hàng online chưa mở… gọi {hotline}" thay vì ẩn hẳn; hotline gom về `config/storefront.php` (env `HOTLINE`, footer + trust-bar dùng chung); giỏ trống không hiện; `DatHangCoBatTest` 8 test |
+| Quy tắc hoàn phí giao | ✅ | Tiền hoàn chỉ trên tiền hàng sau giảm giá `(tong_thanh_toan − phi_giao_hang)/tong_tien`; admin tick "Hoàn cả phí giao" (bắt buộc lý do, 403 vai trò khác, một lần/đơn); tích lũy ≤ tổng đã thanh toán; điểm thu hồi loại ship; báo cáo có `hoan_phi_giao_hang`; đơn không ship/thiếu cột giữ hành vi cũ; `docs/BAO_CAO_HOAN_TIEN_SHIP.md`; `TraHangPhiGiaoTest` 10 + MysqlCopy 1 |
+| Áp 5 migration lên `doan_cnw` | ✅ | Backup 2 lần + diễn tập `doan_cnw_dev` (khôi phục khớp 27 bảng/2.164 dòng) → `down`→pretend giống→`migrate --force` 5/5 DONE ~0,57s; số dòng không đổi, InnoDB, 0 pending; tag `backup/truoc-migrate-doan-cnw-20261116`; `docs/BAO_CAO_AP_MIGRATION.md` |
+| Test lại toàn bộ luồng | ✅ | `docs/BAO_CAO_TEST_LAI_TOAN_BO_LUONG.md`: paratest **792 test / 3461 assertions / 45 skip / 0 fail**; MySQL-copy **45 pass / 373 assertions** trên `doan_cnw_copy` |
+| Hướng xử lý sau migrate | ✅ | `docs/HUONG_DAN_XU_LY_SAU_MIGRATE.md`: FAIL `SEPAY_WEBHOOK_API_KEY` (có sẵn, cần cấu hình `.env`), WARN Telegram/APP_ENV/LOG_STACK, sao lưu định kỳ, gỡ guard ≥1 tuần |
+| Full suite | ✅ **747 pass / 45 skip / 0 fail (3461 assertions, 594.47s paratest)** | 792 test tổng (gồm skip MySQL-only) |
+| MySQL-copy | ✅ **45 pass / 373 assertions** | Filter chính xác trên `doan_cnw_copy` |
+| Migration trên `doan_cnw` | ✅ **0 pending** | 41 migration đã áp; guard schema giữ nguyên chờ ổn định |
 
 ### Đợt Stage 3-4 — Khách hàng, nhật ký toàn bộ, chốt main (2026-11-16, nhánh `feat/khach-nhatky-taikhoan`)
 
