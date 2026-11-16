@@ -31,15 +31,29 @@ Làm trực tiếp trên `main`. Đọc file này trước khi tiếp tục; c�
 
 ## Trạng thái hạng mục
 
-- [x] HM1 Danh sách đơn online — code + test `DonHangOnlineNhanVienTest` 5/5 xanh;
-  ĐANG CHỜ full suite + MySQL-copy xanh rồi commit (test:/feat:/docs:)
-- [ ] HM2 Chuyển trạng thái giao (máy trạng thái)
-- [ ] HM3 Pickup/QR chờ: UI thu ngân (xác nhận/hủy/gia hạn)
-- [ ] HM4 Hủy đơn đã thanh toán (admin) + đánh dấu hoàn tiền (D16)
-- [ ] HM5 Phiếu giao hàng (in)
-- [ ] HM6 Trả hàng đơn online
-- [ ] HM7 P2 bước 4: báo cáo tách phí ship
-- [ ] HM8 Hoàn tất: suite + docs + README
+- [x] HM1 Danh sách đơn online — commit dd1e169/28b64d5/c72641e
+- [x] HM2 Chuyển trạng thái giao — `postChuyenTrangThai` (lockForUpdate,
+  idempotent, nhật ký không PII); test `DonHangChuyenTrangThaiTest` 5/5.
+  QUYẾT ĐỊNH: điểm đã cộng đúng 1 lần lúc thanh toán (R2) → da_giao KHÔNG
+  cộng lại (tránh double-award).
+- [x] HM3 Pickup/QR chờ — nút trên chitiet gọi lại endpoint JSON sẵn có
+  (donhang.xacnhan/huycho/giahan), chỉ admin+thungan; test `DonHangPickupXuLyTest` 5/5.
+  Lưu ý: đơn quá hạn nhưng chưa bị scheduler hủy vẫn xác nhận được (hành vi cũ, giữ nguyên).
+- [x] HM4 Hủy đơn đã thanh toán — migration `2026_11_16_000001` (can_hoan_tien,
+  ghi_chu_noi_bo, guard+down có điều kiện); `huyDonDaThanhToan` trong service;
+  route role:admin; list "Đơn cần hoàn tiền" + "Đã hoàn tiền"; Telegram không PII;
+  tag backup/main-truoc-p3-huy-hoan-tien-20261116; test `DonHangHuyDaThanhToanTest` 5/5.
+- [x] HM5 Phiếu giao hàng — `getPhieuGiao` + view in, no-store, nhật ký in không PII;
+  test `PhieuGiaoHangTest` 1/1.
+- [x] HM6 Trả hàng đơn online — KHÔNG đổi code; test `TraHangDonOnlineTest` 3/3.
+  Hành vi hiện có: tiền hoàn tỷ lệ GỒM cả phí ship (tong_thanh_toan/tong_tien);
+  diem_thu_hoi thu theo tiền hoàn; customer_id null an toàn; online không dùng điểm.
+  → "Cần người dùng xác nhận": có hoàn phí ship khi trả một phần không?
+- [x] HM7 P2 bước 4 — `getDoanhThu` thêm `phi_giao_hang`, doanh_thu trừ ship
+  (tách tỷ lệ theo tyLeHoan); `so_hoa_don` chỉ đếm da_thanh_toan;
+  HoaDonExport + cột Phí giao hàng; hoadon.blade hiện dòng phí ship;
+  test `BaoCaoTachPhiGiaoTest` 4/4.
+- [ ] HM8 Hoàn tất: full suite + MySQL-copy + docs/BAO_CAO_DAT_HANG_P3 + README
 
 ## Quyết định thiết kế HM1
 

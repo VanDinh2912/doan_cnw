@@ -731,8 +731,8 @@ php artisan test --compact
 Remove-Item Env:XDEBUG_MODE
 ```
 
-Các test nghiệp vụ hiện có (**718 test** sau P2 bước 3 + cờ đặt hàng, trong đó
-44 skip MySQL-copy; số chạy thật: **674 pass / 44 skip / 0 fail, 2972 assertions**
+Các test nghiệp vụ hiện có (**746 test** sau P3 + P2 bước 4, trong đó
+44 skip MySQL-copy; số chạy thật: **702 pass / 44 skip / 0 fail, 3154 assertions**
 trên sqlite `:memory:`, MySQL-copy **44 pass / 364 assertions** trên
 `doan_cnw_copy` — cập nhật ở mục 17/18):
 
@@ -1462,11 +1462,18 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
   không địa chỉ, escape HTML. **Chưa implement (bước 4 + P3):** báo cáo tách phí
   ship khỏi doanh thu; màn hình nhân viên xử lý đơn online (xác nhận/đang giao/đã
   giao, hủy đơn đã thanh toán + hoàn tiền thủ công, gia hạn, cộng điểm khi giao,
-  trả hàng online, bật cờ). Chi tiết: `docs/BAO_CAO_DAT_HANG_P2.md`.
-- **Kiểm thử hiện tại: xem mục 9** (P2 bước 3 + cờ đặt hàng, 2026-11-15, `main`:
-  **674 pass / 44 skip / 0 fail, 2972 assertions, 1565.55s** trên sqlite
-  `:memory:`; MySQL-copy **44 pass / 364 assertions, 15.52s** trên
-  `doan_cnw_copy`. Trước đó Vận hành 2: 655 pass / 43 skip / 0 fail,
+  trả hàng online, bật cờ). **P3 + P2 bước 4 đã xong (2026-11-16):** màn hình
+  "Đơn online" cho admin/thungan/thukho (danh sách lọc + badge, chi tiết no-store,
+  máy trạng thái giao lockForUpdate idempotent, nút pickup tái dùng endpoint POS,
+  hủy đơn đã thanh toán chỉ admin + cờ `can_hoan_tien` + danh sách hoàn tiền,
+  phiếu giao hàng in, trả hàng online an toàn null, báo cáo/dashboard/export tách
+  phí ship). Chi tiết: `docs/BAO_CAO_DAT_HANG_P3.md`.
+- **Kiểm thử hiện tại: xem mục 9** (P3 + P2 bước 4, 2026-11-16, `main`:
+  **702 pass / 44 skip / 0 fail, 3154 assertions, 1973.79s** trên sqlite
+  `:memory:`; MySQL-copy **44 pass / 364 assertions, 21.39s** trên
+  `doan_cnw_copy`. Trước đó P2 bước 3 + cờ: 674 pass / 44 skip / 0 fail,
+  2972 assertions; MySQL-copy 44 pass / 364 assertions.
+  Vận hành 2: 655 pass / 43 skip / 0 fail,
   2895 assertions; MySQL-copy 43 pass / 356 assertions.
   Baseline Stage 3-4 trước sửa: 624 pass / 42 skip /
   2712 assertions — lượt chạy bị ảnh hưởng giữa chừng bởi chỉnh sửa đang làm;
@@ -1620,6 +1627,21 @@ Cập nhật lần cuối: **2026-11-12**, trên nhánh `fix/anh-url-validate` (
 | Full suite | ✅ **674 pass / 44 skip / 0 fail (2972 assertions, 1565.55s)** | +19 test mới; 3 assertion `assertExactJson` cũ cập nhật thêm field `trang_thai_giao` |
 | MySQL-copy | ✅ **44 pass / 364 assertions (15.52s)** | +1 test đường hoàn tất trên `doan_cnw_copy` |
 | Tag backup | ✅ | `backup/main-truoc-p2-buoc3-co-dat-hang-20261115` |
+
+### Đợt P3 + P2 bước 4 — Màn hình đơn online cho nhân viên, tách phí ship — `main` (2026-11-16)
+
+| Kiểm tra | Kết quả | Ghi chú |
+|----------|---------|---------|
+| Màn hình "Đơn online" (HM1) | ✅ | `donhangonline.*` role admin/thungan/thukho; lọc hình thức/trạng thái/ngày/từ khóa, paginate 20, không N+1; SĐT che ở danh sách, đầy đủ + `no-store` ở chi tiết; badge menu poll 30s; thiếu cột → "Cần áp migration" không 500; `DonHangOnlineNhanVienTest` 5 test |
+| Máy trạng thái giao (HM2) | ✅ | `cho_xac_nhan→da_xac_nhan→dang_giao→da_giao`, `lockForUpdate`+transaction, idempotent, nhật ký không PII; điểm đã cộng lúc thanh toán nên `da_giao` không cộng lại; `DonHangChuyenTrangThaiTest` 5 test |
+| Pickup/QR chờ (HM3) | ✅ | Nút xác nhận/gia hạn/hủy trên chi tiết tái dùng `donhang.xacnhan/giahan/huycho` (server kiểm lại mọi ràng buộc); `DonHangPickupXuLyTest` 5 test |
+| Hủy đơn đã thanh toán (HM4) | ✅ | Chỉ admin + bắt buộc lý do; hoàn kho `dieuchinh` 1 lần, thu hồi điểm kẹp sàn 0, `da_huy`+`da_huy_giao`+`can_hoan_tien`; Telegram không PII; danh sách "Đơn cần hoàn tiền" + "Đã hoàn tiền"; thiếu cột vẫn hủy được; tag `backup/main-truoc-p3-huy-hoan-tien-20261116`; `DonHangHuyDaThanhToanTest` 5 test |
+| Phiếu giao hàng (HM5) | ✅ | In phiếu người nhận/địa chỉ/ghi chú/SP/phí ship/tổng/"ĐÃ THANH TOÁN", không giá vốn, `no-store`, nhật ký không PII; `PhieuGiaoHangTest` 1 test |
+| Trả hàng online (HM6) | ✅ | Không đổi code; an toàn `customer_id`/`user_id` null; hành vi hiện có hoàn tiền tỷ lệ gồm phí ship — ghi "Cần xác nhận"; `TraHangDonOnlineTest` 3 test |
+| Tách phí ship (P2 b4) | ✅ | `getDoanhThu` thêm `phi_giao_hang`, `doanh_thu` chỉ hàng hóa; `so_hoa_don` chỉ `da_thanh_toan`; `HoaDonExport` + cột phí ship; hóa đơn in hiện dòng phí ship; `BaoCaoTachPhiGiaoTest` 4 test (100k+30k → 100k/30k) |
+| Full suite | ✅ **702 pass / 44 skip / 0 fail (3154 assertions, 1973.79s)** | +23 test mới so với P2 b3 |
+| MySQL-copy | ✅ **44 pass / 364 assertions (21.39s)** | Filter chính xác trên `doan_cnw_copy` |
+| Migration chờ áp | ⏳ `2026_11_16_000001` (can_hoan_tien, ghi_chu_noi_bo) | Guard + `down()` điều kiện; thứ tự ở `docs/BAO_CAO_DAT_HANG_P3.md` |
 
 ### Đợt Stage 3-4 — Khách hàng, nhật ký toàn bộ, chốt main (2026-11-16, nhánh `feat/khach-nhatky-taikhoan`)
 
