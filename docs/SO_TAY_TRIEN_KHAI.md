@@ -9,8 +9,8 @@ gỡ guard sau migrate, dựng máy cửa hàng, bật đặt hàng online.
 
 ## 1. Migration CHƯA áp lên `doan_cnw`
 
-Kết quả `php artisan migrate:status` (chỉ đọc) ngày 2026-11-16 — 3 migration pending,
-cộng 1 migration sẽ đến từ merge SePay đối soát (HM3). Laravel chạy pending theo
+Kết quả `php artisan migrate:status` (chỉ đọc) ngày 2026-11-16 — 4 migration pending,
++ 1 migration hoàn phí giao (mục 1, dòng 5). Laravel chạy pending theo
 thứ tự tên file, nên **thứ tự áp thực tế** là:
 
 | # | Migration | Mục đích | Thêm/sửa | Guard | Rủi ro | Hoàn tác |
@@ -19,6 +19,7 @@ thứ tự tên file, nên **thứ tự áp thực tế** là:
 | 2 | `2026_11_15_000001_extend_activity_logs_for_audit` | Nhật ký hoạt động chi tiết (audit) | Mở rộng `activity_logs`: thêm cột mô tả/đối tượng/nguồn… | ✅ có guard | Trung bình: bảng log lớn → nên sao lưu + chạy giờ vắng; thêm cột nullable/index | `down()` có điều kiện |
 | 3 | `2026_11_15_000002_add_khoa_luc_and_bat_buoc_doi_mat_khau_to_users_table` | Khóa tài khoản + ép đổi mật khẩu lần đầu | `users.khoa_luc`, `users.bat_buoc_doi_mat_khau` | ✅ có guard | Thấp | `down()` có điều kiện |
 | 4 | `2026_11_16_000001_add_can_hoan_tien_to_invoices_table` | P3: cờ cần hoàn tiền thủ công + ghi chú nội bộ | `invoices.can_hoan_tien` bool, `invoices.ghi_chu_noi_bo` varchar(255) | ✅ có guard | Thấp | `down()` có điều kiện |
+| 5 | `2026_11_16_000002_add_tien_hoan_phi_giao_to_returns_table` | Quy tắc hoàn phí giao: tick admin một lần/đơn | `returns.tien_hoan_phi_giao` unsigned int default 0 | ✅ có guard | Thấp: chỉ thêm cột có default; thiếu cột → trả hàng chạy hành vi cũ, tick ship báo 422 | `down()` có điều kiện |
 
 ## 2. Quy trình nâng cấp an toàn
 

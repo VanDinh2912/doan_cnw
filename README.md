@@ -1056,6 +1056,13 @@ tương đương).
   `TH+YmdHis+2 số`, kho hoàn đủ 2 lần; hết 90 hậu tố của giây thì báo lỗi có kiểm
   soát, không tạo phiếu. Khóa RNG bằng hàm cùng namespace
   (`tests/Support/bo-sinh-so-ngau-nhien.php`), không sửa code production để test.
+- `TraHangPhiGiaoTest` (10) + `TraHangPhiGiaoMysqlCopyTest` (1, skip trên SQLite):
+  quy tắc hoàn phí giao — tiền hoàn chỉ trên tiền hàng sau giảm giá (không gồm
+  ship); chỉ admin tick "Hoàn cả phí giao" (bắt buộc lý do, một lần/đơn, 403 vai
+  trò khác); tổng hoàn tích lũy ≤ tổng đã thanh toán; điểm thu hồi không tính
+  ship; báo cáo có dòng riêng `hoan_phi_giao_hang`; đơn không ship/thiếu cột giữ
+  hành vi cũ. `TraHangDonOnlineTest` đổi 2 kỳ vọng (130.000→100.000, 65.000→50.000)
+  theo quy tắc mới — chi tiết `docs/BAO_CAO_HOAN_TIEN_SHIP.md`.
 
 Lưu ý khi chạy test:
 
@@ -1588,12 +1595,15 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
   hủy đơn đã thanh toán chỉ admin + cờ `can_hoan_tien` + danh sách hoàn tiền,
   phiếu giao hàng in, trả hàng online an toàn null, báo cáo/dashboard/export tách
   phí ship). Chi tiết: `docs/BAO_CAO_DAT_HANG_P3.md`.
-- **Kiểm thử hiện tại: xem mục 9** (thông báo giỏ hàng khi cờ đặt hàng tắt,
-  2026-11-16, `main`: **737 pass / 44 skip / 0 fail, 3423 assertions, 445.80s**
+- **Kiểm thử hiện tại: xem mục 9** (quy tắc hoàn phí giao hàng,
+  2026-11-16, `main`: **747 pass / 45 skip / 0 fail, 3461 assertions, 871.33s**
   bằng `vendor/bin/paratest` 16 tiến trình — tương đương `php artisan test`;
-  MySQL-copy **44 pass / 364 assertions, 15.59s** trên `doan_cnw_copy`.
-  `migrate:status`: 4 migration pending theo thứ tự ở `docs/SO_TAY_TRIEN_KHAI.md`).
-  Trước đó Chốt triển khai + merge SePay đối soát:
+  MySQL-copy **45 pass / 373 assertions, 23.37s** trên `doan_cnw_copy`.
+  `migrate:status`: 5 migration pending theo thứ tự ở `docs/SO_TAY_TRIEN_KHAI.md`).
+  Trước đó thông báo giỏ hàng khi cờ đặt hàng tắt:
+  **737 pass / 44 skip / 0 fail, 3423 assertions, 445.80s** paratest;
+  MySQL-copy 44 pass / 364 assertions, 15.59s.
+  Chốt triển khai + merge SePay đối soát:
   **736 pass / 44 skip / 0 fail, 3418 assertions, 447.77s** paratest;
   MySQL-copy 44 pass / 364 assertions, 14.23s.
   P3 + P2 bước 4: 702 pass / 44 skip / 0 fail,
