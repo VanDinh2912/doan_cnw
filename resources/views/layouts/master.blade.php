@@ -44,6 +44,10 @@
                 <a class="app-nav-link {{ request()->routeIs('donhang.*') ? 'active' : '' }}" href="{{ route('donhang.danhsach') }}">
                     <i class="fa-solid fa-receipt"></i><span>Hóa đơn</span>
                 </a>
+                <a class="app-nav-link {{ request()->routeIs('donhangonline.*') ? 'active' : '' }}" href="{{ route('donhangonline.danhsach') }}">
+                    <i class="fa-solid fa-truck-fast"></i><span>Đơn online</span>
+                    <span class="badge bg-danger ms-1 js-badge-don-online" style="display:none;">0</span>
+                </a>
                 <a class="app-nav-link {{ request()->routeIs('khachhang.*') ? 'active' : '' }}" href="{{ route('khachhang.danhsach') }}">
                     <i class="fa-solid fa-user-group"></i><span>Khách hàng</span>
                 </a>
@@ -63,6 +67,12 @@
                 <a class="app-nav-link {{ request()->routeIs('kho.*') ? 'active' : '' }}" href="{{ route('kho.danhsach') }}">
                     <i class="fa-solid fa-warehouse"></i><span>Kho</span>
                 </a>
+                @if (auth()->user()->role === 'thukho')
+                    <a class="app-nav-link {{ request()->routeIs('donhangonline.*') ? 'active' : '' }}" href="{{ route('donhangonline.danhsach') }}">
+                        <i class="fa-solid fa-truck-fast"></i><span>Đơn online</span>
+                        <span class="badge bg-danger ms-1 js-badge-don-online" style="display:none;">0</span>
+                    </a>
+                @endif
                 <a class="app-nav-link {{ request()->routeIs('kiemke.*') ? 'active' : '' }}" href="{{ route('kiemke.index') }}">
                     <i class="fa-solid fa-clipboard-check"></i><span>Kiểm kê</span>
                 </a>
@@ -125,5 +135,30 @@
 </div>
 
 @stack('scripts')
+@if (in_array(auth()->user()->role ?? '', ['admin', 'thungan', 'thukho'], true))
+<script>
+(function () {
+    var badges = document.querySelectorAll('.js-badge-don-online');
+    if (!badges.length) { return; }
+    var url = @json(route('donhangonline.soluong'));
+    function capNhat() {
+        fetch(url, { headers: { 'Accept': 'application/json' } })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (d) {
+                if (!d) { return; }
+                badges.forEach(function (b) {
+                    if (d.so_luong > 0) { b.style.display = ''; b.textContent = d.so_luong; }
+                    else { b.style.display = 'none'; }
+                });
+            })
+            .catch(function () {
+                badges.forEach(function (b) { b.textContent = '!'; b.style.display = ''; b.title = 'Lỗi mạng khi cập nhật số đơn online'; });
+            });
+    }
+    capNhat();
+    setInterval(capNhat, 30000);
+})();
+</script>
+@endif
 </body>
 </html>

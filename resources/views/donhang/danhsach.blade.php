@@ -43,6 +43,9 @@
                         @endif
                     </td>
                     <td class="text-nowrap">
+                        @if ($donHang->kenh === 'online')
+                            <a class="btn btn-sm btn-outline-info" href="{{ route('donhangonline.chitiet', $donHang) }}">Đơn online</a>
+                        @endif
                         @if ($donHang->trang_thai === 'da_thanh_toan')
                             <a class="btn btn-sm btn-outline-primary" href="{{ route('donhang.inhoadon', $donHang) }}">Xem/in</a>
                             <a class="btn btn-sm btn-outline-warning" href="{{ route('trahang.chon', $donHang) }}">Đổi trả</a>

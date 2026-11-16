@@ -130,6 +130,16 @@ Route::middleware(['auth', 'staff.only', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->
             ->name('khachhang.xoa');
     });
 
+    // P3: màn hình nhân viên xử lý đơn online (admin/thu ngân/thủ kho) — ngoài nhóm role:admin,thungan.
+    Route::middleware('role:admin,thungan,thukho')->group(function (): void {
+        Route::get('/donhang-online/so-luong', [\App\Http\Controllers\DonHangOnlineController::class, 'getSoLuongCanXuLy'])
+            ->name('donhangonline.soluong');
+        Route::get('/donhang-online', [\App\Http\Controllers\DonHangOnlineController::class, 'getDanhSach'])
+            ->name('donhangonline.danhsach');
+        Route::get('/donhang-online/{donHang}', [\App\Http\Controllers\DonHangOnlineController::class, 'getChiTiet'])
+            ->name('donhangonline.chitiet');
+    });
+
     Route::middleware('role:admin,thukho')->group(function (): void {
         // Quản lý tài khoản nhân viên (chỉ admin)
         Route::prefix('taikhoan')->name('taikhoan.')->middleware('role:admin')->group(function (): void {
