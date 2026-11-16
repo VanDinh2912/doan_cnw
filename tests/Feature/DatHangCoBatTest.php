@@ -71,7 +71,23 @@ class DatHangCoBatTest extends TestCase
             ->get(route('storefront.cart.index'));
 
         $res->assertOk();
-        $res->assertDontSee('Đặt hàng');
+        // Nút/link đặt hàng biến mất; thay bằng thông báo thân thiện (không chứa route).
+        // (Đổi assert cũ assertDontSee('Đặt hàng') vì thông báo mới cố ý chứa cụm từ này.)
+        $res->assertDontSee(route('dat-hang.form'));
+        $res->assertSee('Đặt hàng online chưa mở');
+        $res->assertSee('1900 0000');
+    }
+
+    public function test_co_tat_gio_hang_trong_khong_hien_thong_bao(): void
+    {
+        $this->tatCoDatHang();
+
+        $res = $this->withSession(['storefront_cart' => []])
+            ->get(route('storefront.cart.index'));
+
+        $res->assertOk();
+        $res->assertSee('Giỏ hàng của bạn đang trống');
+        $res->assertDontSee('Đặt hàng online chưa mở');
     }
 
     public function test_co_bat_hien_nut_dat_hang_va_form_truy_cap_duoc(): void
