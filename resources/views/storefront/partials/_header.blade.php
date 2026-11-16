@@ -22,6 +22,10 @@
         </form>
 
         <div class="sf-header-actions">
+            <a class="sf-icon-btn" href="{{ route('tintuc.danhsach') }}" title="Tin tức">
+                <i class="fa-solid fa-newspaper" aria-hidden="true"></i>
+                <span class="d-none d-md-inline">Tin tức</span>
+            </a>
             <a class="sf-icon-btn" href="{{ route('storefront.cart.index') }}" aria-label="Giỏ hàng{{ $cartCount > 0 ? ' (' . $cartCount . ' sản phẩm)' : '' }}">
                 <i class="fa-solid fa-cart-shopping" aria-hidden="true"></i>
                 <span class="d-none d-md-inline">Giỏ hàng</span>

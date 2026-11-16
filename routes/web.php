@@ -18,6 +18,16 @@ Route::name('storefront.')->group(function (): void {
     });
 });
 
+// Tin tức phía khách (guest) — bài đã duyệt + đang hiện; bình luận phải đăng nhập.
+Route::prefix('bai-viet')->name('tintuc.')->group(function (): void {
+    Route::get('/', [\App\Http\Controllers\TinTucController::class, 'getDanhSach'])->name('danhsach');
+    Route::get('/{chude_slug}', [\App\Http\Controllers\TinTucController::class, 'getTheoChuDe'])->name('chude');
+    Route::get('/{chude_slug}/{bv_slug}', [\App\Http\Controllers\TinTucController::class, 'getChiTiet'])->name('chitiet');
+    Route::post('/{chude_slug}/{bv_slug}/binh-luan', [\App\Http\Controllers\TinTucController::class, 'postBinhLuan'])
+        ->middleware(['auth', 'throttle:5,1'])
+        ->name('binhluan');
+});
+
 Route::get('/dangnhap', [\App\Http\Controllers\AuthController::class, 'getDangNhap'])
     ->name('auth.dangnhap');
 Route::post('/dangnhap', [\App\Http\Controllers\AuthController::class, 'postDangNhap'])
@@ -240,6 +250,30 @@ Route::middleware(['auth', 'staff.only', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->
         Route::get('/thongke/doanhthu', [\App\Http\Controllers\ThongKeController::class, 'getDoanhThu'])->name('thongke.doanhthu');
         Route::get('/thongke/topsanpham', [\App\Http\Controllers\ThongKeController::class, 'getTopSanPham'])->name('thongke.topsanpham');
         Route::get('/baocao/hoadon/{dinhDang}', [\App\Http\Controllers\BaoCaoController::class, 'getHoaDon'])->name('baocao.hoadon');
+
+        // Quản trị tin tức: chủ đề, bài viết, bình luận (chỉ admin).
+        Route::prefix('tin-tuc')->group(function (): void {
+            Route::get('/chu-de', [\App\Http\Controllers\ChuDeController::class, 'getDanhSach'])->name('chude.danhsach');
+            Route::get('/chu-de/them', [\App\Http\Controllers\ChuDeController::class, 'getThem'])->name('chude.them');
+            Route::post('/chu-de/them', [\App\Http\Controllers\ChuDeController::class, 'postThem'])->name('chude.postthem');
+            Route::get('/chu-de/sua/{chuDe}', [\App\Http\Controllers\ChuDeController::class, 'getSua'])->name('chude.sua');
+            Route::put('/chu-de/sua/{chuDe}', [\App\Http\Controllers\ChuDeController::class, 'postSua'])->name('chude.postsua');
+            Route::delete('/chu-de/xoa/{chuDe}', [\App\Http\Controllers\ChuDeController::class, 'getXoa'])->name('chude.xoa');
+
+            Route::get('/bai-viet', [\App\Http\Controllers\BaiVietController::class, 'getDanhSach'])->name('baiviet.danhsach');
+            Route::get('/bai-viet/them', [\App\Http\Controllers\BaiVietController::class, 'getThem'])->name('baiviet.them');
+            Route::post('/bai-viet/them', [\App\Http\Controllers\BaiVietController::class, 'postThem'])->name('baiviet.postthem');
+            Route::get('/bai-viet/sua/{baiViet}', [\App\Http\Controllers\BaiVietController::class, 'getSua'])->name('baiviet.sua');
+            Route::put('/bai-viet/sua/{baiViet}', [\App\Http\Controllers\BaiVietController::class, 'postSua'])->name('baiviet.postsua');
+            Route::post('/bai-viet/duyet/{baiViet}', [\App\Http\Controllers\BaiVietController::class, 'postDuyet'])->name('baiviet.duyet');
+            Route::post('/bai-viet/kich-hoat/{baiViet}', [\App\Http\Controllers\BaiVietController::class, 'postKichHoat'])->name('baiviet.kichhoat');
+            Route::delete('/bai-viet/xoa/{baiViet}', [\App\Http\Controllers\BaiVietController::class, 'getXoa'])->name('baiviet.xoa');
+
+            Route::get('/binh-luan', [\App\Http\Controllers\BinhLuanBaiVietController::class, 'getDanhSach'])->name('binhluan.danhsach');
+            Route::post('/binh-luan/duyet/{binhLuan}', [\App\Http\Controllers\BinhLuanBaiVietController::class, 'postDuyet'])->name('binhluan.duyet');
+            Route::post('/binh-luan/an/{binhLuan}', [\App\Http\Controllers\BinhLuanBaiVietController::class, 'postAn'])->name('binhluan.an');
+            Route::delete('/binh-luan/xoa/{binhLuan}', [\App\Http\Controllers\BinhLuanBaiVietController::class, 'getXoa'])->name('binhluan.xoa');
+        });
     });
 
     Route::get('/baocao/xuatnhapton/{dinhDang}', [\App\Http\Controllers\BaoCaoController::class, 'getXuatNhapTon'])

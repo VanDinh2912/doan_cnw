@@ -106,6 +106,16 @@
                 <a class="app-nav-link {{ request()->routeIs('doisoat.*') ? 'active' : '' }}" href="{{ route('doisoat.index') }}">
                     <i class="fa-solid fa-scale-balanced"></i><span>Đối soát thanh toán</span>
                 </a>
+                <div class="app-nav-label">Tin tức</div>
+                <a class="app-nav-link {{ request()->routeIs('baiviet.*') ? 'active' : '' }}" href="{{ route('baiviet.danhsach') }}">
+                    <i class="fa-solid fa-newspaper"></i><span>Bài viết</span>
+                </a>
+                <a class="app-nav-link {{ request()->routeIs('chude.*') ? 'active' : '' }}" href="{{ route('chude.danhsach') }}">
+                    <i class="fa-solid fa-folder-open"></i><span>Chủ đề</span>
+                </a>
+                <a class="app-nav-link {{ request()->routeIs('binhluan.*') ? 'active' : '' }}" href="{{ route('binhluan.danhsach') }}">
+                    <i class="fa-solid fa-comments"></i><span>Bình luận</span>
+                </a>
             @endif
         </nav>
     </aside>

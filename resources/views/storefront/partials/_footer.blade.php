@@ -41,6 +41,7 @@
                 <h4>Hỗ trợ</h4>
                 <ul>
                     <li><a href="#">Hướng dẫn mua hàng</a></li>
+                    <li><a href="{{ route('tintuc.danhsach') }}">Tin tức</a></li>
                     <li><a href="#">Tra cứu đơn hàng</a></li>
                     <li><a href="#">Câu hỏi thường gặp</a></li>
                     <li><a href="#">Góp ý, khiếu nại</a></li>

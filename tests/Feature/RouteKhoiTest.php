@@ -3,11 +3,14 @@
 namespace Tests\Feature;
 
 use App\Models\BienDongKho;
+use App\Models\BaiViet;
+use App\Models\BinhLuanBaiViet;
 use App\Models\ChiTietDonHang;
 use App\Models\ChiTietDonNhap;
 use App\Models\ChiTietHoaDonNhap;
 use App\Models\ChiTietKiemKe;
 use App\Models\ChiTietPhieuTra;
+use App\Models\ChuDe;
 use App\Models\DonHang;
 use App\Models\DonNhap;
 use App\Models\GioTam;
@@ -47,6 +50,8 @@ class RouteKhoiTest extends TestCase
     private GioTam $gioTam;
     private PhieuKiemKe $phieuKiemKe;
     private PaymentWebhook $webhook;
+    private ChuDe $chuDe;
+    private BaiViet $baiViet;
 
     /** @var list<array<string, mixed>> */
     private array $bangRoute = [];
@@ -392,6 +397,30 @@ class RouteKhoiTest extends TestCase
                 $this->gioTam = $gioTam;
             }
         }
+
+        // Tin tức: 3 chủ đề, 3 bài viết, 3 bình luận đã duyệt.
+        $this->chuDe = ChuDe::create(['ten_chude' => 'Khuyến mãi', 'slug' => 'khuyen-mai']);
+        foreach (['Thủ thuật' => 'thu-thuat', 'Tin công nghệ' => 'tin-cong-nghe'] as $ten => $slug) {
+            ChuDe::create(['ten_chude' => $ten, 'slug' => $slug]);
+        }
+        foreach (range(1, 3) as $i) {
+            $baiViet = BaiViet::create([
+                'topic_id' => $this->chuDe->id,
+                'user_id' => $this->nguoiDung['admin']->id,
+                'tieu_de' => 'Bài viết khói '.$i,
+                'slug' => 'bai-viet-khoi-'.$i,
+                'noi_dung' => '<p>Nội dung khói '.$i.'</p>',
+            ]);
+            BinhLuanBaiViet::create([
+                'post_id' => $baiViet->id,
+                'user_id' => $this->nguoiDung['admin']->id,
+                'noi_dung' => 'Bình luận khói '.$i,
+                'kiem_duyet' => true,
+            ]);
+            if ($i === 1) {
+                $this->baiViet = $baiViet;
+            }
+        }
     }
 
     private function dungBangRoute(): void
@@ -408,6 +437,11 @@ class RouteKhoiTest extends TestCase
             ['name' => 'auth.dangnhap', 'guest' => 200, 'status' => 302, 'roles' => ['admin', 'thungan', 'thukho']],
             ['name' => 'auth.dangky', 'guest' => 200, 'status' => 302, 'roles' => ['admin', 'thungan', 'thukho']],
             ['uri' => '/up', 'guest' => 200, 'roles' => ['admin', 'thungan', 'thukho']],
+
+            // Tin tức phía khách.
+            ['name' => 'tintuc.danhsach', 'guest' => 200, 'roles' => ['admin', 'thungan', 'thukho']],
+            ['name' => 'tintuc.chude', 'params' => ['chude_slug' => $this->chuDe->slug], 'guest' => 200, 'roles' => ['admin', 'thungan', 'thukho']],
+            ['name' => 'tintuc.chitiet', 'params' => ['chude_slug' => $this->chuDe->slug, 'bv_slug' => $this->baiViet->slug], 'guest' => 200, 'roles' => ['admin', 'thungan', 'thukho']],
 
             // Chung cho nhân viên.
             ['name' => 'tongquan', 'roles' => ['admin', 'thungan', 'thukho']],
@@ -471,6 +505,15 @@ class RouteKhoiTest extends TestCase
             ['name' => 'taikhoan.danhsach', 'roles' => ['admin']],
             ['name' => 'taikhoan.them', 'roles' => ['admin']],
             ['name' => 'taikhoan.sua', 'params' => ['user' => $this->nguoiDung['thungan']->id], 'roles' => ['admin']],
+
+            // Quản trị tin tức (chỉ admin).
+            ['name' => 'chude.danhsach', 'roles' => ['admin']],
+            ['name' => 'chude.them', 'roles' => ['admin']],
+            ['name' => 'chude.sua', 'params' => ['chuDe' => $this->chuDe->id], 'roles' => ['admin']],
+            ['name' => 'baiviet.danhsach', 'roles' => ['admin']],
+            ['name' => 'baiviet.them', 'roles' => ['admin']],
+            ['name' => 'baiviet.sua', 'params' => ['baiViet' => $this->baiViet->id], 'roles' => ['admin']],
+            ['name' => 'binhluan.danhsach', 'roles' => ['admin']],
 
             // Đổi mật khẩu (mọi vai trò đã đăng nhập).
             ['name' => 'doi-mat-khau', 'guest' => 302, 'status' => 200, 'roles' => ['admin', 'thungan', 'thukho']],
