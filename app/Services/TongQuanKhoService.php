@@ -47,7 +47,8 @@ class TongQuanKhoService
             'tong_thuc_te' => $tongThucTe,
             'tong_ton_hong' => (int) $row->tong_ton_hong,
             'gia_tri_ton' => (int) $row->gia_tri_ton,
-            'so_hoa_don' => DonHang::count(),
+            // P2 bước 4: chỉ đếm hóa đơn đã thanh toán (chờ/hủy không phải doanh thu).
+            'so_hoa_don' => DonHang::where('trang_thai', 'da_thanh_toan')->count(),
             'cap_nhat_luc' => now()->timezone('Asia/Ho_Chi_Minh')->format('H:i:s'),
         ];
     }

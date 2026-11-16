@@ -16,13 +16,13 @@ class HoaDonExport implements FromCollection, WithHeadings
         return $this->query()->get()->map(fn (DonHang $donHang) => [
             $donHang->ma_hoadon, $donHang->created_at->format('Y-m-d H:i:s'),
             $donHang->user?->name ?? 'Đơn online', $donHang->tong_tien, $donHang->tien_giam,
-            $donHang->tong_thanh_toan, $donHang->phuong_thuc,
+            (float) ($donHang->phi_giao_hang ?? 0), $donHang->tong_thanh_toan, $donHang->phuong_thuc,
         ]);
     }
 
     public function headings(): array
     {
-        return ['Mã hóa đơn', 'Thời gian', 'Thu ngân', 'Tổng tiền', 'Tiền giảm', 'Thanh toán', 'Phương thức'];
+        return ['Mã hóa đơn', 'Thời gian', 'Thu ngân', 'Tổng tiền', 'Tiền giảm', 'Phí giao hàng', 'Thanh toán', 'Phương thức'];
     }
 
     private function query()

@@ -57,8 +57,26 @@ class ThongKeController extends Controller
         })->map(function ($nhom, $ky): array {
             return [
                 'ngay' => $ky,
-                'doanh_thu' => $nhom->sum(fn (DonHang $donHang) => $donHang->tong_thanh_toan
-                    - $donHang->phieuTras->where('trang_thai', 'hoan_thanh')->sum('tong_hoan')),
+                // P2 bước 4: doanh thu hàng hóa KHÔNG gồm phí giao hàng.
+                // Tách tỷ lệ hoàn trả: phần hàng = (tong_thanh_toan - phi_giao)/tong_thanh_toan,
+                // phần ship = phi_giao/tong_thanh_toan — khớp công thức tỷ lệ của TraHangController.
+                'doanh_thu' => $nhom->sum(function (DonHang $donHang): float {
+                    $hoan = (float) $donHang->phieuTras->where('trang_thai', 'hoan_thanh')->sum('tong_hoan');
+                    $ship = (float) ($donHang->phi_giao_hang ?? 0);
+                    $tong = max(1.0, (float) $donHang->tong_thanh_toan);
+                    $hangThuan = (float) $donHang->tong_thanh_toan - $ship;
+                    $tyLeHoan = min(1.0, $hoan / $tong);
+
+                    return $hangThuan * (1 - $tyLeHoan);
+                }),
+                'phi_giao_hang' => $nhom->sum(function (DonHang $donHang): float {
+                    $hoan = (float) $donHang->phieuTras->where('trang_thai', 'hoan_thanh')->sum('tong_hoan');
+                    $ship = (float) ($donHang->phi_giao_hang ?? 0);
+                    $tong = max(1.0, (float) $donHang->tong_thanh_toan);
+                    $tyLeHoan = min(1.0, $hoan / $tong);
+
+                    return $ship * (1 - $tyLeHoan);
+                }),
                 'loi_nhuan' => $nhom->sum(function (DonHang $donHang): float {
                     $loiNhuanBan = $donHang->chiTietDonHangs->sum(
                         fn ($chiTiet) => ($chiTiet->don_gia - $chiTiet->gia_von) * $chiTiet->soluong

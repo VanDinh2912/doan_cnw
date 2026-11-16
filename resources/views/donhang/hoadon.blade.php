@@ -46,6 +46,9 @@
     <tfoot>
     <tr><td colspan="2">Tạm tính</td><td class="right">{{ number_format($donHang->tong_tien, 0, ',', '.') }}</td></tr>
     <tr><td colspan="2">Giảm giá</td><td class="right">-{{ number_format($donHang->tien_giam, 0, ',', '.') }}</td></tr>
+    @if ((float) ($donHang->phi_giao_hang ?? 0) > 0)
+    <tr><td colspan="2">Phí giao hàng</td><td class="right">{{ number_format((float) $donHang->phi_giao_hang, 0, ',', '.') }}</td></tr>
+    @endif
     <tr class="total"><td colspan="2">Thanh toán</td><td class="right">{{ number_format($donHang->tong_thanh_toan, 0, ',', '.') }}</td></tr>
     <tr><td colspan="2">Khách đưa</td><td class="right">{{ number_format($donHang->tien_khach_dua, 0, ',', '.') }}</td></tr>
     <tr><td colspan="2">Tiền thừa</td><td class="right">{{ number_format($donHang->tien_thua, 0, ',', '.') }}</td></tr>
