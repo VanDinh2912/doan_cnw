@@ -3,7 +3,7 @@
         ['icon' => 'fa-truck-fast', 'title' => 'Miễn phí vận chuyển', 'sub' => 'Đơn hàng từ 500.000 ₫'],
         ['icon' => 'fa-rotate-left', 'title' => 'Đổi trả 30 ngày', 'sub' => 'Lỗi do nhà sản xuất'],
         ['icon' => 'fa-shield-halved', 'title' => 'Bảo hành 12 tháng', 'sub' => 'Chính hãng, toàn quốc'],
-        ['icon' => 'fa-headset', 'title' => 'Hỗ trợ 24/7', 'sub' => 'Hotline 1900 0000'],
+        ['icon' => 'fa-headset', 'title' => 'Hỗ trợ 24/7', 'sub' => 'Hotline '.config('storefront.hotline')],
     ];
 @endphp
 

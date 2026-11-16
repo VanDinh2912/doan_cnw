@@ -10,7 +10,7 @@
                     Cửa hàng điện thoại chính hãng — bảo hành 12 tháng, đổi trả trong 30 ngày.
                 </p>
                 <div class="sf-footer-hotline">
-                    <i class="fa-solid fa-phone"></i> 1900 0000
+                    <i class="fa-solid fa-phone"></i> {{ config('storefront.hotline') }}
                 </div>
                 <p style="font-size:var(--sf-text-xs);color:var(--sf-fg-subtle);margin:0;">
                     Hỗ trợ 8:00 – 22:00 hằng ngày

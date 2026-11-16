@@ -75,6 +75,11 @@
                             <a href="{{ route('dat-hang.form') }}" class="sf-icon-btn is-primary" style="height:44px;padding:0 24px;">
                                 <i class="fa-solid fa-credit-card"></i> Đặt hàng
                             </a>
+                        @else
+                            <div style="display:flex;align-items:center;gap:8px;padding:10px 16px;border:1px solid var(--sf-border);border-radius:10px;background:var(--sf-surface-alt, var(--sf-surface));color:var(--sf-fg-muted);font-size:var(--sf-text-sm);">
+                                <i class="fa-solid fa-circle-info"></i>
+                                <span>Đặt hàng online chưa mở. Bạn có thể mua trực tiếp tại cửa hàng hoặc gọi {{ config('storefront.hotline') }}.</span>
+                            </div>
                         @endif
                     </div>
                 </div>
