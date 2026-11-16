@@ -57,25 +57,28 @@ class ThongKeController extends Controller
         })->map(function ($nhom, $ky): array {
             return [
                 'ngay' => $ky,
-                // P2 bước 4: doanh thu hàng hóa KHÔNG gồm phí giao hàng.
-                // Tách tỷ lệ hoàn trả: phần hàng = (tong_thanh_toan - phi_giao)/tong_thanh_toan,
-                // phần ship = phi_giao/tong_thanh_toan — khớp công thức tỷ lệ của TraHangController.
+                // P2 bước 4 + quy tắc hoàn ship: doanh thu hàng hóa KHÔNG gồm phí giao.
+                // tong_hoan = tiền hàng hoàn + tiền hoàn phí giao (tien_hoan_phi_giao);
+                // chỉ phần tiền hàng trừ vào doanh thu hàng, phí ship hoàn tách riêng.
                 'doanh_thu' => $nhom->sum(function (DonHang $donHang): float {
-                    $hoan = (float) $donHang->phieuTras->where('trang_thai', 'hoan_thanh')->sum('tong_hoan');
+                    $phieuXong = $donHang->phieuTras->where('trang_thai', 'hoan_thanh');
+                    $hoanHang = max(0.0, (float) $phieuXong->sum('tong_hoan')
+                        - (float) $phieuXong->sum('tien_hoan_phi_giao'));
                     $ship = (float) ($donHang->phi_giao_hang ?? 0);
-                    $tong = max(1.0, (float) $donHang->tong_thanh_toan);
-                    $hangThuan = (float) $donHang->tong_thanh_toan - $ship;
-                    $tyLeHoan = min(1.0, $hoan / $tong);
+                    $hangThuan = max(0.0, (float) $donHang->tong_thanh_toan - $ship);
 
-                    return $hangThuan * (1 - $tyLeHoan);
+                    return max(0.0, $hangThuan - $hoanHang);
                 }),
                 'phi_giao_hang' => $nhom->sum(function (DonHang $donHang): float {
-                    $hoan = (float) $donHang->phieuTras->where('trang_thai', 'hoan_thanh')->sum('tong_hoan');
+                    $phieuXong = $donHang->phieuTras->where('trang_thai', 'hoan_thanh');
+                    $hoanShip = (float) $phieuXong->sum('tien_hoan_phi_giao');
                     $ship = (float) ($donHang->phi_giao_hang ?? 0);
-                    $tong = max(1.0, (float) $donHang->tong_thanh_toan);
-                    $tyLeHoan = min(1.0, $hoan / $tong);
 
-                    return $ship * (1 - $tyLeHoan);
+                    return max(0.0, $ship - $hoanShip);
+                }),
+                'hoan_phi_giao_hang' => $nhom->sum(function (DonHang $donHang): float {
+                    return (float) $donHang->phieuTras->where('trang_thai', 'hoan_thanh')
+                        ->sum('tien_hoan_phi_giao');
                 }),
                 'loi_nhuan' => $nhom->sum(function (DonHang $donHang): float {
                     $loiNhuanBan = $donHang->chiTietDonHangs->sum(

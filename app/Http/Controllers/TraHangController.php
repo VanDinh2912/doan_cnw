@@ -8,6 +8,7 @@ use App\Models\DonHang;
 use App\Models\PhieuTra;
 use App\Models\SanPham;
 use App\Services\NhatKyService;
+use App\Support\KiemTraSchema;
 use Brick\Math\BigInteger;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
@@ -19,12 +20,28 @@ use Throwable;
 
 class TraHangController extends Controller
 {
-    public function getChon(DonHang $donHang): View
+    public function getChon(Request $request, DonHang $donHang): View
     {
         abort_unless($donHang->trang_thai === 'da_thanh_toan', 422, 'Chỉ được trả hàng từ hóa đơn đã thanh toán.');
         $donHang->load(['chiTietDonHangs.sanPham', 'khachHang']);
 
-        return view('trahang.chon', compact('donHang'));
+        // Phân rã tiền hoàn cho phiếu trả: tiền hàng sau giảm giá + phí giao riêng.
+        $phiGiaoHang = KiemTraSchema::coCot('invoices', 'phi_giao_hang')
+            ? (float) ($donHang->phi_giao_hang ?? 0) : 0.0;
+        $coCotTienHoanShip = KiemTraSchema::coCot('returns', 'tien_hoan_phi_giao');
+        $daHoanPhiGiao = $coCotTienHoanShip && PhieuTra::query()
+            ->where('invoice_id', $donHang->id)
+            ->whereIn('trang_thai', ['hoan_thanh', 'cho_duyet'])
+            ->where('tien_hoan_phi_giao', '>', 0)
+            ->exists();
+
+        return view('trahang.chon', [
+            'donHang' => $donHang,
+            'laAdmin' => $request->user()?->role === 'admin',
+            'phiGiaoHang' => $phiGiaoHang,
+            'tienHangDaThanhToan' => max(0.0, (float) $donHang->tong_thanh_toan - $phiGiaoHang),
+            'daHoanPhiGiao' => $daHoanPhiGiao,
+        ]);
     }
 
     public function postTraHang(Request $request): RedirectResponse
@@ -37,6 +54,7 @@ class TraHangController extends Controller
             'items.*.invoice_detail_id' => ['nullable', 'integer', 'distinct', 'exists:invoice_details,id'],
             'items.*.soluong' => ['nullable', 'integer', 'min:0'],
             'items.*.tinh_trang' => ['nullable', 'in:con_tot,loi_hong'],
+            'hoan_phi_giao' => ['nullable', 'in:0,1'],
         ]);
         $validated['items'] = collect($validated['items'])
             ->filter(fn (array $item): bool => (int) ($item['soluong'] ?? 0) > 0)
@@ -53,6 +71,34 @@ class TraHangController extends Controller
             $chiTiets = $donHang->chiTietDonHangs()->whereIn('id', $chiTietIds)->lockForUpdate()->get()->keyBy('id');
             abort_if($chiTiets->count() !== $chiTietIds->count(), 422, 'Chi tiết trả không thuộc hóa đơn.');
 
+            // Quy tắc hoàn phí giao (chốt 2026-11-16): tiền hoàn tính trên TIỀN HÀNG
+            // sau giảm giá, KHÔNG gồm phí giao. Chỉ admin tick "Hoàn cả phí giao"
+            // (bắt buộc lý do, một lần/đơn) mới cộng thêm phi_giao_hang.
+            // Guard code-đi-trước-schema: thiếu cột → hành vi cũ (không hoàn ship).
+            $coCotTienHoanShip = KiemTraSchema::coCot('returns', 'tien_hoan_phi_giao');
+            $muonHoanShip = (bool) ($validated['hoan_phi_giao'] ?? false);
+            if ($muonHoanShip && ! $coCotTienHoanShip) {
+                abort(422, 'Tính năng hoàn phí giao chưa sẵn sàng (thiếu migration cột tien_hoan_phi_giao).');
+            }
+            $phiGiaoHang = KiemTraSchema::coCot('invoices', 'phi_giao_hang')
+                ? (float) ($donHang->phi_giao_hang ?? 0) : 0.0;
+            if ($muonHoanShip) {
+                abort_unless($request->user()->role === 'admin', 403, 'Chỉ quản trị viên được hoàn phí giao hàng.');
+                abort_if($phiGiaoHang <= 0, 422, 'Đơn này không có phí giao hàng.');
+                abort_if(trim((string) ($validated['ly_do'] ?? '')) === '', 422, 'Vui lòng nhập lý do khi hoàn phí giao hàng.');
+                $daHoanShip = PhieuTra::query()
+                    ->where('invoice_id', $donHang->id)
+                    ->whereIn('trang_thai', ['hoan_thanh', 'cho_duyet'])
+                    ->where('tien_hoan_phi_giao', '>', 0)
+                    ->exists();
+                abort_if($daHoanShip, 422, 'Đơn này đã hoàn phí giao hàng.');
+            }
+            $tienHoanPhiGiao = $muonHoanShip ? (int) round($phiGiaoHang) : 0;
+            // Tỷ lệ trên tiền hàng đã trả: (tong_thanh_toan - phí ship) / tong_tien.
+            // Đơn không ship / thiếu cột → tỷ lệ giống hành vi cũ.
+            $tyLeHang = max(0.0, (float) $donHang->tong_thanh_toan - $phiGiaoHang)
+                / max(1.0, (float) $donHang->tong_tien);
+
             $tongHoan = 0;
             $giaTriHangTra = 0;
             $items = [];
@@ -65,14 +111,24 @@ class TraHangController extends Controller
                 $soLuongCon = $chiTiet->soluong - $daTra;
                 abort_if($item['soluong'] > $soLuongCon, 422, 'Số lượng trả vượt số lượng còn được trả.');
 
-                $tienDong = (int) round($item['soluong'] * $chiTiet->don_gia
-                    * ((float) $donHang->tong_thanh_toan / max(1, (float) $donHang->tong_tien)));
+                $tienDong = (int) round($item['soluong'] * $chiTiet->don_gia * $tyLeHang);
                 $tongHoan += $tienDong;
                 $giaTriHangTra += (int) $item['soluong'] * (int) $chiTiet->don_gia;
                 $items[] = [$chiTiet, $item, $tienDong];
             }
 
-            $diemThuHoi = (int) floor($tongHoan / max(1, config('pos.diem_moi_dong', 100000)));
+            // Tổng hoàn tích lũy không vượt số khách đã thanh toán (kể cả phí ship).
+            $daHoan = (float) PhieuTra::query()
+                ->where('invoice_id', $donHang->id)
+                ->whereIn('trang_thai', ['hoan_thanh', 'cho_duyet'])
+                ->sum('tong_hoan');
+            $conLai = (float) $donHang->tong_thanh_toan - $daHoan;
+            abort_if($conLai < -1, 422, 'Hóa đơn đã hoàn đủ số tiền thanh toán.');
+            $tongHoan = min($tongHoan + $tienHoanPhiGiao, max(0, (int) round($conLai)));
+
+            // Điểm thu hồi theo phần TIỀN HÀNG hoàn (không gồm phí ship — điểm
+            // tích lũy vốn tính trên tiền hàng sau giảm giá, không gồm ship).
+            $diemThuHoi = (int) floor(max(0, $tongHoan - $tienHoanPhiGiao) / max(1, config('pos.diem_moi_dong', 100000)));
             $diemHoan = self::tinhDiemHoan($donHang, $giaTriHangTra);
             $duyetNgay = $tongHoan <= config('pos.nguong_tra_khong_duyet', 500000);
             $thuocTinhPhieu = [
@@ -86,6 +142,9 @@ class TraHangController extends Controller
                 'trang_thai' => $duyetNgay ? 'hoan_thanh' : 'cho_duyet',
                 'ly_do' => $validated['ly_do'] ?? null,
             ];
+            if ($coCotTienHoanShip) {
+                $thuocTinhPhieu['tien_hoan_phi_giao'] = $tienHoanPhiGiao;
+            }
             $phieuTra = null;
             for ($lanThu = 1; $lanThu <= 5; $lanThu++) {
                 try {
@@ -117,6 +176,12 @@ class TraHangController extends Controller
         });
 
         NhatKyService::ghi($request, 'tao_phieu_tra', 'phieu_tra', $phieuTra->id, 'Tạo phiếu '.$phieuTra->ma_phieu);
+        if ((int) ($phieuTra->tien_hoan_phi_giao ?? 0) > 0) {
+            NhatKyService::ghi(
+                $request, 'hoan_phi_giao_hang', 'phieu_tra', $phieuTra->id,
+                'Hoàn phí giao hàng trong phiếu '.$phieuTra->ma_phieu.' (đơn '.$phieuTra->donHang->ma_hoadon.')'
+            );
+        }
 
         return redirect()->route('trahang.xem', $phieuTra)->with('success', 'Đã tạo phiếu trả hàng.');
     }

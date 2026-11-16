@@ -16,12 +16,12 @@ class PhieuTra extends Model
 
     protected $fillable = [
         'ma_phieu', 'invoice_id', 'user_id', 'customer_id', 'tong_hoan',
-        'diem_thu_hoi', 'diem_hoan', 'hinh_thuc_hoan', 'trang_thai', 'ly_do',
+        'tien_hoan_phi_giao', 'diem_thu_hoi', 'diem_hoan', 'hinh_thuc_hoan', 'trang_thai', 'ly_do',
     ];
 
     protected function casts(): array
     {
-        return ['tong_hoan' => 'decimal:0', 'diem_hoan' => 'integer', 'diem_thu_hoi' => 'integer'];
+        return ['tong_hoan' => 'decimal:0', 'tien_hoan_phi_giao' => 'integer', 'diem_hoan' => 'integer', 'diem_thu_hoi' => 'integer'];
     }
 
     public function donHang(): BelongsTo
