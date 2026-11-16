@@ -10,15 +10,23 @@ Cập nhật sau mỗi hạng mục. Đọc file này đầu tiên khi tiếp t�
   (routes `role:` + CheckRole 403; view ẩn nút pickup cho thuko, ẩn hủy-đã-TT cho
   non-admin). Thêm `tests/Feature/DonHangOnlinePhanQuyenTest.php` — 4 test / 83
   assertions xanh. KHÔNG đổi code nghiệp vụ (không cần).
-- [ ] HM2 — tốc độ bộ test: phpunit.xml đã tối ưu sẵn (BCRYPT_ROUNDS=4,
-  CACHE/SESSION=array, QUEUE=sync). Chờ baseline xong → chạy `--profile` →
-  tối ưu an toàn → đo lại. ParaTest: chưa cài (composer.json không có;
-  chỉ là gợi ý của package khác) — sẽ thử require --dev nếu mạng cho phép,
-  nếu không ghi rõ.
-- [ ] HM3 — đưa `feat/sepay-doi-soat` vào main.
-- [ ] HM4 — `docs/SO_TAY_TRIEN_KHAI.md`.
-- [ ] HM5 — hoàn tất: README 9/17/18, `docs/BAO_CAO_CHOT_TRIEN_KHAI.md`,
-  git status cuối.
+- [x] HM2 — tốc độ bộ test: phpunit.xml đã tối ưu sẵn; profile không có điểm
+  nghẽn đơn lẻ (artifact profiler); cài `brianium/paratest 7.8.5` --dev →
+  `vendor/bin/paratest` full suite 780 test / 3418 assertions / 44 skip / 0 fail
+  trong 447.77s (~5× nhanh hơn serial ~2326s). Lưu ý: `artisan test --parallel`
+  lỗi do Collision — dùng `vendor/bin/paratest` trực tiếp.
+- [x] HM3 — merge `feat/sepay-doi-soat` --no-ff (`912dbbb`): xung đột chỉ README
+  (giữ cả hai); thêm guard hasColumn migration ma_tham_chieu + guard runtime
+  WebhookController/SepayDoiSoat. Full suite + MySQL-copy xanh trước commit.
+- [x] HM4 — `docs/SO_TAY_TRIEN_KHAI.md` (migration chờ áp, quy trình, env, guard,
+  dựng máy, bật cờ 8 bước).
+- [x] HM5 — README 9/17/18 + `docs/BAO_CAO_CHOT_TRIEN_KHAI.md` + git status.
+
+## Kết quả cuối
+
+- Full suite (paratest): 736 pass / 44 skip / 0 fail / 3418 assertions / 447.77s.
+- MySQL-copy: 44 pass / 364 assertions / 14.23s.
+- Commits: 58a4110 → 527c29f → 912dbbb → docs. Không push.
 
 ## Lệnh tiếp tục
 

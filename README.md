@@ -1585,10 +1585,14 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
   hủy đơn đã thanh toán chỉ admin + cờ `can_hoan_tien` + danh sách hoàn tiền,
   phiếu giao hàng in, trả hàng online an toàn null, báo cáo/dashboard/export tách
   phí ship). Chi tiết: `docs/BAO_CAO_DAT_HANG_P3.md`.
-- **Kiểm thử hiện tại: xem mục 9** (P3 + P2 bước 4, 2026-11-16, `main`:
-  **702 pass / 44 skip / 0 fail, 3154 assertions, 1973.79s** trên sqlite
-  `:memory:`; MySQL-copy **44 pass / 364 assertions, 21.39s** trên
-  `doan_cnw_copy`. Trước đó P2 bước 3 + cờ: 674 pass / 44 skip / 0 fail,
+- **Kiểm thử hiện tại: xem mục 9** (Chốt triển khai + merge SePay đối soát,
+  2026-11-16, `main`: **736 pass / 44 skip / 0 fail, 3418 assertions, 447.77s**
+  bằng `vendor/bin/paratest` 16 tiến trình — tương đương `php artisan test`;
+  serial baseline trước merge 702 pass / 44 skip / 0 fail, 3154 assertions;
+  MySQL-copy **44 pass / 364 assertions, 14.23s** trên `doan_cnw_copy`).
+  Trước đó P3 + P2 bước 4: 702 pass / 44 skip / 0 fail,
+  3154 assertions; MySQL-copy 44 pass / 364 assertions.
+  P2 bước 3 + cờ: 674 pass / 44 skip / 0 fail,
   2972 assertions; MySQL-copy 44 pass / 364 assertions.
   Vận hành 2: 655 pass / 43 skip / 0 fail,
   2895 assertions; MySQL-copy 43 pass / 356 assertions.
@@ -1707,8 +1711,8 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
 
 ## 18. Kết quả kiểm tra
 
-Cập nhật lần cuối: **2026-11-12**, trên nhánh `fix/anh-url-validate` (từ
-`fix/ma-phieu-tra-hang`). Số liệu của các đợt trước được giữ lại để đối chiếu.
+Cập nhật lần cuối: **2026-11-16**, trên `main` (sau merge `feat/sepay-doi-soat`
++ ParaTest). Số liệu của các đợt trước được giữ lại để đối chiếu.
 
 | Kiểm tra | Kết quả | Ghi chú |
 |----------|---------|---------|
@@ -1759,6 +1763,18 @@ Cập nhật lần cuối: **2026-11-12**, trên nhánh `fix/anh-url-validate` (
 | Full suite | ✅ **702 pass / 44 skip / 0 fail (3154 assertions, 1973.79s)** | +23 test mới so với P2 b3 |
 | MySQL-copy | ✅ **44 pass / 364 assertions (21.39s)** | Filter chính xác trên `doan_cnw_copy` |
 | Migration chờ áp | ⏳ `2026_11_16_000001` (can_hoan_tien, ghi_chu_noi_bo) | Guard + `down()` điều kiện; thứ tự ở `docs/BAO_CAO_DAT_HANG_P3.md` |
+
+### Đợt Chốt triển khai — phân quyền, tốc độ test, SePay đối soát — `main` (2026-11-16)
+
+| Kiểm tra | Kết quả | Ghi chú |
+|----------|---------|---------|
+| Ma trận vai trò × thao tác đơn online | ✅ | `DonHangOnlinePhanQuyenTest` 4 test: thukho chỉ xem/chuyển trạng thái/phiếu giao (không pickup, không hoàn tiền); thungan + pickup, không hủy-đã-TT; admin tất cả; khách/guest bị chặn. Server+UI đã đúng sẵn — chỉ thêm test |
+| Tốc độ bộ test | ✅ | phpunit.xml đã tối ưu (BCRYPT_ROUNDS=4, array cache/session, sync queue); profile: không có điểm nghẽn đơn lẻ (số 2299s là artifact profiler — file đó chạy riêng 67s); **ParaTest 7.8.5 --dev**: full suite **780 test / 3418 assertions / 44 skip / 0 fail trong 447.77s** (16 tiến trình) so với serial ~2326s — nhanh ~5 lần, cùng số assertion |
+| Merge `feat/sepay-doi-soat` | ✅ | `--no-ff` `912dbbb`; xung đột chỉ README (giữ cả hai); WebhookController giữ Telegram P2 + `ghiNhanWebhook` gộp `ma_tham_chieu`; thêm guard `hasColumn` cho migration + runtime (`KiemTraSchema`) khi cột chưa có; `--ap-dung` vẫn bị khóa, client chỉ GET, token không vào log |
+| Full suite sau merge | ✅ **736 pass / 44 skip / 0 fail (3418 assertions, 447.77s paratest)** | +30 test so với P3 (Sepay 24 + ma trận 4 + khác) |
+| MySQL-copy | ✅ **44 pass / 364 assertions (14.23s)** | Filter chính xác trên `doan_cnw_copy` |
+| Sổ tay triển khai | ✅ | `docs/SO_TAY_TRIEN_KHAI.md`: migration chờ áp theo thứ tự, quy trình backup→dev→migrate, biến môi trường, gỡ guard, dựng máy, bật cờ online 8 bước |
+| Cờ đặt hàng online | ⏸️ Giữ `false` | Bật sau kiểm tra tay 8 bước (mục 6 sổ tay) |
 
 ### Đợt Stage 3-4 — Khách hàng, nhật ký toàn bộ, chốt main (2026-11-16, nhánh `feat/khach-nhatky-taikhoan`)
 
