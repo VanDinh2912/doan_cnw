@@ -118,6 +118,23 @@ class ThongBaoService
     }
 
     /**
+     * P3 HM4 — báo admin: đơn đã thanh toán bị hủy, CẦN HOÀN TIỀN THỦ CÔNG.
+     * Chỉ mã đơn, tổng, lý do rút gọn (escape); KHÔNG SĐT/tên/địa chỉ.
+     */
+    public function thongBaoHuyDonCanHoanTien(DonHang $don, string $lyDo): void
+    {
+        $soTienFmt = number_format((float) $don->tong_thanh_toan, 0, ',', '.');
+        $lyDoRutGon = \Illuminate\Support\Str::limit(trim($lyDo), 80, '…');
+        $msg = "<b>ĐƠN ĐÃ THANH TOÁN BỊ HỦY — CẦN HOÀN TIỀN THỦ CÔNG</b>\n"
+            ."Mã đơn: <b>{$don->ma_hoadon}</b>\n"
+            ."Tổng: {$soTienFmt} đ\n"
+            ."Lý do: ".e($lyDoRutGon)."\n"
+            ."Xử lý tại: Đơn online → Đơn cần hoàn tiền";
+
+        $this->guiTelegram($msg);
+    }
+
+    /**
      * Cảnh báo khách chuyển thiếu tiền.
      */
     public function canhBaoThieuTien(int $soTienChuyen, int $tongThanhToan, string $maHoaDon, string $maGiaoDich): void

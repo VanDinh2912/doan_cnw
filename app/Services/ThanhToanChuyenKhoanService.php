@@ -393,6 +393,106 @@ class ThanhToanChuyenKhoanService
     }
 
     /**
+     * P3 HM4 — hủy đơn ĐÃ thanh toán (chỉ admin gọi từ controller).
+     * Transaction + lockForUpdate: hoàn kho (movement dieuchinh dương, đúng 1 lần),
+     * thu hồi điểm đã cộng (không âm), đặt da_huy + trang_thai_giao=da_huy_giao,
+     * đánh dấu CẦN HOÀN TIỀN THỦ CÔNG. KHÔNG hoàn tiền tự động, không gọi API ngân hàng.
+     *
+     * @return array ['success' => bool, 'don_hang' => ?DonHang, 'message' => string, 'thieuCotCanHoanTien' => bool]
+     */
+    public function huyDonDaThanhToan(DonHang $donHang, string $lyDo): array
+    {
+        $invoiceId = $donHang->id;
+
+        $unlocked = DonHang::with('chiTietDonHangs')->find($invoiceId);
+        if (! $unlocked) {
+            return ['success' => false, 'don_hang' => null, 'message' => 'Hóa đơn không tồn tại.', 'thieuCotCanHoanTien' => false];
+        }
+        if ($unlocked->trang_thai !== 'da_thanh_toan') {
+            return [
+                'success' => false,
+                'don_hang' => $unlocked,
+                'message' => 'Chỉ hủy được đơn đang ở trạng thái đã thanh toán.',
+                'thieuCotCanHoanTien' => false,
+            ];
+        }
+
+        $customerId = $unlocked->customer_id;
+        $chiTiets = $unlocked->chiTietDonHangs;
+        $productIds = $chiTiets->pluck('product_id')->sort()->unique()->values()->all();
+        $coCotCanHoan = KiemTraSchema::coCot('invoices', 'can_hoan_tien');
+
+        return DB::transaction(function () use ($invoiceId, $customerId, $productIds, $chiTiets, $lyDo, $coCotCanHoan): array {
+            $products = collect();
+            if (! empty($productIds)) {
+                $products = SanPham::whereIn('id', $productIds)->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+            }
+            $customer = null;
+            if ($customerId) {
+                $customer = KhachHang::where('id', $customerId)->lockForUpdate()->first();
+            }
+            $lockedInvoice = DonHang::where('id', $invoiceId)->lockForUpdate()->first();
+            if (! $lockedInvoice || $lockedInvoice->trang_thai !== 'da_thanh_toan') {
+                return [
+                    'success' => false,
+                    'don_hang' => $lockedInvoice,
+                    'message' => 'Đơn không còn ở trạng thái đã thanh toán (có thể vừa bị hủy).',
+                    'thieuCotCanHoanTien' => false,
+                ];
+            }
+
+            $userId = auth()->id() ?? $lockedInvoice->user_id;
+
+            // 1. Hoàn kho đúng một lần (lock hóa đơn đảm bảo chỉ 1 transaction vào đây)
+            foreach ($chiTiets as $item) {
+                $sanPham = $products->get($item->product_id);
+                if ($sanPham) {
+                    $sanPham->increment('soluong', $item->soluong);
+                }
+                BienDongKho::create([
+                    'product_id' => $item->product_id,
+                    'user_id' => $userId,
+                    'invoice_id' => $lockedInvoice->id,
+                    'loai' => 'dieuchinh',
+                    'soluong' => $item->soluong,
+                    'ghi_chu' => 'Hủy đơn đã thanh toán: '.$lyDo,
+                ]);
+            }
+
+            // 2. Thu hồi điểm đã cộng — không để số dư âm
+            if ($customer && $lockedInvoice->diem_tichluy_nhan > 0) {
+                $customer->update([
+                    'diem_tichluy' => max(0, (int) $customer->diem_tichluy - (int) $lockedInvoice->diem_tichluy_nhan),
+                ]);
+            }
+
+            // 3. Trạng thái + cờ hoàn tiền (guard thiếu cột: vẫn hủy được)
+            $update = [
+                'trang_thai' => 'da_huy',
+                'ghi_chu' => $lockedInvoice->ghi_chu ? $lockedInvoice->ghi_chu.' | '.$lyDo : $lyDo,
+            ];
+            if (KiemTraSchema::coCot('invoices', 'trang_thai_giao')) {
+                $update['trang_thai_giao'] = 'da_huy_giao';
+            }
+            if ($coCotCanHoan) {
+                $update['can_hoan_tien'] = true;
+            }
+            if (KiemTraSchema::coCot('invoices', 'ghi_chu_noi_bo')) {
+                $update['ghi_chu_noi_bo'] = trim('Lý do hủy: '.$lyDo.' | '.($lockedInvoice->ghi_chu_noi_bo ?? ''));
+            }
+            $lockedInvoice->update($update);
+
+            return [
+                'success' => true,
+                'don_hang' => $lockedInvoice,
+                'message' => 'Đã hủy đơn đã thanh toán, hoàn kho và thu hồi điểm.'
+                    .($coCotCanHoan ? '' : ' (Thiếu cột can_hoan_tien — cần áp migration để đánh dấu hoàn tiền.)'),
+                'thieuCotCanHoanTien' => ! $coCotCanHoan,
+            ];
+        }, 2);
+    }
+
+    /**
      * D12 — chặn ôm hàng: đếm đơn online đang mở (cho_thanh_toan) cùng phương
      * thức với đơn mới, của cùng SĐT chuẩn hóa; đủ online_max_don_mo thì từ chối
      * bằng thông báo chung. Gọi trong transaction sau lockForUpdate sản phẩm.

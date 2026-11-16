@@ -23,6 +23,7 @@ class DonHang extends Model
         'thoi_gian_thanh_toan', 'ghi_chu',
         'kenh', 'ma_tra_cuu', 'ten_khach_dat', 'so_dienthoai_dat', 'ghi_chu_khach', 'han_giu',
         'hinh_thuc_nhan', 'ten_nguoi_nhan', 'sdt_nguoi_nhan', 'dia_chi_giao', 'phi_giao_hang', 'trang_thai_giao',
+        'can_hoan_tien', 'ghi_chu_noi_bo',
     ];
 
     protected function casts(): array

@@ -63,10 +63,120 @@
     </table>
 </div>
 
+@if (session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
+@if (session('error'))<div class="alert alert-danger">{{ session('error') }}</div>@endif
+
 <div class="mt-3 d-flex gap-2">
     <a class="btn btn-outline-secondary" href="{{ route('donhangonline.danhsach') }}">← Danh sách</a>
     @if ($don->trang_thai === 'da_thanh_toan')
         <a class="btn btn-outline-primary" href="{{ route('donhang.inhoadon', $don) }}">Xem/in hóa đơn</a>
     @endif
+    @if ($don->hinh_thuc_nhan === 'giao_tan_noi')
+        <a class="btn btn-outline-dark" target="_blank" href="{{ route('donhangonline.phieugiaohang', $don) }}">In phiếu giao hàng</a>
+    @endif
 </div>
+
+@if ($don->hinh_thuc_nhan === 'giao_tan_noi' && $don->trang_thai === 'da_thanh_toan' && $trangThaiKe)
+<div class="card mt-3">
+    <div class="card-header fw-semibold">Chuyển trạng thái giao</div>
+    <div class="card-body d-flex align-items-center gap-3">
+        <span>Hiện tại: <b>{{ $don->trang_thai_giao_tieng_viet }}</b></span>
+        <form method="POST" action="{{ route('donhangonline.trangthai', $don) }}" class="d-flex gap-2">
+            @csrf
+            <input type="hidden" name="trang_thai_giao_moi" value="{{ $trangThaiKe }}">
+            <button class="btn btn-primary" type="submit"
+                onclick="return confirm('Chuyển sang trạng thái: {{ $don->trang_thai_giao_tieng_viet }}? Kiểm tra lại đơn trước khi bấm.');">
+                → {{ ['da_xac_nhan' => 'Đã xác nhận', 'dang_giao' => 'Đang giao', 'da_giao' => 'Đã giao'][$trangThaiKe] ?? $trangThaiKe }}
+            </button>
+        </form>
+    </div>
+</div>
+@endif
+
+@if ($don->trang_thai === 'cho_thanh_toan'
+    && in_array(auth()->user()->role, ['admin', 'thungan'], true))
+<div class="card mt-3" id="the-pickup">
+    <div class="card-header fw-semibold">Xử lý đơn nhận tại cửa hàng</div>
+    <div class="card-body">
+        <p class="text-muted mb-2">Hạn giữ: <b>{{ $don->han_giu?->format('d/m/Y H:i') ?? '—' }}</b></p>
+        <div class="d-flex gap-2 flex-wrap">
+            <button class="btn btn-success" id="btn-xacnhan">Xác nhận đã nhận tiền/giao hàng</button>
+            <button class="btn btn-warning" id="btn-giahan">Gia hạn</button>
+            <button class="btn btn-danger" id="btn-huycho">Hủy đơn chờ</button>
+        </div>
+        <div id="pickup-msg" class="mt-2"></div>
+    </div>
+</div>
+@endif
+
+@if ($don->trang_thai === 'da_thanh_toan' && auth()->user()->role === 'admin')
+<div class="card mt-3 border-danger">
+    <div class="card-header fw-semibold text-danger">Hủy đơn đã thanh toán (chỉ admin)</div>
+    <div class="card-body">
+        <p class="text-muted">Hủy sẽ hoàn kho, thu hồi điểm đã cộng và đánh dấu <b>CẦN HOÀN TIỀN THỦ CÔNG</b>. Tiền KHÔNG tự hoàn — xử lý thủ công sau.</p>
+        <form method="POST" action="{{ route('donhangonline.huydathanhtoan', $don) }}" class="d-flex gap-2">
+            @csrf
+            <input type="text" name="ly_do" class="form-control" placeholder="Lý do hủy (bắt buộc)" required minlength="5" maxlength="255">
+            <button class="btn btn-danger text-nowrap" type="submit"
+                onclick="return confirm('Hủy đơn đã thanh toán {{ $don->ma_hoadon }}? Hành động này hoàn kho và thu hồi điểm.');">
+                Hủy đơn &amp; hoàn tiền thủ công
+            </button>
+        </form>
+    </div>
+</div>
+@endif
+
+@if ($lichSu->isNotEmpty())
+<div class="card mt-3">
+    <div class="card-header fw-semibold">Lịch sử trạng thái giao</div>
+    <ul class="list-group list-group-flush">
+        @foreach ($lichSu as $log)
+            <li class="list-group-item d-flex justify-content-between">
+                <span>{{ $log->mo_ta }}</span>
+                <small class="text-muted">{{ $log->created_at?->format('d/m/Y H:i') }} — {{ $log->user?->ho_ten ?? 'hệ thống' }}</small>
+            </li>
+        @endforeach
+    </ul>
+</div>
+@endif
 @endsection
+
+@if ($don->trang_thai === 'cho_thanh_toan'
+    && in_array(auth()->user()->role, ['admin', 'thungan'], true))
+@push('scripts')
+<script>
+(function () {
+    var token = document.querySelector('meta[name="csrf-token"]')?.content
+        || '{{ csrf_token() }}';
+    function goi(url) {
+        return fetch(url, {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': token, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); });
+    }
+    function bao(loi, msg) {
+        var el = document.getElementById('pickup-msg');
+        el.innerHTML = '<div class="alert alert-' + (loi ? 'danger' : 'success') + ' mb-0">' + msg + '</div>';
+        if (!loi) { setTimeout(function () { location.reload(); }, 1200); }
+    }
+    document.getElementById('btn-xacnhan').addEventListener('click', function () {
+        if (!confirm('Xác nhận đã nhận tiền và giao hàng cho đơn này?')) { return; }
+        goi(@json(route('donhang.xacnhan', $don))).then(function (r) {
+            bao(!r.ok, r.ok ? 'Đã xác nhận thanh toán.' : (r.d.error || 'Có lỗi xảy ra.'));
+        });
+    });
+    document.getElementById('btn-giahan').addEventListener('click', function () {
+        goi(@json(route('donhang.giahan', $don))).then(function (r) {
+            bao(!r.ok, r.ok ? 'Đã gia hạn hạn giữ hàng.' : (r.d.error || 'Có lỗi xảy ra.'));
+        });
+    });
+    document.getElementById('btn-huycho').addEventListener('click', function () {
+        if (!confirm('Hủy đơn chờ thanh toán? Hàng sẽ được hoàn kho.')) { return; }
+        goi(@json(route('donhang.huycho', $don))).then(function (r) {
+            bao(!r.ok, r.ok ? 'Đã hủy đơn và hoàn kho.' : (r.d.error || 'Có lỗi xảy ra.'));
+        });
+    });
+})();
+</script>
+@endpush
+@endif

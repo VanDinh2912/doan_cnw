@@ -48,6 +48,11 @@
                     <i class="fa-solid fa-truck-fast"></i><span>Đơn online</span>
                     <span class="badge bg-danger ms-1 js-badge-don-online" style="display:none;">0</span>
                 </a>
+                @if (auth()->user()->role === 'admin')
+                    <a class="app-nav-link {{ request()->routeIs('donhangonline.canhoantien') ? 'active' : '' }}" href="{{ route('donhangonline.canhoantien') }}">
+                        <i class="fa-solid fa-money-bill-wave"></i><span>Đơn cần hoàn tiền</span>
+                    </a>
+                @endif
                 <a class="app-nav-link {{ request()->routeIs('khachhang.*') ? 'active' : '' }}" href="{{ route('khachhang.danhsach') }}">
                     <i class="fa-solid fa-user-group"></i><span>Khách hàng</span>
                 </a>

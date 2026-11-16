@@ -138,6 +138,20 @@ Route::middleware(['auth', 'staff.only', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->
             ->name('donhangonline.danhsach');
         Route::get('/donhang-online/{donHang}', [\App\Http\Controllers\DonHangOnlineController::class, 'getChiTiet'])
             ->name('donhangonline.chitiet');
+        Route::post('/donhang-online/{donHang}/trangthai', [\App\Http\Controllers\DonHangOnlineController::class, 'postChuyenTrangThai'])
+            ->name('donhangonline.trangthai');
+        // HM4: hủy đơn đã thanh toán + hoàn tiền thủ công — chỉ admin
+        Route::post('/donhang-online/{donHang}/huy-da-thanh-toan', [\App\Http\Controllers\DonHangOnlineController::class, 'postHuyDonDaThanhToan'])
+            ->middleware('role:admin')
+            ->name('donhangonline.huydathanhtoan');
+        Route::get('/donhang-online-can-hoan-tien', [\App\Http\Controllers\DonHangOnlineController::class, 'getDonCanHoanTien'])
+            ->middleware('role:admin')
+            ->name('donhangonline.canhoantien');
+        Route::post('/donhang-online/{donHang}/da-hoan-tien', [\App\Http\Controllers\DonHangOnlineController::class, 'postDanhDauDaHoanTien'])
+            ->middleware('role:admin')
+            ->name('donhangonline.dahoantien');
+        Route::get('/donhang-online/{donHang}/phieu-giao', [\App\Http\Controllers\DonHangOnlineController::class, 'getPhieuGiao'])
+            ->name('donhangonline.phieugiaohang');
     });
 
     Route::middleware('role:admin,thukho')->group(function (): void {
