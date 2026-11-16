@@ -21,6 +21,41 @@ thứ tự tên file, nên **thứ tự áp thực tế** là:
 | 4 | `2026_11_16_000001_add_can_hoan_tien_to_invoices_table` | P3: cờ cần hoàn tiền thủ công + ghi chú nội bộ | `invoices.can_hoan_tien` bool, `invoices.ghi_chu_noi_bo` varchar(255) | ✅ có guard | Thấp | `down()` có điều kiện |
 | 5 | `2026_11_16_000002_add_tien_hoan_phi_giao_to_returns_table` | Quy tắc hoàn phí giao: tick admin một lần/đơn | `returns.tien_hoan_phi_giao` unsigned int default 0 | ✅ có guard | Thấp: chỉ thêm cột có default; thiếu cột → trả hàng chạy hành vi cũ, tick ship báo 422 | `down()` có điều kiện |
 
+## 1b. Nhật ký áp migration
+
+**2026-11-16 ~22:3x** — đã áp thành công 5 migration lên `doan_cnw` (MySQL 8.4.7,
+InnoDB), xác nhận của Lê Văn Định lúc 22:13. Tag git:
+`backup/truoc-migrate-doan-cnw-20261116`.
+
+- Danh sách đã áp (đúng thứ tự): `2026_11_11_000001_add_ma_tham_chieu_to_payment_webhooks_table`,
+  `2026_11_15_000001_extend_activity_logs_for_audit`,
+  `2026_11_15_000002_add_khoa_luc_and_bat_buoc_doi_mat_khau_to_users_table`,
+  `2026_11_16_000001_add_can_hoan_tien_to_invoices_table`,
+  `2026_11_16_000002_add_tien_hoan_phi_giao_to_returns_table`.
+- Kiểm chứng: 27 bảng, số dòng mọi bảng dữ liệu **không đổi** so với mốc trước
+  (chỉ bảng `migrations` +5 bản ghi); engine toàn InnoDB; đủ cột mới
+  (`payment_webhooks.ma_tham_chieu`, `users.khoa_luc`/`bat_buoc_doi_mat_khau`,
+  `invoices.can_hoan_tien`/`ghi_chu_noi_bo`, `returns.tien_hoan_phi_giao`,
+  `activity_logs` +6 cột +2 index); `migrate:status` 0 pending.
+- Thời gian áp: ~0,6 giây tổng (từng migration 28–247 ms), trong chế độ bảo trì.
+- Sao lưu (KHÔNG nằm trong repo, chỉ ghi tên + kích thước):
+  - `D:\Study\xampp\www\doan_cnw_truoc_migrate_20261116_2216.sql` — 382,3 KB
+    (bản chính, đã kiểm chứng khôi phục khớp 27 bảng/2164 dòng trên `doan_cnw_dev`);
+  - `D:\Study\xampp\www\doan_cnw_truoc_migrate_that_20261116_2235.sql` — 382,3 KB
+    (bản ngay trước khi áp thật);
+  - `storage/app/backups/doan_cnw-20261116-152541.sql` — bản của `sao-luu:csdl`.
+  **Người dùng cần chép các tệp này ra USB/ổ khác.**
+- `he-thong:kiem-tra` sau áp: còn **1 FAIL có sẵn từ trước** — thiếu
+  `SEPAY_WEBHOOK_API_KEY` trong `.env` (webhook SePay sẽ bị 401; cần người dùng
+  cấu hình, không liên quan migration). WARN còn lại: Telegram thiếu token,
+  chưa chạy `sepay:doi-soat`, `APP_ENV=local`, `APP_DEBUG` bật, chưa cache
+  config/route/view, `LOG_STACK` chưa phải `daily`.
+- Guard `KiemTraSchema`/`Schema::hasColumn`: **GIỮ NGUYÊN**, chỉ gỡ sau ít nhất
+  một tuần chạy ổn định (theo dõi log lỗi thiếu cột).
+- DB diễn tập `doan_cnw_dev` được **giữ lại** (chứa schema mới nhất, dữ liệu =
+  snapshot 22:16) để đối chiếu; xóa khi không cần nữa.
+- Chi tiết đầy đủ: `docs/BAO_CAO_AP_MIGRATION.md`.
+
 ## 2. Quy trình nâng cấp an toàn
 
 ```powershell
