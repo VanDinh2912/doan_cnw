@@ -13,8 +13,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /** HM6 — trả hàng đơn online: không crash khi customer_id/user_id null,
- *  hoàn tiền tỷ lệ (hành vi hiện có gồm cả phí ship — ghi nhận, không đổi),
- *  thu hồi điểm đã cộng, không hoàn điểm đã dùng (online không dùng điểm). */
+ *  hoàn tiền tỷ lệ trên tiền hàng (quy tắc hoàn ship 2026-11-16 — xem
+ *  TraHangPhiGiaoTest), thu hồi điểm đã cộng, không hoàn điểm đã dùng. */
 class TraHangDonOnlineTest extends TestCase
 {
     use RefreshDatabase;
@@ -57,7 +57,9 @@ class TraHangDonOnlineTest extends TestCase
 
         $this->actingAs($this->thuNgan())->get(route('trahang.chon', $don))->assertOk();
 
-        // Trả toàn bộ 2 cái → tiền hoàn = 2*50.000*(130.000/100.000) = 130.000 (gồm ship — hành vi hiện có)
+        // Trả toàn bộ 2 cái → tiền hoàn = 2*50.000 = 100.000.
+        // (Đổi kỳ vọng 130.000→100.000: quy tắc hoàn ship 2026-11-16 — tiền hoàn
+        // chỉ trên tiền hàng, phí giao không còn được hoàn tỷ lệ; admin phải tick.)
         $this->actingAs($this->thuNgan())->post(route('trahang.luu'), [
             'invoice_id' => $don->id,
             'hinh_thuc_hoan' => 'chuyenkhoan',
@@ -68,7 +70,7 @@ class TraHangDonOnlineTest extends TestCase
         ])->assertRedirect();
 
         $phieu = PhieuTra::where('invoice_id', $don->id)->latest('id')->firstOrFail();
-        $this->assertSame(130000, (int) $phieu->tong_hoan); // hành vi hiện có: hoàn cả phí ship tỷ lệ
+        $this->assertSame(100000, (int) $phieu->tong_hoan); // quy tắc mới: không gồm phí ship
         $this->assertSame('hoan_thanh', $phieu->trang_thai); // dưới ngưỡng duyệt
         $this->assertSame(0, (int) $phieu->diem_hoan); // online không dùng điểm → không hoàn điểm dùng
     }
@@ -83,7 +85,8 @@ class TraHangDonOnlineTest extends TestCase
         ]);
         $chiTiet = $don->chiTietDonHangs()->firstOrFail();
 
-        // Trả 1/2 số lượng → hoàn = 1*50.000*1.3 = 65.000
+        // Trả 1/2 số lượng → hoàn = 1*50.000 = 50.000 (không gồm ship — quy tắc mới)
+        // (Đổi kỳ vọng 65.000→50.000 cùng lý do trên.)
         $this->actingAs($this->thuNgan())->post(route('trahang.luu'), [
             'invoice_id' => $don->id,
             'hinh_thuc_hoan' => 'tienmat',
@@ -93,7 +96,7 @@ class TraHangDonOnlineTest extends TestCase
         ])->assertRedirect();
 
         $phieu = PhieuTra::where('invoice_id', $don->id)->latest('id')->firstOrFail();
-        $this->assertSame(65000, (int) $phieu->tong_hoan);
+        $this->assertSame(50000, (int) $phieu->tong_hoan);
         // diem_thu_hoi = floor(65000 / diem_moi_dong); số dư không âm sau thu hồi
         $this->assertGreaterThanOrEqual(0, (int) $kh->fresh()->diem_tichluy);
         $this->assertSame('hoan_thanh', $phieu->trang_thai);
