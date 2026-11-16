@@ -908,10 +908,13 @@ tương đương).
   thân thiện, không 500, không lộ số tài khoản; quá hạn → hủy + hoàn kho + movement
   `dieuchinh` + thông báo rõ ràng trên thanhcong; polling POST không PII + cần bằng chứng
   session (chưa xác thực → 403); pickup thanhcong giữ nguyên "Đặt hàng thành công".
-- `DatHangCoBatTest` (7): cờ `POS_DAT_HANG_ONLINE_BAT`/`POS_GIAO_TAN_NOI_BAT` — tắt →
-  404 cả 9 route đặt hàng online (không 500), giỏ hàng vẫn xem được + nút "Đặt hàng"
-  và radio `giao_tan_noi` bị ẩn, server từ chối `giao_tan_noi`, `he-thong:kiem-tra`
-  báo trạng thái cờ. Test mặc định bật cờ trong `tests/TestCase.php`.
+- `DatHangCoBatTest` (8): cờ `POS_DAT_HANG_ONLINE_BAT`/`POS_GIAO_TAN_NOI_BAT` — tắt →
+  404 cả 9 route đặt hàng online (không 500), giỏ hàng vẫn xem được nhưng không lộ
+  route đặt hàng — thay nút "Đặt hàng" bằng thông báo "Đặt hàng online chưa mở…
+  gọi {hotline}" (hotline từ `config/storefront.php`, env `HOTLINE`), radio
+  `giao_tan_noi` bị ẩn, server từ chối `giao_tan_noi`, `he-thong:kiem-tra`
+  báo trạng thái cờ; giỏ trống không hiện thông báo. Test mặc định bật cờ trong
+  `tests/TestCase.php`.
 - `DatHangP2Buoc3Test` (12): P2 bước 3 — webhook đơn giao tận nơi đặt
   `trang_thai_giao` theo `POS_ONLINE_TU_DONG_XAC_NHAN` (cho_xac_nhan/da_xac_nhan),
   idempotent không ghi đè trạng thái đã có, thiếu tiền → đối soát, thừa tiền →
@@ -1585,12 +1588,15 @@ Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_
   hủy đơn đã thanh toán chỉ admin + cờ `can_hoan_tien` + danh sách hoàn tiền,
   phiếu giao hàng in, trả hàng online an toàn null, báo cáo/dashboard/export tách
   phí ship). Chi tiết: `docs/BAO_CAO_DAT_HANG_P3.md`.
-- **Kiểm thử hiện tại: xem mục 9** (Chốt triển khai + merge SePay đối soát,
-  2026-11-16, `main`: **736 pass / 44 skip / 0 fail, 3418 assertions, 447.77s**
+- **Kiểm thử hiện tại: xem mục 9** (thông báo giỏ hàng khi cờ đặt hàng tắt,
+  2026-11-16, `main`: **737 pass / 44 skip / 0 fail, 3423 assertions, 445.80s**
   bằng `vendor/bin/paratest` 16 tiến trình — tương đương `php artisan test`;
-  serial baseline trước merge 702 pass / 44 skip / 0 fail, 3154 assertions;
-  MySQL-copy **44 pass / 364 assertions, 14.23s** trên `doan_cnw_copy`).
-  Trước đó P3 + P2 bước 4: 702 pass / 44 skip / 0 fail,
+  MySQL-copy **44 pass / 364 assertions, 15.59s** trên `doan_cnw_copy`.
+  `migrate:status`: 4 migration pending theo thứ tự ở `docs/SO_TAY_TRIEN_KHAI.md`).
+  Trước đó Chốt triển khai + merge SePay đối soát:
+  **736 pass / 44 skip / 0 fail, 3418 assertions, 447.77s** paratest;
+  MySQL-copy 44 pass / 364 assertions, 14.23s.
+  P3 + P2 bước 4: 702 pass / 44 skip / 0 fail,
   3154 assertions; MySQL-copy 44 pass / 364 assertions.
   P2 bước 3 + cờ: 674 pass / 44 skip / 0 fail,
   2972 assertions; MySQL-copy 44 pass / 364 assertions.
@@ -1741,7 +1747,7 @@ Cập nhật lần cuối: **2026-11-16**, trên `main` (sau merge `feat/sepay-d
 
 | Kiểm tra | Kết quả | Ghi chú |
 |----------|---------|---------|
-| Cờ `POS_DAT_HANG_ONLINE_BAT` / `POS_GIAO_TAN_NOI_BAT` | ✅ | Mặc định `false`; middleware `dat.hang.online` → 404 toàn bộ route `/dat-hang`,`/don-hang`; ẩn nút "Đặt hàng" + radio `giao_tan_noi`; server từ chối `giao_tan_noi` khi cờ 2 tắt; `he-thong:kiem-tra` báo trạng thái + WARN; đơn cũ vẫn webhook/scheduler xử lý; `DatHangCoBatTest` 7 test |
+| Cờ `POS_DAT_HANG_ONLINE_BAT` / `POS_GIAO_TAN_NOI_BAT` | ✅ | Mặc định `false`; middleware `dat.hang.online` → 404 toàn bộ route `/dat-hang`,`/don-hang`; giỏ hàng thay nút "Đặt hàng" bằng thông báo thân thiện kèm hotline (`config/storefront.php`, env `HOTLINE`) + ẩn radio `giao_tan_noi`; server từ chối `giao_tan_noi` khi cờ 2 tắt; `he-thong:kiem-tra` báo trạng thái + WARN; đơn cũ vẫn webhook/scheduler xử lý; `DatHangCoBatTest` 8 test |
 | Webhook → `trang_thai_giao` (D15) | ✅ | `hoanTatThanhToan` đặt `da_xac_nhan`/`cho_xac_nhan` theo `POS_ONLINE_TU_DONG_XAC_NHAN` cho đơn `kenh=online`+`giao_tan_noi`; chỉ khi đang null (idempotent, không ghi đè P3); guard `KiemTraSchema::coCot` khi DB thiếu cột; `DatHangP2Buoc3Test` 12 test |
 | Telegram đơn giao đã thanh toán | ✅ | `thongBaoDonGiaoDaThanhToan`: mã đơn+tổng+hình thức, SĐT che `090****567`, không địa chỉ, `e()` escape; gọi sau commit ở webhook + xác nhận thủ công |
 | Tra cứu/trạng thái giao | ✅ | Trang trạng thái (đã yêu cầu bằng chứng session/chủ đơn) hiện trạng thái giao + thông tin giao, SĐT che; polling trả `trang_thai_giao` không PII; sai mã/SĐT → thông báo chung |

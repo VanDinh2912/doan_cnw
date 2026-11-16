@@ -77,6 +77,7 @@ php artisan down && php artisan up      # tắt/bật bảo trì đúng quy trì
 | `POS_ONLINE_TU_DONG_XAC_NHAN` | tùy chọn | `false` | true → webhook tự đặt `da_xac_nhan` cho đơn giao |
 | `POS_DAT_HANG_ONLINE_BAT` | tùy chọn | **`false`** | Cờ tổng mở đặt hàng online |
 | `POS_GIAO_TAN_NOI_BAT` | tùy chọn | **`false`** | Cờ giao tận nơi (chỉ ý nghĩa khi cờ trên bật) |
+| `HOTLINE` | tùy chọn | `1900 0000` | Hotline hiển thị storefront (footer, thanh tin cậy, thông báo giỏ hàng khi cờ tắt) — nguồn duy nhất `config/storefront.php` |
 | `LOG_CHANNEL` / `LOG_LEVEL` / `LOG_STACK` / `LOG_DAILY_DAYS` | tùy chọn | `stack`/`debug`… | Logging; production nên `daily` + `info` |
 | `CACHE_STORE` / `SESSION_DRIVER` / `QUEUE_CONNECTION` | ✅ | `database`/`database`/`database` | Production nên `database` (hoặc redis nếu có) |
 | `DB_*` | ✅ | — | Trỏ `doan_cnw` |
