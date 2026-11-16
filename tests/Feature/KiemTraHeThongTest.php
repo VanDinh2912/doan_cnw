@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Console\Commands\KiemTraHeThong;
+use App\Console\Commands\SepayDoiSoat;
 use App\Models\DonHang;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -26,10 +27,12 @@ class KiemTraHeThongTest extends TestCase
             'pos.bank_code' => 'VCB',
             'pos.bank_account' => '0123456789',
             'pos.sepay_webhook_api_key' => 'khoa-test',
+            'pos.sepay_api_token' => 'token-sepay-api-test',
             'pos.telegram_bot_token' => 'token-test',
             'pos.telegram_chat_id' => 'chat-test',
             'logging.default' => 'daily',
         ]);
+        Cache::forget(SepayDoiSoat::KHOA_LAN_CUOI);
     }
 
     public function test_bao_loi_khi_scheduler_chua_tung_chay(): void
@@ -98,12 +101,45 @@ class KiemTraHeThongTest extends TestCase
             ->assertExitCode(1);
     }
 
+    public function test_canh_bao_thieu_sepay_api_token_chi_la_warn(): void
+    {
+        config(['pos.sepay_api_token' => '']);
+        Cache::put(KiemTraHeThong::KHOA_SCHEDULER, now()->getTimestamp(), now()->addDay());
+
+        $this->artisan('he-thong:kiem-tra')
+            ->expectsOutputToContain('[WARN] SePay API: thiếu SEPAY_API_TOKEN')
+            ->assertExitCode(0);
+    }
+
+    public function test_bao_ok_khi_co_token_va_lan_doi_soat_moi(): void
+    {
+        Cache::put(KiemTraHeThong::KHOA_SCHEDULER, now()->getTimestamp(), now()->addDay());
+        Cache::put(SepayDoiSoat::KHOA_LAN_CUOI, now()->getTimestamp(), now()->addDay());
+
+        $this->artisan('he-thong:kiem-tra')
+            ->expectsOutputToContain('[OK] SePay API: đã cấu hình SEPAY_API_TOKEN')
+            ->expectsOutputToContain('[OK] Đối soát SePay: lần cuối')
+            ->assertExitCode(0);
+    }
+
+    public function test_canh_bao_lan_doi_soat_da_cu(): void
+    {
+        Cache::put(KiemTraHeThong::KHOA_SCHEDULER, now()->getTimestamp(), now()->addDay());
+        Cache::put(SepayDoiSoat::KHOA_LAN_CUOI, now()->subHour()->getTimestamp(), now()->addDay());
+
+        $output = $this->chayKiemTra();
+
+        $this->assertStringContainsString('[WARN] Đối soát SePay: lần cuối', $output);
+        $this->assertStringContainsString('lịch 10 phút có thể đã ngừng', $output);
+    }
+
     public function test_khong_bao_gio_in_gia_tri_bi_mat(): void
     {
         $biMat = [
             'bank_code' => 'MA-NGAN-HANG-BI-MAT',
             'bank_account' => 'SO-TAI-KHOAN-BI-MAT',
             'sepay_webhook_api_key' => 'KHOA-SEPAY-BI-MAT',
+            'sepay_api_token' => 'TOKEN-SEPAY-API-BI-MAT',
             'telegram_bot_token' => 'TOKEN-TELEGRAM-BI-MAT',
             'telegram_chat_id' => 'CHAT-ID-BI-MAT',
         ];
@@ -111,6 +147,7 @@ class KiemTraHeThongTest extends TestCase
             'pos.bank_code' => $biMat['bank_code'],
             'pos.bank_account' => $biMat['bank_account'],
             'pos.sepay_webhook_api_key' => $biMat['sepay_webhook_api_key'],
+            'pos.sepay_api_token' => $biMat['sepay_api_token'],
             'pos.telegram_bot_token' => $biMat['telegram_bot_token'],
             'pos.telegram_chat_id' => $biMat['telegram_chat_id'],
         ]);
@@ -185,6 +222,7 @@ class KiemTraHeThongTest extends TestCase
             ->expectsOutputToContain('donhang:huy-qua-han')
             ->expectsOutputToContain('sao-luu:csdl')
             ->expectsOutputToContain('hold:clean')
+            ->expectsOutputToContain('sepay:doi-soat')
             ->assertExitCode(0);
     }
 

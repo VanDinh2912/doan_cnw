@@ -34,6 +34,7 @@
             <thead>
                 <tr>
                     <th>Thời gian</th>
+                    <th>Nguồn</th>
                     <th>Mã GD ngoài</th>
                     <th>Hóa đơn</th>
                     <th>Số tiền</th>
@@ -46,6 +47,13 @@
                 @forelse ($webhooks as $webhook)
                     <tr>
                         <td>{{ $webhook->created_at?->format('d/m/Y H:i:s') }}</td>
+                        <td>
+                            @if ($webhook->nha_cung_cap === 'sepay_api')
+                                <span class="badge text-bg-info">api_doi_soat</span>
+                            @else
+                                <span class="badge text-bg-secondary">webhook</span>
+                            @endif
+                        </td>
                         <td><code>{{ $webhook->ma_giao_dich_ngoai }}</code></td>
                         <td>{{ $webhook->ma_hoadon ?? $webhook->donHang?->ma_hoadon ?? '—' }}</td>
                         <td>{{ number_format($webhook->so_tien, 0, ',', '.') }} đ</td>
@@ -62,7 +70,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="7" class="text-center py-4">Không có giao dịch nào cần đối soát.</td></tr>
+                    <tr><td colspan="8" class="text-center py-4">Không có giao dịch nào cần đối soát.</td></tr>
                 @endforelse
             </tbody>
         </table>

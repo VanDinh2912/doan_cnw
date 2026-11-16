@@ -11,8 +11,20 @@
 <div class="card mb-3">
     <div class="card-body">
         <dl class="row mb-0">
+            <dt class="col-sm-3">Nguồn</dt>
+            <dd class="col-sm-9">
+                @if ($webhook->nha_cung_cap === 'sepay_api')
+                    <span class="badge text-bg-info">api_doi_soat</span>
+                @else
+                    <span class="badge text-bg-secondary">webhook</span>
+                @endif
+            </dd>
+
             <dt class="col-sm-3">Mã giao dịch ngoài</dt>
             <dd class="col-sm-9"><code>{{ $webhook->ma_giao_dich_ngoai }}</code></dd>
+
+            <dt class="col-sm-3">Mã tham chiếu</dt>
+            <dd class="col-sm-9"><code>{{ $webhook->khoaThamChieu() ?? '—' }}</code></dd>
 
             <dt class="col-sm-3">Nhà cung cấp</dt>
             <dd class="col-sm-9">{{ $webhook->nha_cung_cap }}</dd>

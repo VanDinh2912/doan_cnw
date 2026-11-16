@@ -7,6 +7,7 @@ use App\Models\BienDongKho;
 use App\Models\ChiTietDonHang;
 use App\Models\DonHang;
 use App\Models\KhachHang;
+use App\Models\PaymentWebhook;
 use App\Models\SanPham;
 use App\Models\User;
 use Illuminate\Contracts\Http\Kernel;
@@ -335,6 +336,127 @@ class ThanhToanChuyenKhoanTest extends TestCase
     }
 
     // ----------------------------------------------------------------
+    // T-CK03b: Webhook thành công lưu mã tham chiếu để đối soát API biết đã nhận
+    // ----------------------------------------------------------------
+    public function test_T_CK03b_webhook_thanh_cong_luu_ma_tham_chieu(): void
+    {
+        $donHang = $this->taoHoaDonChoThanhToan(120000);
+        $cleanMa = str_replace('-', '', $donHang->ma_hoadon);
+
+        $this->guiSepayWebhook([
+            'id'              => 771122,
+            'gateway'         => 'VCB',
+            'transactionDate' => now()->toDateTimeString(),
+            'accountNumber'   => '1017588888',
+            'transferType'    => 'in',
+            'transferAmount'  => 120000,
+            'content'         => 'THANH TOAN DON ' . $cleanMa,
+            'referenceCode'   => 'FT-API-771122',
+        ])->assertOk()->assertJson(['success' => true]);
+
+        $banGhi = PaymentWebhook::where('ma_giao_dich_ngoai', '771122')->firstOrFail();
+        $this->assertSame('FT-API-771122', $banGhi->ma_tham_chieu);
+        $this->assertSame('success', $banGhi->ket_qua);
+        $this->assertSame($donHang->id, (int) $banGhi->invoice_id);
+        $this->assertSame('da_xu_ly', $banGhi->trang_thai_xu_ly);
+    }
+
+    // ----------------------------------------------------------------
+    // T-CK03c: Hai giao dịch khác id nhưng cùng mã tham chiếu vẫn phải được xử lý
+    // ----------------------------------------------------------------
+    public function test_T_CK03c_hai_giao_dich_khac_id_cung_ma_tham_chieu_deu_hoan_tat(): void
+    {
+        $kh1 = KhachHang::create([
+            'ho_ten'       => 'Khach Cung Ma 1',
+            'so_dienthoai' => '0911000011',
+            'diem_tichluy' => 0,
+        ]);
+        $kh2 = KhachHang::create([
+            'ho_ten'       => 'Khach Cung Ma 2',
+            'so_dienthoai' => '0911000022',
+            'diem_tichluy' => 0,
+        ]);
+
+        $don1 = $this->taoHoaDonChoThanhToan(100000, $kh1, 0, 10);
+        $don2 = $this->taoHoaDonChoThanhToan(150000, $kh2, 0, 15);
+        $refChung = 'REF-SHARED-001';
+
+        $this->guiSepayWebhook([
+            'id'              => 620001,
+            'transferType'    => 'in',
+            'transferAmount'  => 100000,
+            'content'         => 'THANH TOAN ' . str_replace('-', '', $don1->ma_hoadon),
+            'referenceCode'   => $refChung,
+        ])->assertOk()->assertJson(['success' => true]);
+
+        $this->guiSepayWebhook([
+            'id'              => 620002,
+            'transferType'    => 'in',
+            'transferAmount'  => 150000,
+            'content'         => 'THANH TOAN ' . str_replace('-', '', $don2->ma_hoadon),
+            'referenceCode'   => $refChung,
+        ])->assertOk()->assertJson(['success' => true]);
+
+        $this->assertSame('da_thanh_toan', $don1->fresh()->trang_thai);
+        $this->assertSame('da_thanh_toan', $don2->fresh()->trang_thai);
+        $this->assertSame(10, (int) $kh1->fresh()->diem_tichluy);
+        $this->assertSame(15, (int) $kh2->fresh()->diem_tichluy);
+
+        // Không gộp/ghi đè bản ghi của giao dịch khác: mỗi id có bản ghi riêng.
+        $this->assertSame(1, PaymentWebhook::where('ma_giao_dich_ngoai', '620001')->count());
+        $this->assertSame(1, PaymentWebhook::where('ma_giao_dich_ngoai', '620002')->count());
+        $this->assertSame($don1->id, (int) PaymentWebhook::where('ma_giao_dich_ngoai', '620001')->firstOrFail()->invoice_id);
+        $this->assertSame($don2->id, (int) PaymentWebhook::where('ma_giao_dich_ngoai', '620002')->firstOrFail()->invoice_id);
+    }
+
+    // ----------------------------------------------------------------
+    // T-CK03d: referenceCode rỗng/null/chỉ khoảng trắng không kích hoạt chống trùng
+    // ----------------------------------------------------------------
+    public function test_T_CK03d_ma_tham_chieu_rong_khong_kich_hoat_chong_trung(): void
+    {
+        $don1 = $this->taoHoaDonChoThanhToan(100000);
+        $don2 = $this->taoHoaDonChoThanhToan(120000);
+        $don3 = $this->taoHoaDonChoThanhToan(140000);
+
+        $payloads = [
+            [
+                'id'             => 630001,
+                'transferType'   => 'in',
+                'transferAmount' => 100000,
+                'content'        => 'THANH TOAN ' . str_replace('-', '', $don1->ma_hoadon),
+                'referenceCode'  => '',
+            ],
+            [
+                'id'             => 630002,
+                'transferType'   => 'in',
+                'transferAmount' => 120000,
+                'content'        => 'THANH TOAN ' . str_replace('-', '', $don2->ma_hoadon),
+                'referenceCode'  => '   ',
+            ],
+            [
+                'id'             => 630003,
+                'transferType'   => 'in',
+                'transferAmount' => 140000,
+                'content'        => 'THANH TOAN ' . str_replace('-', '', $don3->ma_hoadon),
+            ],
+        ];
+
+        foreach ($payloads as $payload) {
+            $this->guiSepayWebhook($payload)->assertOk()->assertJson(['success' => true]);
+        }
+
+        foreach ([$don1, $don2, $don3] as $donHang) {
+            $this->assertSame('da_thanh_toan', $donHang->fresh()->trang_thai);
+        }
+
+        foreach ([630001, 630002, 630003] as $id) {
+            $banGhi = PaymentWebhook::where('ma_giao_dich_ngoai', (string) $id)->firstOrFail();
+            $this->assertSame('success', $banGhi->ket_qua);
+            $this->assertNull($banGhi->ma_tham_chieu);
+        }
+    }
+
+    // ----------------------------------------------------------------
     // T-CK04: Webhook SePay sai API Key ➜ 401 Unauthorized
     // ----------------------------------------------------------------
     public function test_T_CK04_webhook_sepay_sai_auth_tra_ve_401(): void
@@ -375,6 +497,7 @@ class ThanhToanChuyenKhoanTest extends TestCase
             'transferType'   => 'in',
             'transferAmount' => 200000,
             'content'        => 'CHUYEN KHOAN ' . $cleanMa,
+            'referenceCode'  => 'REF-IDEMPOTENT-555666',
         ];
 
         // Gửi lần 1
@@ -386,8 +509,10 @@ class ThanhToanChuyenKhoanTest extends TestCase
         $res2->assertOk();
         $res2->assertJson(['success' => true]);
 
-        // Điểm không được cộng thêm
+        // Điểm không được cộng thêm, chỉ có đúng một bản ghi cho id này.
         $this->assertSame(30, $kh->fresh()->diem_tichluy);
+        $this->assertSame(1, PaymentWebhook::where('ma_giao_dich_ngoai', '555666')->count());
+        $this->assertSame($donHang->id, (int) PaymentWebhook::where('ma_giao_dich_ngoai', '555666')->firstOrFail()->invoice_id);
     }
 
     // ----------------------------------------------------------------

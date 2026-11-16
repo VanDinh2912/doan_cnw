@@ -28,6 +28,7 @@ class KiemTraHeThong extends Command
         $this->kiemTraScheduler();
         $this->kiemTraDonQuaHan();
         $this->kiemTraCauHinh();
+        $this->kiemTraDoiSoatSePay();
         $this->kiemTraMoiTruong();
         $this->kiemTraQuyenGhi();
         $this->kiemTraLog();
@@ -119,6 +120,40 @@ class KiemTraHeThong extends Command
         if ($giaoTanNoiBat && ! $datHangBat) {
             $this->bao('WARN', 'Giao tận nơi', 'POS_GIAO_TAN_NOI_BAT bật nhưng POS_DAT_HANG_ONLINE_BAT tắt — cờ giao hàng không có tác dụng');
         }
+    }
+
+    /**
+     * Đối soát chủ động là tính năng tùy chọn: thiếu token chỉ WARN, không FAIL.
+     * Chỉ báo đủ/thiếu và mốc chạy gần nhất, không in token.
+     */
+    private function kiemTraDoiSoatSePay(): void
+    {
+        if (trim((string) config('pos.sepay_api_token')) === '') {
+            $this->bao('WARN', 'SePay API', 'thiếu SEPAY_API_TOKEN — đối soát chủ động đang tắt');
+
+            return;
+        }
+
+        $this->bao('OK', 'SePay API', 'đã cấu hình SEPAY_API_TOKEN');
+
+        $lanCuoi = Cache::get(SepayDoiSoat::KHOA_LAN_CUOI);
+        if (! is_numeric($lanCuoi)) {
+            $this->bao('WARN', 'Đối soát SePay', 'chưa chạy sepay:doi-soat lần nào');
+
+            return;
+        }
+
+        $giay = max(0, now()->getTimestamp() - (int) $lanCuoi);
+        $phut = intdiv($giay, 60);
+        $luc = date('H:i:s d/m/Y', (int) $lanCuoi);
+
+        if ($giay > 30 * 60) {
+            $this->bao('WARN', 'Đối soát SePay', "lần cuối {$luc} ({$phut} phút trước) — lịch 10 phút có thể đã ngừng");
+
+            return;
+        }
+
+        $this->bao('OK', 'Đối soát SePay', "lần cuối {$luc} ({$phut} phút trước)");
     }
 
     private function kiemTraMoiTruong(): void

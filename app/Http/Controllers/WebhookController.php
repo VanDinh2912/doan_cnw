@@ -7,6 +7,7 @@ use App\Models\PaymentWebhook;
 use App\Services\Payment\SepayWebhook;
 use App\Services\ThanhToanChuyenKhoanService;
 use App\Services\ThongBaoService;
+use App\Support\KiemTraSchema;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -50,7 +51,9 @@ class WebhookController extends Controller
             return response()->json(['success' => true, 'message' => 'Bỏ qua giao dịch không phải tiền vào.']);
         }
 
-        // 4. Chống trùng lặp (Idempotent): nếu mã giao dịch đã xử lý thì trả về thành công ngay
+        // 4. Chống trùng lặp (Idempotent) chỉ dựa trên id giao dịch của webhook.
+        // Mã tham chiếu có thể rỗng hoặc dùng lại cho giao dịch khác, nên tuyệt đối
+        // không dùng nó để bỏ qua một webhook.
         if (DonHang::where('ma_giaodich', $txn['ma_giaodich'])->orWhere('ma_giao_dich', $txn['ma_giaodich'])->exists()) {
             return response()->json(['success' => true, 'message' => 'Giao dịch đã được xử lý trước đó.']);
         }
@@ -144,14 +147,8 @@ class WebhookController extends Controller
             $res = $this->thanhToanService->hoanTatThanhToan($donHang, $txn['ma_giaodich'], null, $ghiChuDu);
 
             if ($res['success']) {
-                // Ghi nhận webhook log
-                PaymentWebhook::create([
-                    'nha_cung_cap' => 'sepay',
-                    'ma_giao_dich_ngoai' => $txn['ma_giaodich'],
-                    'invoice_id' => $donHang->id,
-                    'so_tien' => $soTienChuyen,
-                    'ket_qua' => 'success',
-                ]);
+                // Ghi nhận webhook log; gộp với bản ghi báo cáo API nếu cùng mã tham chiếu.
+                $this->ghiNhanWebhook($txn, $donHang->id, $maHoaDon, 'success', null);
 
                 // Thông báo Telegram sau khi giao dịch đã hoàn tất
                 DB::afterCommit(function () use ($soTienChuyen, $maHoaDon, $ghiChuDu, $treHan, $txn, $soPhutHan, $donHang) {
@@ -181,24 +178,73 @@ class WebhookController extends Controller
 
     /**
      * Ghi mọi giao dịch tiền về mà không hoàn tất được đơn vào hàng chờ đối soát.
-     * Idempotent theo ma_giao_dich_ngoai (unique) nên SePay gửi lại không tạo bản ghi trùng.
+     * Idempotent theo ma_giao_dich_ngoai (unique) và gộp theo ma_tham_chieu để
+     * không tạo bản ghi trùng khi webhook đến sau báo cáo đối soát API.
      * Payload chỉ chứa nội dung chuyển khoản, không bao gồm header xác thực.
      */
     private function ghiCanDoiSoat(array $txn, ?int $invoiceId, ?string $maHoaDon, string $lyDo): void
     {
-        PaymentWebhook::updateOrCreate(
-            ['ma_giao_dich_ngoai' => $txn['ma_giaodich']],
-            [
-                'nha_cung_cap' => 'sepay',
-                'invoice_id' => $invoiceId,
-                'so_tien' => $txn['so_tien'],
-                'ket_qua' => 'can_doi_soat',
-                'ly_do' => $lyDo,
-                'ma_hoadon' => $maHoaDon,
-                'noi_dung' => mb_substr($txn['noi_dung'], 0, 255),
-                'payload' => $txn,
-                'trang_thai_xu_ly' => 'chua_xu_ly',
-            ]
-        );
+        $this->ghiNhanWebhook($txn, $invoiceId, $maHoaDon, 'can_doi_soat', $lyDo);
+    }
+
+    private function ghiNhanWebhook(array $txn, ?int $invoiceId, ?string $maHoaDon, string $ketQua, ?string $lyDo): PaymentWebhook
+    {
+        $maNgoai = (string) $txn['ma_giaodich'];
+        // Guard: DB chưa áp migration ma_tham_chieu vẫn ghi webhook bình thường.
+        $coCotMaThamChieu = KiemTraSchema::coCot('payment_webhooks', 'ma_tham_chieu');
+        $maThamChieu = $coCotMaThamChieu
+            ? $this->chuanHoaMaThamChieu((string) ($txn['reference_code'] ?? ''))
+            : null;
+
+        $duLieu = [
+            'nha_cung_cap' => 'sepay',
+            'ma_giao_dich_ngoai' => $maNgoai,
+        ];
+        if ($coCotMaThamChieu) {
+            $duLieu['ma_tham_chieu'] = $maThamChieu;
+        }
+        $duLieu += [
+            'invoice_id' => $invoiceId,
+            'so_tien' => (int) $txn['so_tien'],
+            'ket_qua' => $ketQua,
+            'ly_do' => $lyDo,
+            'ma_hoadon' => $maHoaDon,
+            'noi_dung' => mb_substr((string) $txn['noi_dung'], 0, 255),
+            'payload' => $txn,
+            'trang_thai_xu_ly' => $ketQua === 'success' ? 'da_xu_ly' : 'chua_xu_ly',
+        ];
+
+        if ($ketQua === 'success') {
+            $duLieu['ghi_chu_xu_ly'] = 'Webhook xác nhận thanh toán';
+            $duLieu['thoi_gian_xu_ly'] = now();
+        }
+
+        $banGhi = PaymentWebhook::where('ma_giao_dich_ngoai', $maNgoai)->first();
+
+        // Mã tham chiếu chỉ dùng để gộp hiển thị vào bản ghi báo cáo của API,
+        // không bao giờ gộp/ghi đè bản ghi webhook của giao dịch khác.
+        if ($banGhi === null && $maThamChieu !== null && $coCotMaThamChieu) {
+            $banGhi = PaymentWebhook::query()
+                ->where('nha_cung_cap', 'sepay_api')
+                ->where('ket_qua', 'can_doi_soat')
+                ->where('ma_tham_chieu', $maThamChieu)
+                ->where('so_tien', (int) $txn['so_tien'])
+                ->first();
+        }
+
+        if ($banGhi !== null) {
+            $banGhi->update($duLieu);
+
+            return $banGhi;
+        }
+
+        return PaymentWebhook::create($duLieu);
+    }
+
+    private function chuanHoaMaThamChieu(string $ma): ?string
+    {
+        $ma = trim($ma);
+
+        return $ma === '' ? null : mb_substr($ma, 0, 100);
     }
 }
