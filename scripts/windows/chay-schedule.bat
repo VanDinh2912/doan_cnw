@@ -6,6 +6,8 @@ setlocal EnableExtensions
 cd /d "%~dp0..\.."
 
 rem Cho phep chi dinh PHP khac (vi du: set PHP_BINARY=D:\xampp\php\php.exe).
+rem Mac dinh dung PHP 8.3.28 cua WAMP (trung phien ban Apache dang chay).
+if not defined PHP_BINARY set "PHP_BINARY=D:\Study\xampp\bin\php\php8.3.28\php.exe"
 set "PHP_EXE=php"
 if defined PHP_BINARY set "PHP_EXE=%PHP_BINARY%"
 

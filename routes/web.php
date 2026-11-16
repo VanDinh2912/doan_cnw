@@ -37,6 +37,13 @@ Route::get('/dang-ky', [\App\Http\Controllers\AuthController::class, 'getDangKy'
     ->name('auth.dangky');
 Route::post('/dang-ky', [\App\Http\Controllers\AuthController::class, 'postDangKy'])
     ->name('auth.postdangky');
+// Google OAuth — nút đăng nhập chỉ hiện khi đã điền GOOGLE_CLIENT_ID/SECRET trong .env.
+Route::get('/auth/google', [\App\Http\Controllers\DangNhapGoogleController::class, 'getRedirect'])
+    ->middleware('throttle:10,1')
+    ->name('auth.google');
+Route::get('/auth/google/callback', [\App\Http\Controllers\DangNhapGoogleController::class, 'getCallback'])
+    ->middleware('throttle:10,1')
+    ->name('auth.google.callback');
 Route::get('/dangxuat', [\App\Http\Controllers\AuthController::class, 'getDangXuat'])
     ->middleware('auth')
     ->name('auth.dangxuat');

@@ -19,6 +19,9 @@
         @if (session('success'))
             <div class="alert alert-success" role="alert">{{ session('success') }}</div>
         @endif
+        @if (session('error'))
+            <div class="alert alert-danger" role="alert">{{ session('error') }}</div>
+        @endif
         @if ($errors->any())
             <div class="alert alert-danger" role="alert">
                 @foreach ($errors->all() as $error)
@@ -64,6 +67,14 @@
                 <span>Đăng nhập</span>
             </button>
         </form>
+
+        @if (\App\Http\Controllers\DangNhapGoogleController::daCauHinh())
+            <div class="text-center text-muted my-3" style="font-size:var(--text-sm);">hoặc</div>
+            <a class="btn btn-outline-secondary w-100" href="{{ route('auth.google') }}">
+                <i class="fa-brands fa-google"></i>
+                <span>Đăng nhập bằng Google</span>
+            </a>
+        @endif
 
         <p class="text-center text-muted mt-3 mb-0" style="font-size:var(--text-sm);">
             Chưa có tài khoản?
