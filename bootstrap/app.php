@@ -18,6 +18,13 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->redirectGuestsTo(fn () => route('auth.dangnhap'));
 
+        // Chi nhom web: chan byte khong hop le UTF-8 trong input -> 422/loi
+        // validate. Webhook /api/webhook/thanhtoan withoutMiddleware('web')
+        // nen khong bi anh huong; api/* cung nam ngoai nhom web.
+        $middleware->web(append: [
+            \App\Http\Middleware\ValidateUtf8Encoding::class,
+        ]);
+
         $middleware->alias([
             'role' => \App\Http\Middleware\CheckRole::class,
             'staff.only' => \App\Http\Middleware\RedirectKhachhangFromStaff::class,
