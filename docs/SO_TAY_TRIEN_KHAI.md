@@ -102,6 +102,20 @@ InnoDB), xác nhận của Lê Văn Định lúc 22:13. Tag git:
   đặt hàng online cho khách bị khóa; badge "SĐT trùng KH khóa" cho đơn guest;
   trang chi tiết khách `/khachhang/{id}`.
 
+**2026-11-17 ~18:2x** — đã áp thành công 1 migration liên hệ lên `doan_cnw`
+(commit `b09363e`).
+
+- Danh sách đã áp: `2026_11_17_000006_create_lien_he_table` — CREATE TABLE mới
+  `lien_he` (liên hệ/góp ý/khiếu nại/ứng tuyển + trạng thái xử lý + ghi chú
+  nội bộ), không ALTER bảng cũ.
+- Kiểm chứng: số dòng mọi bảng **không đổi** (users=4, customers=101,
+  invoices=14, products=300); `lien_he` 0 dòng; `migrations` 46→47; 0 pending.
+- Sao lưu: `D:\Study\xampp\www\backups\doan_cnw_truoc_migrate_lienhe_20261117_1814.sql`
+  (~408 KB, "Dump completed").
+- Tính năng đi kèm: form `/lien-he` public (honeypot + throttle), `/tuyen-dung`,
+  trang tĩnh `/trang/{slug}` (nội dung `config/trang_tinh.php`), admin
+  `/lien-he/quan-ly` (admin+thungan), Telegram báo không PII.
+
 ## 2. Quy trình nâng cấp an toàn
 
 ```powershell
