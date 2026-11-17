@@ -20,31 +20,33 @@
             <div>
                 <h4>Về chúng tôi</h4>
                 <ul>
-                    <li><a href="#">Giới thiệu</a></li>
-                    <li><a href="#">Hệ thống cửa hàng</a></li>
-                    <li><a href="#">Tuyển dụng</a></li>
-                    <li><a href="#">Liên hệ</a></li>
+                    <li><a href="{{ route('trang-tinh', 'gioi-thieu') }}">Giới thiệu</a></li>
+                    <li><a href="{{ route('trang-tinh', 'he-thong-cua-hang') }}">Hệ thống cửa hàng</a></li>
+                    <li><a href="{{ route('tuyen-dung') }}">Tuyển dụng</a></li>
+                    <li><a href="{{ route('lien-he.form') }}">Liên hệ</a></li>
                 </ul>
             </div>
 
             <div>
                 <h4>Chính sách</h4>
                 <ul>
-                    <li><a href="#">Chính sách bảo hành</a></li>
-                    <li><a href="#">Chính sách đổi trả</a></li>
-                    <li><a href="#">Chính sách vận chuyển</a></li>
-                    <li><a href="#">Bảo mật thông tin</a></li>
+                    <li><a href="{{ route('trang-tinh', 'chinh-sach-bao-hanh') }}">Chính sách bảo hành</a></li>
+                    <li><a href="{{ route('trang-tinh', 'chinh-sach-doi-tra') }}">Chính sách đổi trả</a></li>
+                    <li><a href="{{ route('trang-tinh', 'chinh-sach-van-chuyen') }}">Chính sách vận chuyển</a></li>
+                    <li><a href="{{ route('trang-tinh', 'bao-mat-thong-tin') }}">Bảo mật thông tin</a></li>
                 </ul>
             </div>
 
             <div>
                 <h4>Hỗ trợ</h4>
                 <ul>
-                    <li><a href="#">Hướng dẫn mua hàng</a></li>
+                    <li><a href="{{ route('trang-tinh', 'huong-dan-mua-hang') }}">Hướng dẫn mua hàng</a></li>
                     <li><a href="{{ route('tintuc.danhsach') }}">Tin tức</a></li>
-                    <li><a href="#">Tra cứu đơn hàng</a></li>
-                    <li><a href="#">Câu hỏi thường gặp</a></li>
-                    <li><a href="#">Góp ý, khiếu nại</a></li>
+                    @if (config('pos.dat_hang_online_bat'))
+                        <li><a href="{{ route('don-hang.tracuu') }}">Tra cứu đơn hàng</a></li>
+                    @endif
+                    <li><a href="{{ route('trang-tinh', 'cau-hoi-thuong-gap') }}">Câu hỏi thường gặp</a></li>
+                    <li><a href="{{ route('lien-he.form', ['loai' => 'gop_y']) }}">Góp ý, khiếu nại</a></li>
                 </ul>
             </div>
         </div>

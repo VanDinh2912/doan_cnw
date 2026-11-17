@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\DonHang;
+use App\Models\LienHe;
 use App\Support\CheThongTin;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -194,6 +195,20 @@ class ThongBaoService
         $soTienFmt = number_format($soTien, 0, ',', '.');
         $hoaDon = $maHoaDon ?? 'không rõ';
         $msg = "⚠️ <b>CẢNH BÁO: GIAO DỊCH THIẾU WEBHOOK</b>\nSố tiền: {$soTienFmt} đ\nHóa đơn: {$hoaDon}\nMã tham chiếu: {$maThamChieu}\nLý do: {$lyDo}\nThời gian: {$gio}";
+
+        $this->guiTelegram($msg);
+    }
+
+    /**
+     * Thông báo liên hệ/góp ý/khiếu nại/ứng tuyển mới.
+     * CHỈ gồm loại + chủ đề + mã liên hệ — KHÔNG họ tên/SĐT/email/nội dung
+     * (tránh lộ PII trong group Telegram). Chủ đề do khách nhập → escape HTML.
+     */
+    public function thongBaoLienHeMoi(LienHe $lienHe): void
+    {
+        $msg = "<b>LIÊN HỆ MỚI #{$lienHe->id}</b>\n"
+            .'Loại: '.$lienHe->nhanLoai()."\n"
+            .'Chủ đề: '.e($lienHe->chu_de);
 
         $this->guiTelegram($msg);
     }

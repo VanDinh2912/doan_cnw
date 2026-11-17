@@ -56,6 +56,9 @@
                 <a class="app-nav-link {{ request()->routeIs('khachhang.*') ? 'active' : '' }}" href="{{ route('khachhang.danhsach') }}">
                     <i class="fa-solid fa-user-group"></i><span>Khách hàng</span>
                 </a>
+                <a class="app-nav-link {{ request()->routeIs('lienhe.*') ? 'active' : '' }}" href="{{ route('lienhe.danhsach') }}">
+                    <i class="fa-solid fa-envelope"></i><span>Liên hệ</span>
+                </a>
                 <a class="app-nav-link {{ request()->routeIs('trahang.*') ? 'active' : '' }}" href="{{ route('trahang.danhsach') }}">
                     <i class="fa-solid fa-rotate-left"></i><span>Đổi trả hàng</span>
                 </a>

@@ -28,6 +28,20 @@ Route::prefix('bai-viet')->name('tintuc.')->group(function (): void {
         ->name('binhluan');
 });
 
+// Liên hệ / góp ý / khiếu nại / ứng tuyển phía khách — công khai, không bắt
+// đăng nhập (kênh kháng nghị nên khách bị khóa vẫn gửi được). Honeypot +
+// throttle giống form đặt hàng.
+Route::get('/lien-he', [\App\Http\Controllers\LienHeController::class, 'getForm'])->name('lien-he.form');
+Route::post('/lien-he', [\App\Http\Controllers\LienHeController::class, 'postGui'])
+    ->middleware('throttle:5,1')
+    ->name('lien-he.gui');
+Route::get('/lien-he/cam-on', [\App\Http\Controllers\LienHeController::class, 'getCamOn'])->name('lien-he.cam-on');
+Route::get('/tuyen-dung', [\App\Http\Controllers\LienHeController::class, 'getTuyenDung'])->name('tuyen-dung');
+// Trang tĩnh footer — slug lạ 404; nội dung ở config/trang_tinh.php.
+Route::get('/trang/{slug}', [\App\Http\Controllers\LienHeController::class, 'getTrangTinh'])
+    ->where('slug', '[a-z0-9-]+')
+    ->name('trang-tinh');
+
 Route::get('/dangnhap', [\App\Http\Controllers\AuthController::class, 'getDangNhap'])
     ->name('auth.dangnhap');
 Route::post('/dangnhap', [\App\Http\Controllers\AuthController::class, 'postDangNhap'])
@@ -149,6 +163,16 @@ Route::middleware(['auth', 'staff.only', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->
         // Đặt SAU mọi route literal để {khachHang} không nuốt timkiem/nhanh/them.
         Route::get('/khachhang/{khachHang}', [\App\Http\Controllers\KhachHangController::class, 'getChiTiet'])
             ->name('khachhang.chitiet');
+
+        // Quản lý liên hệ/góp ý/khiếu nại/ứng tuyển — admin + thu ngân
+        // (thủ kho bị chặn bởi nhóm role:admin,thungan). URI /lien-he/quan-ly
+        // để không đụng form public /lien-he.
+        Route::get('/lien-he/quan-ly', [\App\Http\Controllers\LienHeAdminController::class, 'getDanhSach'])
+            ->name('lienhe.danhsach');
+        Route::get('/lien-he/quan-ly/{lienHe}', [\App\Http\Controllers\LienHeAdminController::class, 'getChiTiet'])
+            ->name('lienhe.chitiet');
+        Route::post('/lien-he/quan-ly/{lienHe}/cap-nhat', [\App\Http\Controllers\LienHeAdminController::class, 'postCapNhat'])
+            ->name('lienhe.capnhat');
     });
 
     // Khóa/mở khóa hồ sơ khách — CHỈ admin (server chặn, không chỉ ẩn nút).
