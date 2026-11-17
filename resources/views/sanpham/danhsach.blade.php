@@ -8,10 +8,38 @@
         <h1 class="page-title">Sản phẩm</h1>
         <p class="page-subtitle">Danh mục hàng hóa đang kinh doanh</p>
     </div>
-    <a class="btn btn-primary" href="{{ route('sanpham.them') }}">
-        <i class="fa-solid fa-plus"></i>
-        <span>Thêm sản phẩm</span>
-    </a>
+    <div class="d-flex gap-2 flex-wrap">
+        <a class="btn btn-outline-success" href="{{ route('sanpham.xuatexcel') }}">
+            <i class="fa-solid fa-file-excel"></i>
+            <span>Xuất Excel</span>
+        </a>
+        @if ($laAdmin ?? false)
+            <a class="btn btn-outline-primary" href="{{ route('sanpham.import') }}">
+                <i class="fa-solid fa-file-import"></i>
+                <span>Import Excel</span>
+            </a>
+        @endif
+        <a class="btn btn-primary" href="{{ route('sanpham.them') }}">
+            <i class="fa-solid fa-plus"></i>
+            <span>Thêm sản phẩm</span>
+        </a>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <form method="GET" action="{{ route('sanpham.danhsach') }}" class="d-flex align-items-center gap-2">
+            <label class="form-label mb-0 text-nowrap" for="loc">Lọc:</label>
+            <select class="form-select form-select-sm" id="loc" name="loc" style="max-width: 260px;" onchange="this.form.submit()">
+                <option value="" @selected(($loc ?? '') === '')>Tất cả sản phẩm</option>
+                <option value="ngung_ban" @selected(($loc ?? '') === 'ngung_ban')>Ngừng bán</option>
+                <option value="gia_nhap_0" @selected(($loc ?? '') === 'gia_nhap_0')>Chưa có giá nhập (0đ)</option>
+            </select>
+            @if (($loc ?? '') !== '')
+                <a class="btn btn-sm btn-outline-secondary" href="{{ route('sanpham.danhsach') }}">Xóa lọc</a>
+            @endif
+        </form>
+    </div>
 </div>
 
 <div class="card">
@@ -53,6 +81,9 @@
                             <span class="badge text-bg-success">Đang bán</span>
                         @else
                             <span class="badge text-bg-danger">Tạm dừng</span>
+                        @endif
+                        @if ((float) $sanPham->gia_nhap === 0.0)
+                            <span class="badge text-bg-warning" title="Giá nhập = 0: chưa nhập kho hoặc cần kiểm tra">Chưa có giá nhập</span>
                         @endif
                     </td>
                     <td class="text-end text-nowrap">

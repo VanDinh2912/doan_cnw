@@ -17,10 +17,17 @@ use App\Services\NhatKyService;
 
 class SanPhamController extends Controller
 {
-    public function getDanhSach(): View
+    public function getDanhSach(Request $request): View
     {
+        $loc = (string) $request->query('loc', '');
+
         return view('sanpham.danhsach', [
-            'sanPhams' => SanPham::with(['loaiSanPham', 'hangSanXuat'])->orderBy('ten_sanpham')->get(),
+            'sanPhams' => SanPham::with(['loaiSanPham', 'hangSanXuat'])
+                ->when($loc === 'ngung_ban', fn ($q) => $q->where('trang_thai', false))
+                ->when($loc === 'gia_nhap_0', fn ($q) => $q->where('gia_nhap', 0))
+                ->orderBy('ten_sanpham')->get(),
+            'loc' => $loc,
+            'laAdmin' => $request->user()?->role === 'admin',
         ]);
     }
 

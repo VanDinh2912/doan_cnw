@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\BrandExport;
 use App\Models\Brand;
 use App\Services\NhatKyService;
 use Illuminate\Http\RedirectResponse;
@@ -9,6 +10,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 class HangsxuatController extends Controller
@@ -25,6 +28,12 @@ class HangsxuatController extends Controller
             'hangs' => Brand::withCount('sanPhams')->orderBy('ten')->get(),
             'laAdmin' => $laAdmin,
         ]);
+    }
+
+    /** GET /hangsxuat/xuat-excel — admin + thu kho (thu ngan bi chan boi route role). */
+    public function getXuatExcel(): BinaryFileResponse
+    {
+        return Excel::download(new BrandExport, 'hang-san-xuat-'.now()->format('Ymd-His').'.xlsx');
     }
 
     public function getThem(): View

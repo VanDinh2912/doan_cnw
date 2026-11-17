@@ -209,6 +209,10 @@ Route::middleware(['auth', 'staff.only', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->
         // Hãng sản xuất: cả 3 vai trò xem; chỉ admin thêm/sửa/xóa (chặn server).
         Route::get('/hangsxuat', [\App\Http\Controllers\HangsxuatController::class, 'getDanhSach'])
             ->name('hangsxuat.danhsach');
+        // Export Excel hãng: admin + thủ kho (thu ngân bị chặn bởi route role).
+        Route::get('/hangsxuat/xuat-excel', [\App\Http\Controllers\HangsxuatController::class, 'getXuatExcel'])
+            ->middleware('role:admin,thukho')
+            ->name('hangsxuat.xuatexcel');
         Route::middleware('role:admin')->group(function (): void {
             Route::get('/hangsxuat/them', [\App\Http\Controllers\HangsxuatController::class, 'getThem'])
                 ->name('hangsxuat.them');
@@ -279,6 +283,22 @@ Route::middleware(['auth', 'staff.only', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->
             ->name('sanpham.postsua');
         Route::delete('/sanpham/xoa/{sanPham}', [\App\Http\Controllers\SanPhamController::class, 'getXoa'])
             ->name('sanpham.xoa');
+        // Export san pham ra Excel: admin + thu kho (nhom route da gioi han).
+        Route::get('/sanpham/xuat-excel', [\App\Http\Controllers\SanPhamExcelController::class, 'getXuatExcel'])
+            ->name('sanpham.xuatexcel');
+        // Import san pham 2 buoc (upload -> preview -> xac nhan): CHI admin.
+        Route::middleware('role:admin')->group(function (): void {
+            Route::get('/sanpham/import-mau', [\App\Http\Controllers\SanPhamExcelController::class, 'getFileMau'])
+                ->name('sanpham.importmau');
+            Route::get('/sanpham/import-excel', [\App\Http\Controllers\SanPhamExcelController::class, 'getForm'])
+                ->name('sanpham.import');
+            Route::post('/sanpham/import-excel', [\App\Http\Controllers\SanPhamExcelController::class, 'postUpload'])
+                ->middleware('throttle:10,1')
+                ->name('sanpham.import.upload');
+            Route::post('/sanpham/import-excel/xac-nhan', [\App\Http\Controllers\SanPhamExcelController::class, 'postXacNhan'])
+                ->middleware('throttle:10,1')
+                ->name('sanpham.import.xacnhan');
+        });
         Route::get('/loaisanpham', [\App\Http\Controllers\LoaiSanPhamController::class, 'getDanhSach'])
             ->name('loaisanpham.danhsach');
         Route::get('/loaisanpham/them', [\App\Http\Controllers\LoaiSanPhamController::class, 'getThem'])
