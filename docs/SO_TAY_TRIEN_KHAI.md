@@ -260,3 +260,21 @@ nếu giao tận nơi), `php artisan config:cache`, theo dõi `he-thong:kiem-tra
   hoặc chấp nhận rủi ro thấp (bảng `payment_webhooks` chắc chắn tồn tại).
 - "Cần người dùng xác nhận": phí ship thật, vùng giao (`POS_GIAO_HANG_TINH`),
   hoàn phí ship khi trả hàng, thời hạn gia hạn tối đa, định nghĩa doanh thu.
+- Middleware UTF-8 → 422 cho request web (đã duyệt, commit riêng sau Excel;
+  chỉ nhóm web, bỏ qua file upload và webhook `/api/webhook/thanhtoan`).
+- **Rủi ro tồn tại sẵn — lợi nhuận phình `gia_nhap=0 AND soluong>0`** (kiểm
+  kê tăng tồn không đặt giá vốn; bán ra `gia_von=0` → lợi nhuận = full giá
+  bán). `doan_cnw` hiện 0 SP ở trạng thái này. Đề xuất chờ quyết: (a) bắt
+  nhập giá vốn khi kiểm kê tăng tồn SP `gia_nhap=0`; (b) báo cáo loại trừ/
+  cảnh báo `gia_von=0`; (c) chặn bán SP `gia_nhap=0`.
+- Import/export Excel sản phẩm + hãng: ĐÃ triển khai (commit `0b213bf`,
+  vá injection `0f4a4a8`). Route: `/sanpham/xuat-excel`,
+  `/hangsxuat/xuat-excel` (admin+thủ kho); `/sanpham/import-excel`
+  (GET form/POST upload/POST xac-nhan) + `/sanpham/import-mau` (chỉ admin,
+  throttle 10/phút). File `.xlsx` ≤2MB ≤1000 dòng, header
+  `sku,barcode,ten_sanpham,danh_muc,hang,don_vi,gia_ban`; `danh_muc`=ma_loai,
+  `hang`=tên hãng đang kích hoạt. Quy trình 2 bước: preview cache
+  user_id+token+hash file TTL 15 phút → xác nhận 1 lần, re-validate +
+  transaction all-or-nothing. SP mới: trang_thai=0/soluong=0/gia_nhap=0 —
+  nhập kho rồi bật "Đang bán" tay. Không migration. Audit `import_san_pham`
+  1 dòng/phiên, không log nội dung dòng.

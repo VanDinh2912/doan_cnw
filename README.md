@@ -616,6 +616,31 @@ Các email trên trùng với tài khoản được tạo trong `database/seeder
   - Đỏ: hết hàng.
   - Vàng: tồn kho nhỏ hơn hoặc bằng ngưỡng tối thiểu.
   - Xanh: tồn kho bình thường.
+- **Import/Export Excel** (không cần migration):
+  - Export `.xlsx` sản phẩm `GET /sanpham/xuat-excel` và hãng
+    `GET /hangsxuat/xuat-excel` — quyền admin + thủ kho; mọi ô text được
+    escape chống formula injection (`= + - @`), sku/barcode ép kiểu chuỗi
+    giữ số 0 đầu; export sản phẩm **không có `gia_nhap`**.
+  - Import sản phẩm `GET|POST /sanpham/import-excel` +
+    `POST /sanpham/import-excel/xac-nhan` — **chỉ admin** (throttle
+    10/phút). Quy trình 2 bước: upload `.xlsx` ≤2MB, ≤1000 dòng dữ liệu,
+    kiểm MIME thật, header đúng `sku, barcode, ten_sanpham, danh_muc,
+    hang, don_vi, gia_ban` (`danh_muc` chỉ nhận `ma_loai`; `hang` phải
+    khớp hãng đang kích hoạt) → xem trước trong cache gắn `user_id` +
+    token + hash file, TTL 15 phút → admin xác nhận mới ghi trong 1
+    transaction, **tất cả hoặc không**. File mẫu 2 sheet (DuLieu chỉ
+    header + HuongDan) tại `GET /sanpham/import-mau`.
+  - SP tạo mới qua import: `trang_thai=0` (NGỪNG BÁN), `soluong=0`,
+    `gia_nhap=0` — phải nhập kho qua luồng kho rồi bật "Đang bán" tay ở
+    form sửa. Import **không** đụng `soluong`, `gia_nhap`,
+    `soluong_hong`, `soluong_toithieu`, `trang_thai` của SP cũ;
+    `updated_at` chỉ đổi khi có trường thực sự thay đổi.
+  - Chống lạm dụng: token xác nhận dùng 1 lần, re-validate toàn bộ dữ
+    liệu trước khi ghi (SKU mới trùng, SP bị xóa, hãng bị tắt → hủy,
+    yêu cầu upload lại); audit 1 dòng `import_san_pham` (số tạo/cập
+    nhật, tên file, hash, người làm — không log nội dung dòng).
+  - Danh sách `/sanpham` có lọc "Ngừng bán" / "Chưa có giá nhập (0đ)"
+    và badge "Chưa có giá nhập" để tìm SP mới import.
 
 ### POS và thanh toán
 
@@ -831,7 +856,9 @@ HH:MM:SS" giờ Việt Nam; lỗi mạng giữ số cũ kèm cảnh báo nhỏ. 
 | `/tongquan` | Dashboard | Mọi vai trò nhân viên |
 | `/tong-quan/so-lieu` | JSON số liệu dashboard (tự làm mới 30s) | Admin (throttle 30/phút) |
 | `/pos` | Màn hình bán hàng | Admin, thu ngân |
-| `/sanpham` | Quản lý sản phẩm | Admin, thủ kho |
+| `/sanpham` | Quản lý sản phẩm (+ lọc ngừng bán/chưa có giá nhập) | Admin, thủ kho |
+| `/sanpham/xuat-excel` | Export sản phẩm `.xlsx` | Admin, thủ kho |
+| `/sanpham/import-excel`, `/sanpham/import-excel/xac-nhan`, `/sanpham/import-mau` | Import sản phẩm 2 bước + file mẫu | Admin |
 | `/loaisanpham` | Quản lý loại sản phẩm | Admin, thủ kho |
 | `/kho` | Xem tồn kho | Admin, thủ kho |
 | `/kho/nhap` | Nhập kho | Admin, thủ kho |
@@ -848,6 +875,7 @@ HH:MM:SS" giờ Việt Nam; lỗi mạng giữ số cũ kèm cảnh báo nhỏ. 
 | `/trahang` | Trả hàng: danh sách, tạo phiếu, duyệt | Admin, thu ngân (duyệt: admin) |
 | `/khachhang` | Quản lý khách hàng (+ chi tiết `/khachhang/{id}`, khóa/mở chỉ admin) | Admin, thu ngân (khóa: admin) |
 | `/hangsxuat` | Quản lý hãng sản xuất (+ logo) | Xem: admin/thu ngân/thủ kho; ghi: admin |
+| `/hangsxuat/xuat-excel` | Export hãng `.xlsx` | Admin, thủ kho |
 | `/lien-he/quan-ly` | Quản lý liên hệ/góp ý/khiếu nại/ứng tuyển | Admin, thu ngân |
 | `/tin-tuc/*` | Quản trị tin tức: chủ đề, bài viết, bình luận | Admin |
 | `/donhang-online`, `/donhang-online-can-hoan-tien`, `/donhang-online/{id}/phieu-giao` | Xử lý đơn online, phiếu giao, đơn cần hoàn tiền | Admin, thu ngân, thủ kho (hoàn tiền/hủy: admin) |
@@ -890,7 +918,7 @@ song bằng `vendor/bin/paratest` — ~9 phút thay ~39 phút):
   sạch nội dung, template dự phòng.
 - `ExampleTest` Unit (1).
 
-**Feature (806 test, trong đó 45 skip)**
+**Feature (837 test, trong đó 45 skip)**
 
 Ghi chú: `LoiBTaoQrTest` (6), `LoiBThieuCotOnlineTest` (4), `LoiADungDiemTest`
 (10) và `LoiDDashboardTonKhoTest` (1) đã cherry-pick vào `main` trong đợt
@@ -1481,7 +1509,15 @@ Sau khi kiểm thử, tạo Pull Request để merge vào `main`.
 - CRUD tài khoản người dùng, ứng dụng mobile và API riêng (Pha 23).
 - Khuyến mãi/voucher (Pha 22), ROP/ABC (Pha 21).
 - Tích hợp bên ngoài: hóa đơn điện tử, Zalo ZNS/SMS, đồng bộ Shopee/TikTok (Pha 24).
-- Import/export Excel sản phẩm (đang khảo sát, chưa triển khai).
+- ~~Import/export Excel sản phẩm~~ — đã triển khai (xem mục 7, "Import/Export Excel").
+- Middleware chuẩn hóa/validate UTF-8 cho request web (đã duyệt, làm sau Excel).
+- **Rủi ro tồn tại sẵn — lợi nhuận phình khi `gia_nhap=0 AND soluong>0`**:
+  kiểm kê điều chỉnh tăng tồn **không đặt `gia_nhap`**; nếu SP như vậy bị
+  bán, `gia_von=0` → `ThongKeController` tính lợi nhuận = toàn bộ giá bán.
+  Trên `doan_cnw` hiện có **0** SP ở trạng thái này (đã đếm 2026-11). Đề
+  xuất xử lý (chờ quyết định, chưa sửa logic): (a) khi kiểm kê tăng tồn
+  cho SP `gia_nhap=0` yêu cầu nhập giá vốn; (b) báo cáo lợi nhuận loại
+  trừ/cảnh báo dòng `gia_von=0`; (c) chặn bán SP `gia_nhap=0`.
 
 ### So sánh với LaraShop (TH/DuLieuBuoi08/larashop)
 
@@ -1494,7 +1530,7 @@ DA là **POS + quản lý kho** vận hành thật tại cửa hàng. Khác bi�
   LaraShop là site bán hàng thuần với giỏ/đặt hàng theo kiểu học tập.
 - Cả hai đều Laravel + MySQL + Blade + Bootstrap; DA dùng thêm Socialite
   (Google OAuth) và HTMLPurifier.
-- Phạm vi test DA lớn hơn nhiều (~870 test, gồm test phân quyền, transaction
+- Phạm vi test DA lớn hơn nhiều (~900 test, gồm test phân quyền, transaction
   kho, webhook); LaraShop chủ yếu test luồng mua hàng cơ bản.
 
 README này trước đây không có mục so sánh riêng; mục này phản ánh trạng thái
