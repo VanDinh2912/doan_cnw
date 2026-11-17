@@ -18,7 +18,7 @@ class SanPham extends Model
     protected $fillable = [
         'category_id', 'sku', 'barcode', 'ten_sanpham', 'don_vi',
         'gia_nhap', 'gia_ban', 'soluong', 'soluong_hong', 'soluong_toithieu',
-        'hinh_anh', 'trang_thai',
+        'hinh_anh', 'trang_thai', 'brand_id',
     ];
 
     protected function casts(): array
@@ -35,6 +35,11 @@ class SanPham extends Model
         return $this->belongsTo(LoaiSanPham::class, 'category_id');
     }
 
+    public function hangSanXuat(): BelongsTo
+    {
+        return $this->belongsTo(Brand::class, 'brand_id');
+    }
+
     public function chiTietDonHangs(): HasMany
     {
         return $this->hasMany(ChiTietDonHang::class, 'product_id');
@@ -43,6 +48,25 @@ class SanPham extends Model
     public function bienDongKhos(): HasMany
     {
         return $this->hasMany(BienDongKho::class, 'product_id');
+    }
+
+    /** Ngưỡng "Sắp hết" trên storefront: chỉ khi tồn kho nhỏ tuyệt đối. */
+    public const NGUONG_SAP_HET = 5;
+
+    /**
+     * Trạng thái tồn suy ra cho storefront: [css-class, nhãn].
+     * "Sắp hết" chỉ khi 0 < soluong <= soluong_toithieu VÀ soluong <= NGUONG_SAP_HET.
+     */
+    public function tinhTrangTon(): array
+    {
+        if ((int) $this->soluong <= 0) {
+            return ['is-out', 'Hết hàng'];
+        }
+        if ((int) $this->soluong <= (int) $this->soluong_toithieu && (int) $this->soluong <= self::NGUONG_SAP_HET) {
+            return ['is-low', 'Sắp hết'];
+        }
+
+        return ['is-in', 'Còn hàng'];
     }
 
     public function getAnhUrlAttribute(): string

@@ -32,6 +32,18 @@
                     </select>
                 </div>
                 <div class="col-md-4">
+                    <label class="form-label" for="brand_id">Hãng sản xuất</label>
+                    <select class="form-select" id="brand_id" name="brand_id">
+                        <option value="">-- Chọn hãng --</option>
+                        @foreach ($hangs as $hang)
+                            <option value="{{ $hang->id }}" @selected((int) old('brand_id', $sanPham->brand_id) === $hang->id)>{{ $hang->ten }}@unless ($hang->kich_hoat) (đã tắt)@endunless</option>
+                        @endforeach
+                    </select>
+                    @error('brand_id')
+                        <div class="text-danger small mt-1">{{ $message }}</div>
+                    @enderror
+                </div>
+                <div class="col-md-4">
                     <label class="form-label" for="don_vi">Đơn vị</label>
                     <input class="form-control" id="don_vi" name="don_vi" value="{{ old('don_vi', $sanPham->don_vi ?: 'Cái') }}" required>
                 </div>

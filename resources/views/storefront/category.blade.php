@@ -23,6 +23,14 @@
                 Chỉ hiện còn hàng
             </label>
 
+            <select name="brand_id" onchange="this.form.submit()"
+                    style="height:36px;padding:0 12px;border:1px solid var(--sf-border-strong);border-radius:8px;font-size:var(--sf-text-sm);background:var(--sf-surface);">
+                <option value="">Tất cả hãng</option>
+                @foreach ($hangs as $hang)
+                    <option value="{{ $hang->id }}" @selected((string) request('brand_id') === (string) $hang->id)>{{ $hang->ten }}</option>
+                @endforeach
+            </select>
+
             <select name="sap_xep" onchange="this.form.submit()"
                     style="height:36px;padding:0 12px;border:1px solid var(--sf-border-strong);border-radius:8px;font-size:var(--sf-text-sm);background:var(--sf-surface);">
                 <option value="moi" @selected(request('sap_xep', 'moi') === 'moi')>Mới nhất</option>

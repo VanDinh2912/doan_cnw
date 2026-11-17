@@ -6,8 +6,8 @@
     @php
         $hinhAnh = $sanPham->anh_url;
         $inStock = $sanPham->soluong > 0;
-        $isLow = $inStock && $sanPham->soluong <= $sanPham->soluong_toithieu;
-        $badge = ! $inStock ? ['is-out', 'Hết hàng'] : ($isLow ? ['is-low', 'Sắp hết'] : ['is-in', 'Còn hàng']);
+        [$badgeClass, $badgeLabel] = $sanPham->tinhTrangTon();
+        $badge = [$badgeClass, $badgeLabel];
     @endphp
 
     <div class="sf-container" style="padding-top:20px;">
@@ -50,6 +50,10 @@
                 <dl style="display:grid;grid-template-columns:120px 1fr;gap:8px 16px;font-size:var(--sf-text-sm);margin:0 0 24px;">
                     <dt style="color:var(--sf-fg-muted);">Danh mục</dt>
                     <dd style="margin:0;">{{ $sanPham->loaiSanPham?->ten_loai ?? '—' }}</dd>
+                    @if ($sanPham->hangSanXuat)
+                        <dt style="color:var(--sf-fg-muted);">Hãng sản xuất</dt>
+                        <dd style="margin:0;">{{ $sanPham->hangSanXuat->ten }}</dd>
+                    @endif
                     <dt style="color:var(--sf-fg-muted);">Đơn vị</dt>
                     <dd style="margin:0;">{{ $sanPham->don_vi }}</dd>
                     <dt style="color:var(--sf-fg-muted);">Tồn kho</dt>

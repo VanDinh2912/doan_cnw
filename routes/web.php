@@ -205,6 +205,22 @@ Route::middleware(['auth', 'staff.only', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->
             ->name('donhangonline.dahoantien');
         Route::get('/donhang-online/{donHang}/phieu-giao', [\App\Http\Controllers\DonHangOnlineController::class, 'getPhieuGiao'])
             ->name('donhangonline.phieugiaohang');
+
+        // Hãng sản xuất: cả 3 vai trò xem; chỉ admin thêm/sửa/xóa (chặn server).
+        Route::get('/hangsxuat', [\App\Http\Controllers\HangsxuatController::class, 'getDanhSach'])
+            ->name('hangsxuat.danhsach');
+        Route::middleware('role:admin')->group(function (): void {
+            Route::get('/hangsxuat/them', [\App\Http\Controllers\HangsxuatController::class, 'getThem'])
+                ->name('hangsxuat.them');
+            Route::post('/hangsxuat/them', [\App\Http\Controllers\HangsxuatController::class, 'postThem'])
+                ->name('hangsxuat.postthem');
+            Route::get('/hangsxuat/sua/{hang}', [\App\Http\Controllers\HangsxuatController::class, 'getSua'])
+                ->name('hangsxuat.sua');
+            Route::put('/hangsxuat/sua/{hang}', [\App\Http\Controllers\HangsxuatController::class, 'postSua'])
+                ->name('hangsxuat.postsua');
+            Route::delete('/hangsxuat/xoa/{hang}', [\App\Http\Controllers\HangsxuatController::class, 'getXoa'])
+                ->name('hangsxuat.xoa');
+        });
     });
 
     Route::middleware('role:admin,thukho')->group(function (): void {

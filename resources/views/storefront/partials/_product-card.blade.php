@@ -3,20 +3,16 @@
 @php
     $giaBan = (float) $sanPham->gia_ban;
     $hinhAnh = $sanPham->anh_url;
-    $stockStatus = $sanPham->soluong <= 0
-        ? 'is-out'
-        : ($sanPham->soluong <= $sanPham->soluong_toithieu ? 'is-low' : 'is-in');
-    $stockLabel = $sanPham->soluong <= 0
-        ? 'Hết hàng'
-        : ($sanPham->soluong <= $sanPham->soluong_toithieu ? 'Sắp hết' : 'Còn hàng');
+    [$stockStatus, $stockLabel] = $sanPham->tinhTrangTon();
 
     // Short display name: product type + brand + model. Full name stays in title/quick view.
     $fullName = $sanPham->ten_sanpham;
     $head = trim(preg_replace('/\s*\(.*?\)/u', '', \Illuminate\Support\Str::before($fullName, ' Chất liệu')));
-    preg_match('/(?:Nhãn hiệu|Hiệu)\s*:?\s*([^.]+)\./u', $fullName, $mBrand);
+    preg_match('/(?:Nhãn hiệu|Hiệu)\s*:?\s*([^.,]+)[.,]/u', $fullName, $mBrand);
     preg_match('/Model\s*:?\s*([^.]+)\./u', $fullName, $mModel);
-    $shortName = (isset($mBrand[1]) || isset($mModel[1]))
-        ? trim($head . ' ' . trim($mBrand[1] ?? '') . ' ' . trim($mModel[1] ?? ''))
+    $tenHang = $sanPham->hangSanXuat?->ten ?? trim($mBrand[1] ?? '');
+    $shortName = ($tenHang !== '' || isset($mModel[1]))
+        ? trim($head . ' ' . $tenHang . ' ' . trim($mModel[1] ?? ''))
         : $fullName;
 @endphp
 

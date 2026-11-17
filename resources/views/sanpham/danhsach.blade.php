@@ -23,6 +23,7 @@
                 <th>SKU</th>
                 <th>Tên sản phẩm</th>
                 <th>Loại</th>
+                <th>Hãng</th>
                 <th class="text-end">Giá bán</th>
                 <th class="text-center">Tồn kho</th>
                 <th>Trạng thái</th>
@@ -44,6 +45,7 @@
                     <td><span class="font-monospace">{{ $sanPham->sku }}</span></td>
                     <td>{{ $sanPham->ten_sanpham }}</td>
                     <td>{{ $sanPham->loaiSanPham->ten_loai }}</td>
+                    <td>{{ $sanPham->hangSanXuat?->ten ?? '—' }}</td>
                     <td class="text-end money">{{ number_format($sanPham->gia_ban, 0, ',', '.') }} đ</td>
                     <td class="text-center"><span class="badge text-bg-{{ $badge }}">{{ $sanPham->soluong }}</span></td>
                     <td>
@@ -64,7 +66,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td class="text-center text-muted py-4" colspan="8">Chưa có sản phẩm.</td></tr>
+                <tr><td class="text-center text-muted py-4" colspan="9">Chưa có sản phẩm.</td></tr>
             @endforelse
             </tbody>
         </table>

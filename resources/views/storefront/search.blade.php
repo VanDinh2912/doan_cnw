@@ -17,6 +17,19 @@
             </span>
         </div>
 
+        @if ($hangs->isNotEmpty())
+            <form method="GET" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:20px;">
+                <input type="hidden" name="q" value="{{ $q }}">
+                <select name="brand_id" onchange="this.form.submit()"
+                        style="height:36px;padding:0 12px;border:1px solid var(--sf-border-strong);border-radius:8px;font-size:var(--sf-text-sm);background:var(--sf-surface);">
+                    <option value="">Tất cả hãng</option>
+                    @foreach ($hangs as $hang)
+                        <option value="{{ $hang->id }}" @selected((string) request('brand_id') === (string) $hang->id)>{{ $hang->ten }}</option>
+                    @endforeach
+                </select>
+            </form>
+        @endif
+
         @if ($products->isEmpty())
             <div style="text-align:center;padding:60px 16px;color:var(--sf-fg-muted);">
                 <i class="fa-solid fa-magnifying-glass" style="font-size:56px;opacity:0.4;display:block;margin-bottom:12px;"></i>

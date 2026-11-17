@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Brand;
 use App\Models\LoaiSanPham;
 use App\Models\SanPham;
 use App\Rules\AnhSanPhamUrl;
@@ -19,7 +20,7 @@ class SanPhamController extends Controller
     public function getDanhSach(): View
     {
         return view('sanpham.danhsach', [
-            'sanPhams' => SanPham::with('loaiSanPham')->orderBy('ten_sanpham')->get(),
+            'sanPhams' => SanPham::with(['loaiSanPham', 'hangSanXuat'])->orderBy('ten_sanpham')->get(),
         ]);
     }
 
@@ -28,6 +29,7 @@ class SanPhamController extends Controller
         return view('sanpham.form', [
             'sanPham' => new SanPham(['trang_thai' => true, 'soluong_toithieu' => 5]),
             'loais' => LoaiSanPham::orderBy('ten_loai')->get(),
+            'hangs' => $this->hangsChoForm(null),
             'gioiHanUrlAnh' => AnhSanPhamUrl::gioiHanDoDai(),
         ]);
     }
@@ -60,6 +62,7 @@ class SanPhamController extends Controller
         return view('sanpham.form', [
             'sanPham' => $sanPham,
             'loais' => LoaiSanPham::orderBy('ten_loai')->get(),
+            'hangs' => $this->hangsChoForm($sanPham),
             'gioiHanUrlAnh' => AnhSanPhamUrl::gioiHanDoDai(),
         ]);
     }
@@ -157,10 +160,24 @@ class SanPhamController extends Controller
         ]);
     }
 
+    /**
+     * Dropdown hãng cho form SP: hãng đang kích hoạt + hãng hiện tại của SP
+     * (kể cả đã tắt) để khi sửa không mất lựa chọn.
+     */
+    private function hangsChoForm(?SanPham $sanPham): \Illuminate\Support\Collection
+    {
+        return Brand::query()
+            ->where('kich_hoat', true)
+            ->when($sanPham?->brand_id, fn ($q) => $q->orWhere('id', $sanPham->brand_id))
+            ->orderBy('ten')
+            ->get();
+    }
+
     private function rules(?SanPham $sanPham = null, bool $coTepTaiLen = false): array
     {
         return [
             'category_id' => ['required', 'integer', 'exists:categories,id'],
+            'brand_id' => ['nullable', 'integer', Rule::exists('brands', 'id')],
             'sku' => ['required', 'string', 'max:50', Rule::unique('products', 'sku')->ignore($sanPham)],
             'barcode' => ['nullable', 'string', 'max:50', Rule::unique('products', 'barcode')->ignore($sanPham)],
             'ten_sanpham' => ['required', 'string', 'max:255'],
@@ -181,6 +198,7 @@ class SanPhamController extends Controller
         return [
             'category_id.required' => 'Vui lòng chọn loại sản phẩm.',
             'category_id.exists' => 'Loại sản phẩm không tồn tại.',
+            'brand_id.exists' => 'Hãng sản xuất không tồn tại.',
             'sku.required' => 'Vui lòng nhập SKU.',
             'sku.unique' => 'SKU đã tồn tại.',
             'barcode.unique' => 'Barcode đã tồn tại.',

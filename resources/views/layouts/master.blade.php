@@ -62,6 +62,11 @@
                 <a class="app-nav-link {{ request()->routeIs('trahang.*') ? 'active' : '' }}" href="{{ route('trahang.danhsach') }}">
                     <i class="fa-solid fa-rotate-left"></i><span>Đổi trả hàng</span>
                 </a>
+                @if (auth()->user()->role === 'thungan')
+                    <a class="app-nav-link {{ request()->routeIs('hangsxuat.*') ? 'active' : '' }}" href="{{ route('hangsxuat.danhsach') }}">
+                        <i class="fa-solid fa-copyright"></i><span>Hãng sản xuất</span>
+                    </a>
+                @endif
             @endif
 
             @if (in_array(auth()->user()->role, ['admin', 'thukho'], true))
@@ -71,6 +76,9 @@
                 </a>
                 <a class="app-nav-link {{ request()->routeIs('loaisanpham.*') ? 'active' : '' }}" href="{{ route('loaisanpham.danhsach') }}">
                     <i class="fa-solid fa-tags"></i><span>Loại sản phẩm</span>
+                </a>
+                <a class="app-nav-link {{ request()->routeIs('hangsxuat.*') ? 'active' : '' }}" href="{{ route('hangsxuat.danhsach') }}">
+                    <i class="fa-solid fa-copyright"></i><span>Hãng sản xuất</span>
                 </a>
                 <a class="app-nav-link {{ request()->routeIs('kho.*') ? 'active' : '' }}" href="{{ route('kho.danhsach') }}">
                     <i class="fa-solid fa-warehouse"></i><span>Kho</span>

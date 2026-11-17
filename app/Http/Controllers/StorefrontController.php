@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Brand;
 use App\Models\LoaiSanPham;
 use App\Models\SanPham;
 use Illuminate\Http\Request;
@@ -20,7 +21,7 @@ class StorefrontController extends Controller
         $featured = SanPham::query()
             ->where('trang_thai', true)
             ->where('soluong', '>', 0)
-            ->with('loaiSanPham')
+            ->with(['loaiSanPham', 'hangSanXuat'])
             ->latest('updated_at')
             ->limit(12)
             ->get();
@@ -31,7 +32,7 @@ class StorefrontController extends Controller
         $flashSale = SanPham::query()
             ->where('trang_thai', true)
             ->where('soluong', '>', 0)
-            ->with('loaiSanPham')
+            ->with(['loaiSanPham', 'hangSanXuat'])
             ->orderBy('gia_ban')
             ->limit(4)
             ->get();
@@ -44,11 +45,16 @@ class StorefrontController extends Controller
         $query = SanPham::query()
             ->where('trang_thai', true)
             ->where('category_id', $loaiSanPham->id)
-            ->with('loaiSanPham');
+            ->with(['loaiSanPham', 'hangSanXuat']);
 
         // Filter: in-stock only
         if ($request->boolean('con_hang')) {
             $query->where('soluong', '>', 0);
+        }
+
+        // Filter: hãng đang kích hoạt; giá trị lạ/đã tắt → bỏ qua
+        if ($brandId = $this->brandIdHopLe($request)) {
+            $query->where('brand_id', $brandId);
         }
 
         // Sort
@@ -63,6 +69,7 @@ class StorefrontController extends Controller
         return view('storefront.category', [
             'category' => $loaiSanPham,
             'products' => $products,
+            'hangs' => $this->hangsDangHien(),
         ]);
     }
 
@@ -70,14 +77,14 @@ class StorefrontController extends Controller
     {
         abort_if(! $sanPham->trang_thai, 404);
 
-        $sanPham->load('loaiSanPham');
+        $sanPham->load(['loaiSanPham', 'hangSanXuat']);
 
         $related = SanPham::query()
             ->where('trang_thai', true)
             ->where('soluong', '>', 0)
             ->where('category_id', $sanPham->category_id)
             ->where('id', '!=', $sanPham->id)
-            ->with('loaiSanPham')
+            ->with(['loaiSanPham', 'hangSanXuat'])
             ->limit(4)
             ->get();
 
@@ -90,6 +97,7 @@ class StorefrontController extends Controller
 
         $products = SanPham::query()
             ->where('trang_thai', true)
+            ->when($brandId = $this->brandIdHopLe($request), fn ($query) => $query->where('brand_id', $brandId))
             ->when($q !== '', function ($query) use ($q): void {
                 $query->where(function ($inner) use ($q): void {
                     $inner->where('ten_sanpham', 'like', "%{$q}%")
@@ -97,11 +105,35 @@ class StorefrontController extends Controller
                         ->orWhere('barcode', 'like', "%{$q}%");
                 });
             })
-            ->with('loaiSanPham')
+            ->with(['loaiSanPham', 'hangSanXuat'])
             ->latest('updated_at')
             ->paginate(12)
             ->withQueryString();
 
-        return view('storefront.search', compact('q', 'products'));
+        return view('storefront.search', [
+            'q' => $q,
+            'products' => $products,
+            'hangs' => $this->hangsDangHien(),
+        ]);
+    }
+
+    /**
+     * brand_id hợp lệ = tồn tại trong brands và đang kích hoạt; còn lại null.
+     */
+    private function brandIdHopLe(Request $request): ?int
+    {
+        $brandId = $request->integer('brand_id');
+        if ($brandId <= 0) {
+            return null;
+        }
+
+        return Brand::query()->whereKey($brandId)->where('kich_hoat', true)->exists()
+            ? $brandId
+            : null;
+    }
+
+    private function hangsDangHien(): \Illuminate\Support\Collection
+    {
+        return Brand::query()->where('kich_hoat', true)->orderBy('ten')->get();
     }
 }
