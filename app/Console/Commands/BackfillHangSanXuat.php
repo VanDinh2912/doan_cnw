@@ -187,23 +187,26 @@ class BackfillHangSanXuat extends Command
                 if ($brandId === null) {
                     continue;
                 }
-                $capNhat = SanPham::query()
-                    ->whereKey($id)
+                // DB::table (query builder thuần) — KHÔNG đụng updated_at của products.
+                $capNhat = DB::table('products')
+                    ->where('id', $id)
                     ->whereNull('brand_id')
                     ->update(['brand_id' => $brandId]);
                 $soSpGan += $capNhat;
             }
         });
 
-        // Một dòng audit tổng kết (không PII).
-        NhatKyService::ghi(
-            Request::create('/', 'GET'),
-            'backfill_hang_san_xuat',
-            'product',
-            null,
-            sprintf('Backfill hãng SP: %d hãng, %d sản phẩm được gán', $soHangMoi, $soSpGan),
-            nguon: 'console'
-        );
+        // Một dòng audit tổng kết (không PII) — chỉ khi thực sự có ghi.
+        if ($soSpGan > 0 || $soHangMoi > 0) {
+            NhatKyService::ghi(
+                Request::create('/', 'GET'),
+                'backfill_hang_san_xuat',
+                'product',
+                null,
+                sprintf('Backfill hãng SP: %d hãng, %d sản phẩm được gán', $soHangMoi, $soSpGan),
+                nguon: 'console'
+            );
+        }
 
         $this->info(sprintf('ĐÃ ÁP DỤNG: %d hãng (mới/tìm thấy), %d sản phẩm được gán brand_id.', count($bangHang), $soSpGan));
 

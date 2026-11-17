@@ -116,6 +116,31 @@ InnoDB), xác nhận của Lê Văn Định lúc 22:13. Tag git:
   trang tĩnh `/trang/{slug}` (nội dung `config/trang_tinh.php`), admin
   `/lien-he/quan-ly` (admin+thungan), Telegram báo không PII.
 
+**2026-11-17 ~21:5x** — đã áp thành công 2 migration hãng sản xuất lên
+`doan_cnw` + backfill `products.brand_id` (commit `feat: hãng sản xuất`).
+
+- Danh sách đã áp: `2026_11_17_000007_create_brands_table` (CREATE TABLE
+  `brands`) + `2026_11_17_000008_add_brand_id_to_products_table`
+  (`products.brand_id` nullable + FK `nullOnDelete`, cột cuối bảng).
+- Kiểm chứng sau migrate: products=300, `brand_id` toàn NULL, brands=0,
+  `migrations` 47→49; mọi bảng khác không đổi; engine InnoDB; 0 pending.
+  Diễn tập `doan_cnw_dev`: 98.8ms + 207.3ms.
+- Sao lưu: `D:\Study\xampp\www\backups\doan_cnw_truoc_migrate_hang_20261117_1952.sql`
+  (~411 KB) + `doan_cnw_truoc_backfill_hang_20261117_2155.sql` (~403 KB,
+  ngay trước backfill).
+- Backfill: `php artisan app:backfill-product-brands` (dry-run mặc định,
+  `--apply` ghi). Kết quả trên `doan_cnw`: brands=3 (Hoco 205, Borofone 68,
+  Remax 27), products.brand_id phân bố đúng, không còn NULL; checksum mọi
+  cột khác `brand_id` (gồm `updated_at`) giống hệt trước chạy; `activity_logs`
+  +1 dòng `backfill_hang_san_xuat` nguồn `console`. Chạy `--apply` lần 2:
+  0 SP ghi (idempotent). Hoàn tác: `UPDATE products SET brand_id=NULL` +
+  xóa 3 dòng `brands`, hoặc khôi phục backup.
+- Tính năng đi kèm: CRUD `/hangsxuat` (xem admin+thu ngân+thủ kho, ghi chỉ
+  admin; logo jpg/png/webp ≤2MB kiểm MIME thật; xóa hãng có SP bị chặn);
+  form SP chọn hãng; storefront lọc `brand_id` + hiển thị hãng; nhãn tồn
+  "Còn hàng/Hết hàng/Sắp hết" (`SanPham::tinhTrangTon()`, Sắp hết khi
+  `soluong<=soluong_toithieu` và `<=5`).
+
 ## 2. Quy trình nâng cấp an toàn
 
 ```powershell

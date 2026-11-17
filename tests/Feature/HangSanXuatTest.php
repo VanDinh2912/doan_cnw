@@ -330,6 +330,19 @@ class HangSanXuatTest extends TestCase
         $this->assertSame($sp1->fresh()->brand_id, $sp2->fresh()->brand_id);
     }
 
+    public function test_backfill_dinh_dang_dau_phay_sau_ten_hang(): void
+    {
+        // "Nhãn hiệu: X, Model : Y." — hãng kết thúc bằng dấu phẩy, không phải chấm.
+        $sp = $this->sanPham(['ten_sanpham' => 'Dây cáp sạc Type-C dài 1m. Nhãn hiệu: Hoco, Model : BX101A. Mới 100%']);
+
+        $this->artisan('app:backfill-product-brands', ['--apply' => true])->assertSuccessful();
+
+        $hang = Brand::where('ten', 'Hoco')->firstOrFail();
+        $this->assertSame($hang->id, $sp->fresh()->brand_id);
+        // Không được tạo hãng rác chứa "Model".
+        $this->assertSame(1, Brand::count());
+    }
+
     public function test_backfill_sp_nhieu_hang_thi_de_null(): void
     {
         $sp = $this->sanPham(['ten_sanpham' => 'Combo Nhãn hiệu: Hoco. Hiệu: Remax. Model: Z.']);
