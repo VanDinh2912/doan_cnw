@@ -202,6 +202,8 @@ Lệnh kiểm tra số lượng bản ghi, tổng hóa đơn, tồn kho và move
 | `MAIL_MAILER` | Không | log | Mailer gửi email (`log` chỉ ghi log, `smtp` gửi thật) | Email đơn online |
 | `MAIL_HOST` / `MAIL_PORT` / `MAIL_USERNAME` / `MAIL_PASSWORD` / `MAIL_SCHEME` | Khi dùng smtp | 127.0.0.1 / 2525 | Cấu hình SMTP | Email đơn online |
 | `MAIL_FROM_ADDRESS` / `MAIL_FROM_NAME` | Không | hello@example.com / APP_NAME | Địa chỉ & tên người gửi | Email đơn online |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Khi bật Google login | (rỗng) | OAuth Google (Console → Credentials) | Đăng nhập |
+| `GOOGLE_REDIRECT_URI` | Không | `{APP_URL}/auth/google/callback` | Redirect URI đăng ký trong Google Console | Đăng nhập |
 | `LOG_STACK` | Không | daily | Kênh trong stack log; đặt `daily` để log xoay vòng | Ghi log |
 | `LOG_DAILY_DAYS` | Không | 14 | Số ngày giữ log daily | Ghi log |
 | `BACKUP_DISK` | Không | backups | Đĩa lưu bản sao lưu (khai báo trong `config/filesystems.php`) | Sao lưu |
@@ -538,16 +540,56 @@ Các email trên trùng với tài khoản được tạo trong `database/seeder
 ### Đăng nhập và phân quyền
 
 - Đăng nhập, đăng xuất, ghi nhớ đăng nhập.
-- Middleware phân quyền theo `admin`, `thungan`, `thukho`.
+- Đăng nhập Google OAuth tại `/auth/google` (Socialite) cho tài khoản
+  `khachhang`; cấu hình `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` /
+  `GOOGLE_REDIRECT_URI`. Tài khoản Google trùng email đã có được liên kết,
+  không tạo trùng.
+- Middleware phân quyền theo `admin`, `thungan`, `thukho`, `khachhang`.
+- Khóa/mở khóa hồ sơ khách hàng (admin): `/khachhang` → chi tiết → khóa kèm
+  lý do bắt buộc; đồng bộ `users.khoa_luc`, chặn đăng nhập (kể cả Google) và
+  mọi route đặt hàng online; khách bị khóa vẫn gửi được form liên hệ.
+- Middleware `khoa.luc` + `bat.buoc.doi.mat.khau`: tài khoản bị khóa bị đăng
+  xuất ngay; tài khoản `bat_buoc_doi_mat_khau` chỉ vào được `/doi-mat-khau`.
 - Truy cập trái phép trả trang 403 tiếng Việt.
 - Dashboard tổng quan dành cho người dùng đã đăng nhập.
+
+### Storefront & trải nghiệm khách
+
+- Trang chủ, danh mục, chi tiết sản phẩm, tìm kiếm (từ khóa + lọc hãng +
+  sắp xếp giá), giỏ hàng session — tất cả công khai.
+- **Hãng sản xuất**: bảng `brands` + CRUD `/hangsxuat` (xem: admin/thu ngân/
+  thủ kho; thêm/sửa/xóa/upload logo: chỉ admin). Logo jpg/png/webp ≤2MB kiểm
+  MIME thật. SP gán hãng qua `products.brand_id` (nullable); storefront lọc
+  `brand_id` và hiển thị hãng trên card/trang chi tiết; hãng `kich_hoat=false`
+  ẩn khỏi bộ lọc nhưng SP đã gán vẫn hiện tên. Backfill hãng từ tên SP:
+  `php artisan app:backfill-product-brands` (dry-run mặc định, `--apply` ghi,
+  idempotent, không đụng `updated_at`).
+- Nhãn tình trạng tồn trên storefront: `SanPham::tinhTrangTon()` → Còn hàng /
+  Sắp hết (`0 < soluong <= soluong_toithieu` và `soluong <= 5`) / Hết hàng.
+- **Tin tức**: chủ đề + bài viết CKEditor5 + bình luận kiểm duyệt tại
+  `/bai-viet` (storefront) và `/tin-tuc/*` (admin, chỉ admin). HTML bài viết
+  lọc XSS bằng HTMLPurifier.
+- **Liên hệ / tuyển dụng / trang tĩnh**: form `/lien-he` công khai
+  (honeypot + throttle, chuẩn hóa SĐT/email, khách đăng nhập gắn `user_id`),
+  trang cảm ơn `/lien-he/cam-on`, `/tuyen-dung` (4 vị trí → prefill form
+  ứng tuyển), trang tĩnh `/trang/{slug}` với nội dung gom trong
+  `config/trang_tinh.php` (slug lạ → 404). Admin xử lý tại
+  `/lien-he/quan-ly` (admin + thu ngân; thủ kho 403). Telegram báo không PII.
+- **Đặt hàng online** (guest + khách đăng nhập, mặc định TẮT qua
+  `POS_DAT_HANG_ONLINE_BAT`): checkout `/dat-hang` (pickup QR / giao tận nơi
+  khi `POS_GIAO_TAN_NOI_BAT`), trang QR `/dat-hang/qr/{ma}`, tra cứu
+  `/don-hang/tra-cuu`, theo dõi `/don-hang/{ma_tra_cuu}`. Nhân viên xử lý tại
+  `/donhang-online` (chuyển trạng thái, phiếu giao hàng, danh sách cần hoàn
+  tiền). Email xác nhận + email đã thanh toán qua `MAIL_*`.
 
 ### Quản lý danh mục và sản phẩm
 
 - CRUD loại sản phẩm.
 - Loại sản phẩm có `ma_loai`, `tu_khoa` và `he_so_lai`; hệ số lãi chỉ dùng gợi ý
   khi tạo sản phẩm mới.
-- CRUD sản phẩm.
+- CRUD sản phẩm; form có chọn **hãng sản xuất** (`brand_id`, chỉ hãng đang
+  kích hoạt; hãng đã gán nhưng đã tắt vẫn hiện kèm nhãn "(đã tắt)");
+  `brand_id` không tồn tại bị validation chặn.
 - Validate tên, SKU, barcode, giá và số lượng.
 - Upload hình ảnh bằng `Storage::disk('public')` vào `storage/app/public/sanpham` (cần chạy `php artisan storage:link`); sản phẩm chưa có ảnh dùng `public/img/no-image.svg`.
 - **Ảnh theo URL**: form thêm/sửa nhận thêm trường `hinh_anh_url` (chỉ `https://`,
@@ -638,6 +680,12 @@ Thanh toán sử dụng một transaction duy nhất:
   4. Gỡ liên kết nhầm: chọn "— Chưa liên kết —" → Lưu. Không gán chỉ vì
      trùng SĐT — đó là lý do auto-link đã bị gỡ.
 - Chi tiết rà soát và dữ liệu hiện có: [docs/BAO_CAO_KHACH_HANG.md](docs/BAO_CAO_KHACH_HANG.md).
+- **Khóa/mở khóa hồ sơ** (chỉ admin, trang chi tiết `/khachhang/{id}`): bắt buộc
+  lý do, ghi `customers.khoa_den`/`ly_do_khoa` + đồng bộ `users.khoa_luc` trong
+  cùng transaction, audit log. Khách bị khóa: không đăng nhập (password lẫn
+  Google), bị đăng xuất khỏi session đang mở, không đặt/tra cứu/hủy đơn online;
+  đơn guest trùng SĐT khách khóa vẫn tạo được nhưng nhân viên thấy cảnh báo;
+  vẫn gửi được `/lien-he` (kênh kháng nghị). Trang chi tiết hiển thị lịch sử đơn.
 
 ### Hóa đơn
 
@@ -770,9 +818,16 @@ HH:MM:SS" giờ Việt Nam; lỗi mạng giữ số cũ kèm cảnh báo nhỏ. 
 | URL | Chức năng | Quyền |
 |---|---|---|
 | `/` | Trang chủ storefront | Công khai |
-| `/danh-muc/{loai}`, `/san-pham/{id}`, `/tim-kiem`, `/gio-hang` | Storefront: danh mục, sản phẩm, tìm kiếm, giỏ hàng | Công khai |
+| `/danh-muc/{loai}`, `/san-pham/{id}`, `/tim-kiem`, `/gio-hang` | Storefront: danh mục, sản phẩm (kèm lọc hãng), tìm kiếm, giỏ hàng | Công khai |
+| `/bai-viet`, `/bai-viet/{chude}/{bv}` | Tin tức: danh sách, theo chủ đề, chi tiết (bình luận kiểm duyệt) | Công khai |
+| `/lien-he`, `/lien-he/cam-on`, `/tuyen-dung`, `/trang/{slug}` | Form liên hệ/góp ý/khiếu nại/ứng tuyển, trang cảm ơn, trang tĩnh | Công khai (POST throttle) |
+| `/dat-hang`, `/dat-hang/qr/{ma}`, `/dat-hang/thanh-cong/{ma}` | Đặt hàng online guest (khi cờ bật) | Công khai |
+| `/don-hang/tra-cuu`, `/don-hang/{ma_tra_cuu}` | Tra cứu/ Theo dõi đơn online | Công khai (bằng chứng session) |
+| `/thong-tin-ca-nhan` | Hồ sơ + lịch sử đơn của khách đăng nhập | Khách đăng nhập |
+| `/auth/google`, `/auth/google/callback` | Đăng nhập Google OAuth | Công khai |
 | `/dangnhap` | Đăng nhập | Khách |
 | `/dang-ky` | Đăng ký tài khoản khách hàng | Khách |
+| `/doi-mat-khau` | Đổi mật khẩu (bắt buộc lần đầu / tự nguyện) | Nhân viên bị cờ |
 | `/tongquan` | Dashboard | Mọi vai trò nhân viên |
 | `/tong-quan/so-lieu` | JSON số liệu dashboard (tự làm mới 30s) | Admin (throttle 30/phút) |
 | `/pos` | Màn hình bán hàng | Admin, thu ngân |
@@ -791,7 +846,11 @@ HH:MM:SS" giờ Việt Nam; lỗi mạng giữ số cũ kèm cảnh báo nhỏ. 
 | `/doisoat/{webhook}` | Chi tiết giao dịch cần đối soát | Admin |
 | `/doisoat/{webhook}/xuly` | Đánh dấu giao dịch đã xử lý (POST) | Admin |
 | `/trahang` | Trả hàng: danh sách, tạo phiếu, duyệt | Admin, thu ngân (duyệt: admin) |
-| `/khachhang` | Quản lý khách hàng | Admin, thu ngân |
+| `/khachhang` | Quản lý khách hàng (+ chi tiết `/khachhang/{id}`, khóa/mở chỉ admin) | Admin, thu ngân (khóa: admin) |
+| `/hangsxuat` | Quản lý hãng sản xuất (+ logo) | Xem: admin/thu ngân/thủ kho; ghi: admin |
+| `/lien-he/quan-ly` | Quản lý liên hệ/góp ý/khiếu nại/ứng tuyển | Admin, thu ngân |
+| `/tin-tuc/*` | Quản trị tin tức: chủ đề, bài viết, bình luận | Admin |
+| `/donhang-online`, `/donhang-online-can-hoan-tien`, `/donhang-online/{id}/phieu-giao` | Xử lý đơn online, phiếu giao, đơn cần hoàn tiền | Admin, thu ngân, thủ kho (hoàn tiền/hủy: admin) |
 | `/hold` | Giỏ tạm | Admin, thu ngân |
 | `/kiemke` | Kiểm kê kho | Admin, thủ kho (duyệt: admin) |
 | `/nhatky` | Nhật ký hoạt động | Admin |
@@ -831,7 +890,7 @@ song bằng `vendor/bin/paratest` — ~9 phút thay ~39 phút):
   sạch nội dung, template dự phòng.
 - `ExampleTest` Unit (1).
 
-**Feature (726 test, trong đó 45 skip)**
+**Feature (806 test, trong đó 45 skip)**
 
 Ghi chú: `LoiBTaoQrTest` (6), `LoiBThieuCotOnlineTest` (4), `LoiADungDiemTest`
 (10) và `LoiDDashboardTonKhoTest` (1) đã cherry-pick vào `main` trong đợt
@@ -1067,6 +1126,33 @@ tương đương).
   ship; báo cáo có dòng riêng `hoan_phi_giao_hang`; đơn không ship/thiếu cột giữ
   hành vi cũ. `TraHangDonOnlineTest` đổi 2 kỳ vọng (130.000→100.000, 65.000→50.000)
   theo quy tắc mới — chi tiết `docs/BAO_CAO_HOAN_TIEN_SHIP.md`.
+- `DatHangOnlineEmailTest` (6): email xác nhận đơn + email đã thanh toán —
+  gửi sau commit, lỗi mail không hỏng đơn, guest không email không gửi,
+  không chứa token, idempotent webhook.
+- `DonHangChuyenTrangThaiTest` (5), `DonHangHuyDaThanhToanTest` (5),
+  `DonHangOnlineNhanVienTest` (5), `DonHangOnlinePhanQuyenTest` (4),
+  `DonHangPickupXuLyTest` (5): máy trạng thái giao đơn online, hủy đơn đã
+  thanh toán (admin, hoàn kho 1 lần, danh sách cần hoàn tiền), phân quyền
+  màn hình nhân viên, xử lý pickup.
+- `HangSanXuatTest` (15): CRUD hãng + phân quyền (thu ngân/thủ kho chỉ xem,
+  ghi 403), logo whitelist jpg/png/webp kiểm MIME thật + chặn svg/file giả
+  đuôi, xóa hãng có SP bị chặn, slug unique giữ khi đổi tên, form SP chọn
+  hãng + `brand_id` lạ bị chặn, storefront lọc hãng (giá trị lạ không 500,
+  hãng tắt ẩn khỏi filter nhưng SP cũ vẫn hiện), nhãn tồn Còn/Sắp hết/Hết,
+  backfill dry-run không ghi/apply map đúng/idempotent/không ghi đè gán tay/
+  dấu phẩy sau tên hãng/không đụng `updated_at`.
+- `LienHeTest` (20): form liên hệ guest/đăng nhập/khách bị khóa vẫn gửi được,
+  honeypot, throttle 429, chuẩn hóa SĐT+email, whitelist `loai`/`vi_tri`,
+  prefill ứng tuyển, Telegram mock throw không chặn lưu + không PII + escape,
+  phân quyền admin (thu ngân OK, thủ kho 403), lọc, audit không PII, XSS
+  escape, trang tĩnh 200/404, trang cảm ơn không echo dữ liệu.
+- `QuanLyKhachHangKhoaTest` (12): khóa/mở khóa hồ sơ — bắt buộc lý do, đồng bộ
+  `users.khoa_luc` + `customers.khoa_den` trong transaction, chặn đăng nhập
+  password/Google, chặn đặt/tra cứu/hủy đơn online, session đang mở bị đăng
+  xuất, đơn guest trùng SĐT khóa có cảnh báo, audit log, chỉ admin.
+- `TinTucTest` (27): chủ đề/bài viết/bình luận — CRUD admin, CKEditor +
+  HTMLPurifier chống XSS, bình luận chờ duyệt, đếm lượt xem, phân quyền,
+  storefront 200/404.
 
 Lưu ý khi chạy test:
 
@@ -1279,7 +1365,7 @@ Các bảng nghiệp vụ:
 
 - `users`: tài khoản và vai trò (`admin`, `thungan`, `thukho`, `khachhang`).
 - `categories`: loại sản phẩm.
-- `products`: sản phẩm và tồn kho (có `soluong_hong`).
+- `products`: sản phẩm và tồn kho (có `soluong_hong`, `brand_id` → `brands`).
 - `customers`: khách hàng, điểm tích lũy, `user_id` liên kết tài khoản (unique, nullable).
 - `invoices`: hóa đơn (có `ma_giaodich` và `ma_giao_dich` — cả hai unique, `ghi_chu`).
 - `invoice_details`: chi tiết hóa đơn.
@@ -1290,8 +1376,11 @@ Các bảng nghiệp vụ:
   nhận.
 - `returns`, `return_items`: trả hàng; `held_carts`: giỏ tạm.
 - `stocktakes`, `stocktake_items`: kiểm kê và chênh lệch tồn.
-- `activity_logs`: nhật ký hoạt động.
+- `activity_logs`: nhật ký hoạt động (audit chi tiết: mô tả/đối tượng/nguồn).
 - `payment_webhooks`: log webhook thanh toán (SePay).
+- `brands`: hãng sản xuất (`ten`/`slug` unique, `logo`, `kich_hoat`).
+- `lien_he`: liên hệ/góp ý/khiếu nại/ứng tuyển + trạng thái xử lý.
+- `news_topics`, `news_posts`, `news_comments`: tin tức, bài viết, bình luận.
 
 **Engine (MySQL/MariaDB):** mọi bảng phải dùng **InnoDB**. MyISAM không hỗ trợ
 transaction và khóa dòng, khiến các luồng tiền/tồn kho mất tính nguyên tử.
@@ -1375,6 +1464,11 @@ Sau khi kiểm thử, tạo Pull Request để merge vào `main`.
 - Trang lỗi 403/404/419/500 tiếng Việt và POS xử lý lỗi AJAX/mất kết nối mà không làm mất giỏ hàng.
 - Bộ dữ liệu thay thế gồm 12 loại hàng, 300 sản phẩm, 81 nhà cung cấp, 100
   khách hàng và một hóa đơn nhập 300 dòng.
+- **Tin tức** (chủ đề/bài viết CKEditor5/bình luận kiểm duyệt), **Google OAuth**,
+  **đặt hàng online** đầy đủ P0–P3 (QR/pickup/giao tận nơi, email xác nhận,
+  mặc định tắt bằng cờ), **khóa/mở khóa hồ sơ khách hàng**, **liên hệ/
+  tuyển dụng/trang tĩnh**, **hãng sản xuất** (brands + lọc storefront +
+  backfill từ tên SP).
 - Tài liệu dự án được lưu trong `TaiLieu/`.
 - Lộ trình mở rộng sau demo được ghi tại
   `TaiLieu/KeHoach/Ke hoach.md`.
@@ -1387,6 +1481,24 @@ Sau khi kiểm thử, tạo Pull Request để merge vào `main`.
 - CRUD tài khoản người dùng, ứng dụng mobile và API riêng (Pha 23).
 - Khuyến mãi/voucher (Pha 22), ROP/ABC (Pha 21).
 - Tích hợp bên ngoài: hóa đơn điện tử, Zalo ZNS/SMS, đồng bộ Shopee/TikTok (Pha 24).
+- Import/export Excel sản phẩm (đang khảo sát, chưa triển khai).
+
+### So sánh với LaraShop (TH/DuLieuBuoi08/larashop)
+
+LaraShop là ứng dụng **thương mại điện tử** phục vụ học tập (buổi thực hành);
+DA là **POS + quản lý kho** vận hành thật tại cửa hàng. Khác biệt chính:
+
+- DA có POS bán tại quầy, tồn kho/stock_movements, nhập kho, trả hàng, kiểm kê,
+  tích điểm, webhook SePay, đối soát — LaraShop không có.
+- DA có storefront riêng (giỏ session, đặt hàng online, tin tức, liên hệ) —
+  LaraShop là site bán hàng thuần với giỏ/đặt hàng theo kiểu học tập.
+- Cả hai đều Laravel + MySQL + Blade + Bootstrap; DA dùng thêm Socialite
+  (Google OAuth) và HTMLPurifier.
+- Phạm vi test DA lớn hơn nhiều (~870 test, gồm test phân quyền, transaction
+  kho, webhook); LaraShop chủ yếu test luồng mua hàng cơ bản.
+
+README này trước đây không có mục so sánh riêng; mục này phản ánh trạng thái
+sau các nhóm tính năng 2026-11-17.
 
 ## 15. Lộ trình triển khai tiếp theo
 
