@@ -56,6 +56,36 @@ InnoDB), xác nhận của Lê Văn Định lúc 22:13. Tag git:
   snapshot 22:16) để đối chiếu; xóa khi không cần nữa.
 - Chi tiết đầy đủ: `docs/BAO_CAO_AP_MIGRATION.md`.
 
+**2026-11-17 ~06:5x** — đã áp thành công 3 migration tin tức lên `doan_cnw`
+(xác nhận của Lê Văn Định 14:38). Commit code trước đó: `12dfd10` (Google OAuth),
+`e8cb5d2` (tin tức).
+
+- Danh sách đã áp: `2026_11_17_000001_create_news_topics_table`,
+  `2026_11_17_000002_create_news_posts_table`,
+  `2026_11_17_000003_create_news_comments_table` — toàn bộ CREATE TABLE mới,
+  không ALTER bảng cũ.
+- Kiểm chứng: số dòng mọi bảng cũ **không đổi** (chỉ `migrations` 41→44);
+  3 bảng mới InnoDB; `TinTucSeeder` idempotent (3 chủ đề + 3 bài viết);
+  819 tests xanh trên `doan_cnw_dev`; smoke test `/bai-viet` 200.
+- Sao lưu: `D:\Study\xampp\www\backups\doan_cnw_truoc_migrate_tintuc_20261117_0634.sql`
+  (~395 KB, 27 bảng, đã kiểm chứng khôi phục khớp số dòng trên `doan_cnw_dev`).
+
+**2026-11-17 ~12:0x** — đã áp thành công 1 migration email đơn online lên
+`doan_cnw` (xác nhận của Lê Vă Định trong phiên, commit `03938c0`).
+
+- Danh sách đã áp: `2026_11_17_000004_add_email_dat_to_invoices_table` —
+  `ALTER TABLE invoices ADD email_dat varchar(150) NULL` (additive, nullable).
+- Kiểm chứng: số dòng mọi bảng **không đổi** (chỉ `migrations` 44→45);
+  engine toàn InnoDB; `migrate:status` 0 pending; 825 tests xanh.
+- Sao lưu: `D:\Study\xampp\www\backups\doan_cnw_truoc_migrate_email_that_20261117_1158.sql`
+  (~404 KB) + bản diễn tập `doan_cnw_truoc_migrate_email_20261117_0706.sql` (~407 KB).
+- Sau áp: bật `POS_DAT_HANG_ONLINE_BAT=true` trong `.env` local
+  (`POS_GIAO_TAN_NOI_BAT` giữ `false`); smoke test `/dat-hang`, `/don-hang/tra-cuu` OK.
+- `demo:kiemtra-du-lieu` báo `customers=101` vs kỳ vọng 100 — **lệch dữ liệu có
+  sẵn từ trước** (khách đăng ký thêm), không liên quan migration (migration chỉ
+  thêm cột `invoices.email_dat`).
+- `he-thong:kiem-tra` sau áp: vẫn 1 FAIL có sẵn — thiếu `SEPAY_WEBHOOK_API_KEY`.
+
 ## 2. Quy trình nâng cấp an toàn
 
 ```powershell
