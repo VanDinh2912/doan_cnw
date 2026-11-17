@@ -86,6 +86,22 @@ InnoDB), xác nhận của Lê Văn Định lúc 22:13. Tag git:
   thêm cột `invoices.email_dat`).
 - `he-thong:kiem-tra` sau áp: vẫn 1 FAIL có sẵn — thiếu `SEPAY_WEBHOOK_API_KEY`.
 
+**2026-11-17 ~13:4x** — đã áp thành công 1 migration khóa khách hàng lên
+`doan_cnw` (phê duyệt trong phiên, commit `a3efaea`).
+
+- Danh sách đã áp: `2026_11_17_000005_add_khoa_den_va_ly_do_khoa_to_customers_table`
+  — `customers.khoa_den` (timestamp NULL) + `customers.ly_do_khoa` (varchar 255 NULL),
+  additive, không ALTER dữ liệu cũ.
+- Kiểm chứng: số dòng mọi bảng **không đổi** (chỉ `migrations` 45→46);
+  engine toàn InnoDB; `migrate:status` 0 pending.
+- Sao lưu: `D:\Study\xampp\www\backups\doan_cnw_truoc_migrate_khachhang_20261117_1330.sql`
+  (~412 KB, "Dump completed").
+- `demo:kiemtra-du-lieu` sau khi sửa checker (customers >= 100): **"Dữ liệu hợp lệ"**.
+- Tính năng đi kèm: admin khóa/mở hồ sơ khách (đồng bộ `users.khoa_luc` trong
+  cùng transaction, bắt buộc lý do, audit log); chặn sớm đăng nhập + mọi route
+  đặt hàng online cho khách bị khóa; badge "SĐT trùng KH khóa" cho đơn guest;
+  trang chi tiết khách `/khachhang/{id}`.
+
 ## 2. Quy trình nâng cấp an toàn
 
 ```powershell
