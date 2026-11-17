@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\DonHang;
 use App\Models\KhachHang;
 use App\Models\User;
 use App\Rules\SoDienThoaiHopLe;
+use App\Services\NhatKyService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -16,6 +19,94 @@ class KhachHangController extends Controller
     public function getDanhSach(): View
     {
         return view('khachhang.danhsach', ['khachHangs' => KhachHang::latest()->get()]);
+    }
+
+    /**
+     * Chi tiết hồ sơ khách: thông tin, trạng thái khóa, lịch sử đơn
+     * (POS + online) phân trang và tổng chi tiêu. Read-only.
+     */
+    public function getChiTiet(Request $request, KhachHang $khachHang): View
+    {
+        $donHangs = $khachHang->donHangs()
+            ->with('chiTietDonHangs')
+            ->latest('created_at')
+            ->paginate(15)
+            ->withQueryString();
+
+        $tongChiTieu = (float) $khachHang->donHangs()
+            ->whereNotIn('trang_thai', ['da_huy'])
+            ->sum('tong_thanh_toan');
+
+        return view('khachhang.chitiet', [
+            'khachHang' => $khachHang,
+            'donHangs' => $donHangs,
+            'tongChiTieu' => $tongChiTieu,
+        ]);
+    }
+
+    /**
+     * Khóa hồ sơ khách (CHỈ admin — route đã chặn role). Ghi customers.khoa_den
+     * + ly_do_khoa và users.khoa_luc (nếu có tài khoản liên kết) TRONG CÙNG
+     * TRANSACTION. Không xóa, không đụng đơn hàng/công nợ. Bắt buộc lý do.
+     */
+    public function postKhoa(Request $request, KhachHang $khachHang): RedirectResponse
+    {
+        $data = $request->validate([
+            'ly_do_khoa' => ['required', 'string', 'max:255'],
+        ], [
+            'ly_do_khoa.required' => 'Vui lòng nhập lý do khóa khách hàng.',
+            'ly_do_khoa.max' => 'Lý do khóa tối đa 255 ký tự.',
+        ]);
+
+        if ($khachHang->biKhoa()) {
+            return back()->with('error', 'Khách hàng này đã bị khóa trước đó.');
+        }
+
+        DB::transaction(function () use ($khachHang, $data): void {
+            $khachHang->update([
+                'khoa_den' => now(),
+                'ly_do_khoa' => $data['ly_do_khoa'],
+            ]);
+            if ($khachHang->user_id !== null) {
+                User::whereKey($khachHang->user_id)->update(['khoa_luc' => now()]);
+            }
+        });
+
+        NhatKyService::ghi(
+            $request, 'khoa_khach', 'customers', $khachHang->id,
+            'Khóa khách hàng #'.$khachHang->id.' ('.($khachHang->user_id ? 'có tài khoản' : 'không tài khoản').')',
+            null,
+            ['ly_do_khoa' => $data['ly_do_khoa']]
+        );
+
+        return redirect()->route('khachhang.chitiet', $khachHang)
+            ->with('success', 'Đã khóa khách hàng.');
+    }
+
+    /**
+     * Mở khóa hồ sơ khách (CHỈ admin). Gỡ customers.khoa_den/ly_do_khoa và
+     * users.khoa_luc về null trong cùng transaction.
+     */
+    public function postMoKhoa(Request $request, KhachHang $khachHang): RedirectResponse
+    {
+        if (! $khachHang->biKhoa()) {
+            return back()->with('error', 'Khách hàng này không ở trạng thái khóa.');
+        }
+
+        DB::transaction(function () use ($khachHang): void {
+            $khachHang->update(['khoa_den' => null, 'ly_do_khoa' => null]);
+            if ($khachHang->user_id !== null) {
+                User::whereKey($khachHang->user_id)->update(['khoa_luc' => null]);
+            }
+        });
+
+        NhatKyService::ghi(
+            $request, 'mo_khoa_khach', 'customers', $khachHang->id,
+            'Mở khóa khách hàng #'.$khachHang->id
+        );
+
+        return redirect()->route('khachhang.chitiet', $khachHang)
+            ->with('success', 'Đã mở khóa khách hàng.');
     }
 
     public function getThem(): View

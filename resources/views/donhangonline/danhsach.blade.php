@@ -69,7 +69,11 @@
                 <tr>
                     <td>{{ $don->ma_hoadon }}</td>
                     <td><code>{{ $don->ma_tra_cuu }}</code></td>
-                    <td>{{ $don->ten_khach_dat }}</td>
+                    <td>{{ $don->ten_khach_dat }}
+                        @if (isset($sdtKhoaSet[\App\Support\SoDienThoai::chuanHoa((string) $don->so_dienthoai_dat)]))
+                            <span class="badge bg-danger" title="SĐT trùng hồ sơ khách đang bị khóa">SĐT trùng KH khóa</span>
+                        @endif
+                    </td>
                     <td>{{ \App\Support\CheThongTin::soDienThoai($don->so_dienthoai_dat) }}</td>
                     <td>{{ $don->hinh_thuc_nhan_tieng_viet }}</td>
                     <td>

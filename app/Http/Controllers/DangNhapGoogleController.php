@@ -65,9 +65,11 @@ class DangNhapGoogleController extends Controller
                 ->with('error', 'Email này thuộc tài khoản nhân viên. Vui lòng đăng nhập bằng email và mật khẩu.');
         }
 
-        if ($user !== null && $user->khoa_luc !== null) {
+        $hoSoKhoa = $user !== null
+            && \App\Models\KhachHang::where('user_id', $user->id)->whereNotNull('khoa_den')->exists();
+        if ($user !== null && ($user->khoa_luc !== null || $hoSoKhoa)) {
             return redirect()->route('auth.dangnhap')
-                ->with('error', 'Tài khoản đã bị khóa, liên hệ quản trị viên.');
+                ->with('error', 'Tài khoản đã bị khóa, vui lòng liên hệ cửa hàng.');
         }
 
         $laTaiKhoanMoi = $user === null;

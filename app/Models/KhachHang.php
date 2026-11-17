@@ -16,11 +16,25 @@ class KhachHang extends Model
 
     protected $table = 'customers';
 
-    protected $fillable = ['user_id', 'ho_ten', 'so_dienthoai', 'dia_chi', 'diem_tichluy'];
+    protected $fillable = ['user_id', 'ho_ten', 'so_dienthoai', 'dia_chi', 'diem_tichluy', 'khoa_den', 'ly_do_khoa'];
 
     protected function casts(): array
     {
-        return ['diem_tichluy' => 'integer'];
+        return [
+            'diem_tichluy' => 'integer',
+            'khoa_den' => 'datetime',
+        ];
+    }
+
+    /** Hồ sơ khách đang bị khóa (khoa_den != null). */
+    public function biKhoa(): bool
+    {
+        return $this->khoa_den !== null;
+    }
+
+    public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 
     protected function soDienThoai(): Attribute

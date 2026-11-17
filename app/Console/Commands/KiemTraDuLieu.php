@@ -14,11 +14,15 @@ class KiemTraDuLieu extends Command
 
     public function handle(): int
     {
+        // customers là dữ liệu khách thật — số lượng tăng khi khách đăng ký,
+        // không thể hardcode. Chỉ yêu cầu >= số lượng lúc seed mẫu (100).
         $expected = ['categories' => 12, 'products' => 300, 'suppliers' => 81, 'customers' => 100, 'purchase_invoices' => 1, 'purchase_invoice_items' => 300];
+        $toiThieu = ['customers' => true];
         foreach ($expected as $table => $count) {
             $actual = DB::table($table)->count();
             $this->line("{$table}: {$actual}");
-            if ($actual !== $count) {
+            $khop = isset($toiThieu[$table]) ? $actual >= $count : $actual === $count;
+            if (! $khop) {
                 $this->error("Số lượng {$table} không đúng.");
                 return self::FAILURE;
             }

@@ -32,7 +32,11 @@
             <div class="card-header fw-semibold">Khách hàng</div>
             <table class="table mb-0">
                 <tr><td class="text-muted">Họ tên</td><td>{{ $don->ten_khach_dat }}</td></tr>
-                <tr><td class="text-muted">SĐT đặt</td><td>{{ $don->so_dienthoai_dat }}</td></tr>
+                <tr><td class="text-muted">SĐT đặt</td><td>{{ $don->so_dienthoai_dat }}
+                    @if ($sdtTrungKhachKhoa ?? false)
+                        <span class="badge bg-danger" title="SĐT trùng hồ sơ khách đang bị khóa">SĐT trùng KH khóa</span>
+                    @endif
+                </td></tr>
                 <tr><td class="text-muted">Hồ sơ khách</td><td>{{ $don->khachHang?->ho_ten ?? '—' }}</td></tr>
             </table>
         </div>

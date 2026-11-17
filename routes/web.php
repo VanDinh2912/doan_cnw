@@ -145,6 +145,18 @@ Route::middleware(['auth', 'staff.only', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->
             ->name('khachhang.postsua');
         Route::delete('/khachhang/xoa/{khachHang}', [\App\Http\Controllers\KhachHangController::class, 'getXoa'])
             ->name('khachhang.xoa');
+        // Chi tiết hồ sơ khách (admin + thu ngân xem; read-only).
+        // Đặt SAU mọi route literal để {khachHang} không nuốt timkiem/nhanh/them.
+        Route::get('/khachhang/{khachHang}', [\App\Http\Controllers\KhachHangController::class, 'getChiTiet'])
+            ->name('khachhang.chitiet');
+    });
+
+    // Khóa/mở khóa hồ sơ khách — CHỈ admin (server chặn, không chỉ ẩn nút).
+    Route::middleware('role:admin')->group(function (): void {
+        Route::post('/khachhang/khoa/{khachHang}', [\App\Http\Controllers\KhachHangController::class, 'postKhoa'])
+            ->name('khachhang.khoa');
+        Route::post('/khachhang/mo-khoa/{khachHang}', [\App\Http\Controllers\KhachHangController::class, 'postMoKhoa'])
+            ->name('khachhang.mokhoa');
     });
 
     // P3: màn hình nhân viên xử lý đơn online (admin/thu ngân/thủ kho) — ngoài nhóm role:admin,thungan.

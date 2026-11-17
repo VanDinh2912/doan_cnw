@@ -3,12 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\DonHang;
+use App\Models\KhachHang;
 use App\Models\NhatKyHoatDong;
 use App\Services\NhatKyService;
 use App\Services\ThanhToanChuyenKhoanService;
 use App\Services\ThongBaoService;
 use App\Support\CheThongTin;
 use App\Support\KiemTraSchema;
+use App\Support\SoDienThoai;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -79,7 +81,33 @@ class DonHangOnlineController extends Controller
             'donHangs' => $truyVan->paginate(self::PHAN_TRANG)->withQueryString(),
             'filters' => $validated,
             'coCotGiao' => KiemTraSchema::coCot('invoices', 'trang_thai_giao'),
+            'sdtKhoaSet' => $this->tapSdtKhachBiKhoa(),
         ]);
+    }
+
+    /**
+     * Tập SĐT (đã chuẩn hóa) của hồ sơ khách đang bị khóa — dùng để gắn badge
+     * "SĐT trùng khách bị khóa" trên đơn guest. Tính lúc hiển thị, không thêm cột.
+     */
+    private function tapSdtKhachBiKhoa(): array
+    {
+        if (! KiemTraSchema::coCot('customers', 'khoa_den')) {
+            return [];
+        }
+
+        return KhachHang::whereNotNull('khoa_den')
+            ->pluck('so_dienthoai')
+            ->map(fn ($s) => SoDienThoai::chuanHoa((string) $s))
+            ->filter()
+            ->flip()
+            ->all();
+    }
+
+    private function sdtTrungKhachKhoa(?string $soDienThoai): bool
+    {
+        $chuan = SoDienThoai::chuanHoa((string) $soDienThoai);
+
+        return $chuan !== '' && isset($this->tapSdtKhachBiKhoa()[$chuan]);
     }
 
     /** Máy trạng thái giao hợp lệ (P3 HM2): chỉ đi tới, không nhảy bậc/ngược. */
@@ -107,6 +135,7 @@ class DonHangOnlineController extends Controller
                 'don' => $donHang,
                 'lichSu' => $lichSu,
                 'trangThaiKe' => self::CHUYEN_TRANG_THAI[$donHang->trang_thai_giao] ?? null,
+                'sdtTrungKhachKhoa' => $this->sdtTrungKhachKhoa($donHang->so_dienthoai_dat),
             ])
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate');
     }

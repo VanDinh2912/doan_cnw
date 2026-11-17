@@ -60,6 +60,20 @@ class AuthController extends Controller
                 ->withErrors(['email' => 'Email hoặc mật khẩu không đúng.']);
         }
 
+        // Chặn sớm tài khoản/hồ sơ bị khóa — không để session được thiết lập.
+        // CheckCả users.khoa_luc lẫn customers.khoa_den (khóa hồ sơ khách).
+        $user = $request->user();
+        $hoSoKhoa = KhachHang::where('user_id', $user->id)->whereNotNull('khoa_den')->exists();
+        if (($user->khoa_luc ?? null) !== null || $hoSoKhoa) {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return back()
+                ->withInput($request->only('email', 'remember'))
+                ->with('error', 'Tài khoản đã bị khóa, vui lòng liên hệ cửa hàng.');
+        }
+
         $request->session()->regenerate();
         NhatKyService::ghi($request, 'dang_nhap', 'user', $request->user()?->id, 'Đăng nhập thành công');
 

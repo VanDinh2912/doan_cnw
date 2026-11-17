@@ -4,11 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Mail\DatHangOnlineXacNhanEmail;
 use App\Models\DonHang;
+use App\Models\KhachHang;
 use App\Services\NhatKyService;
 use App\Services\ThanhToanChuyenKhoanService;
 use App\Services\ThongBaoService;
 use App\Services\VietQrService;
 use App\Support\CheThongTin;
+use App\Support\KiemTraSchema;
 use App\Support\SoDienThoai;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -36,8 +38,37 @@ class DatHangOnlineController extends Controller
     // hay dữ liệu của đơn khác.
     private const LOI_CHUNG = 'Không thể tạo đơn hàng. Vui lòng thử lại.';
 
+    /**
+     * Khách đang đăng nhập bị khóa (users.khoa_luc HOẶC customers.khoa_den).
+     * Route dat-hang/don-hang không qua middleware khoa.luc nên phải tự chặn —
+     * session còn sống của tài khoản vừa bị khóa không được đặt/tra cứu/hủy đơn.
+     */
+    private function khachDangNhapBiKhoa(Request $request): bool
+    {
+        $user = $request->user();
+        if ($user === null) {
+            return false;
+        }
+        if (($user->khoa_luc ?? null) !== null) {
+            return true;
+        }
+        // Query trực tiếp thay vì relation để không dính cache quan hệ cũ
+        // (vd: admin vừa khóa khách giữa session sống của khách).
+        return KiemTraSchema::coCot('customers', 'khoa_den')
+            && KhachHang::where('user_id', $user->id)->whereNotNull('khoa_den')->exists();
+    }
+
+    private function thongBaoKhoa(): string
+    {
+        return 'Tài khoản đã bị khóa, vui lòng liên hệ cửa hàng (hotline '.config('storefront.hotline', '1900 0000').').';
+    }
+
     public function getForm(Request $request): View|RedirectResponse
     {
+        if ($this->khachDangNhapBiKhoa($request)) {
+            return redirect()->route('storefront.home')->with('error', $this->thongBaoKhoa());
+        }
+
         $cart = $request->session()->get(self::CART_KEY, []);
         if (empty($cart)) {
             return redirect()->route('storefront.cart.index')->with('error', 'Giỏ hàng đang trống.');
@@ -63,6 +94,10 @@ class DatHangOnlineController extends Controller
 
     public function postDat(Request $request, ThanhToanChuyenKhoanService $service): RedirectResponse
     {
+        if ($this->khachDangNhapBiKhoa($request)) {
+            return back()->with('error', $this->thongBaoKhoa());
+        }
+
         // Honeypot: người thật không thấy ô này; bot điền vào → từ chối chung, không tạo đơn.
         // Tên trung tính (P2): không gợi email/phone/website/address để trình duyệt không tự điền.
         if (trim((string) $request->input('truong_phu', '')) !== '') {
@@ -252,6 +287,24 @@ class DatHangOnlineController extends Controller
         $request->session()->forget(self::CART_KEY);
         $this->ghiBangChung($request, $don->ma_tra_cuu);
 
+        // Guest đặt hàng với SĐT trùng hồ sơ khách đang bị khóa: VẪN tạo đơn
+        // (không gắn hồ sơ, không chặn, không lộ cho khách) nhưng ghi audit log
+        // để nhân viên biết. Badge hiển thị lúc xem /donhang-online.
+        if ($don->customer_id === null && $don->so_dienthoai_dat
+            && KiemTraSchema::coCot('customers', 'khoa_den')) {
+            $sdtKhoa = KhachHang::where('so_dienthoai', $don->so_dienthoai_dat)
+                ->whereNotNull('khoa_den')
+                ->exists();
+            if ($sdtKhoa) {
+                NhatKyService::ghi(
+                    $request, 'canh_bao_sdt_khach_khoa', 'invoices', $don->id,
+                    'Đơn online '.$don->ma_hoadon.' dùng SĐT trùng hồ sơ khách đang bị khóa',
+                    null,
+                    ['ma_tra_cuu' => $don->ma_tra_cuu]
+                );
+            }
+        }
+
         // Email xác nhận: gửi SAU khi transaction tạo đơn đã commit (service trả về
         // sau DB::transaction). Lỗi mail chỉ log warning, không làm hỏng đơn.
         // Đơn cũ/guest không email (email_dat null) thì bỏ qua, không lỗi.
@@ -314,13 +367,21 @@ class DatHangOnlineController extends Controller
         return view('dathang.thanhcong', ['don' => $don]);
     }
 
-    public function getTraCuu(): View
+    public function getTraCuu(Request $request): View|RedirectResponse
     {
+        if ($this->khachDangNhapBiKhoa($request)) {
+            return redirect()->route('storefront.home')->with('error', $this->thongBaoKhoa());
+        }
+
         return view('dathang.tracuu');
     }
 
     public function postTraCuu(Request $request): RedirectResponse
     {
+        if ($this->khachDangNhapBiKhoa($request)) {
+            return back()->with('error', $this->thongBaoKhoa());
+        }
+
         $validated = $request->validate([
             'ma_tra_cuu' => ['required', 'string', 'max:20'],
             'so_dienthoai' => ['required', 'string', 'regex:/^0\d{9,10}$/'],
@@ -345,6 +406,10 @@ class DatHangOnlineController extends Controller
 
     public function getTrangThai(Request $request, string $ma_tra_cuu, ThanhToanChuyenKhoanService $service): View|RedirectResponse
     {
+        if ($this->khachDangNhapBiKhoa($request)) {
+            return redirect()->route('storefront.home')->with('error', $this->thongBaoKhoa());
+        }
+
         $don = DonHang::where('ma_tra_cuu', $ma_tra_cuu)->first();
         if (! $don || ! $this->coQuyenXem($request, $don)) {
             return redirect()->route('don-hang.tracuu');
@@ -357,6 +422,10 @@ class DatHangOnlineController extends Controller
 
     public function postPoll(Request $request, string $ma_tra_cuu, ThanhToanChuyenKhoanService $service): JsonResponse
     {
+        if ($this->khachDangNhapBiKhoa($request)) {
+            return response()->json(['error' => $this->thongBaoKhoa()], 403);
+        }
+
         $don = DonHang::where('ma_tra_cuu', $ma_tra_cuu)->firstOrFail();
         if (! $this->coQuyenXem($request, $don)) {
             abort(403);
@@ -372,6 +441,10 @@ class DatHangOnlineController extends Controller
 
     public function postHuy(Request $request, string $ma_tra_cuu, ThanhToanChuyenKhoanService $service): RedirectResponse
     {
+        if ($this->khachDangNhapBiKhoa($request)) {
+            return back()->with('error', $this->thongBaoKhoa());
+        }
+
         $don = DonHang::where('ma_tra_cuu', $ma_tra_cuu)->first();
         if (! $don || ! $this->coQuyenXem($request, $don)) {
             return redirect()->route('don-hang.tracuu');
