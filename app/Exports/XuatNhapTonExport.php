@@ -2,13 +2,17 @@
 
 namespace App\Exports;
 
+use App\Exports\Concerns\FormulaSafeExport;
 use App\Models\SanPham;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\WithCustomValueBinder;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 
-class XuatNhapTonExport implements FromCollection, WithHeadings
+class XuatNhapTonExport implements FromCollection, WithHeadings, WithCustomValueBinder
 {
+    use FormulaSafeExport;
+
     public function __construct(private readonly string $tuNgay, private readonly string $denNgay) {}
 
     public function collection(): Collection

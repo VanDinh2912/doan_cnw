@@ -25,7 +25,15 @@ class NhatKyController extends Controller
             $out = fopen('php://output', 'wb');
             fputcsv($out, ['Thời gian', 'Người dùng', 'Hành động', 'Đối tượng', 'Nguồn', 'Mô tả']);
             foreach ($rows as $row) {
-                fputcsv($out, [$row->created_at?->timezone('Asia/Ho_Chi_Minh')->format('d/m/Y H:i:s'), $row->user?->name ?? 'Hệ thống', $row->hanh_dong, $row->doi_tuong.'#'.$row->doi_tuong_id, $row->nguon ?? 'web', $row->mo_ta]);
+                $cells = [
+                    $row->created_at?->timezone('Asia/Ho_Chi_Minh')->format('d/m/Y H:i:s'),
+                    $row->user?->name ?? 'Hệ thống',
+                    $row->hanh_dong,
+                    $row->doi_tuong.'#'.$row->doi_tuong_id,
+                    $row->nguon ?? 'web',
+                    $row->mo_ta,
+                ];
+                fputcsv($out, array_map(fn ($v) => is_string($v) && preg_match('/^[=+\-@\t\r]/', $v) === 1 ? "'".$v : $v, $cells));
             }
             fclose($out);
         }, 'nhat-ky-'.now()->format('Ymd-His').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
