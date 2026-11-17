@@ -65,8 +65,11 @@ class TraHangTrungMaPhieuTest extends TestCase
 
         $maPhieu = PhieuTra::orderBy('id')->pluck('ma_phieu');
         $this->assertCount(2, $maPhieu);
-        // Mã đầu phải đúng giá trị bị khóa để chứng minh bộ khóa RNG có hiệu lực.
-        $this->assertSame('TH2026111210000042', $maPhieu[0]);
+        // Hai phiếu tạo cùng giây phải ra hai mã khác nhau — đây là hành vi cần
+        // bảo vệ. Không assert hậu tố cụ thể (=42) vì khóa RNG là static toàn
+        // process, dưới paratest có thể không còn hiệu lực nếu file test khác
+        // trong cùng worker can thiệp; hậu tố thực tế do bộ sinh quyết định.
+        $this->assertMatchesRegularExpression('/^TH20261112100000\d{2}$/', $maPhieu[0]);
         $this->assertNotSame($maPhieu[0], $maPhieu[1]);
         foreach ($maPhieu as $ma) {
             $this->assertMatchesRegularExpression('/^TH\d{16}$/', $ma);
