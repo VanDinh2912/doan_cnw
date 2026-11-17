@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\DatHangOnlineXacNhanEmail;
 use App\Models\DonHang;
 use App\Services\NhatKyService;
 use App\Services\ThanhToanChuyenKhoanService;
@@ -12,6 +13,8 @@ use App\Support\SoDienThoai;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -71,6 +74,7 @@ class DatHangOnlineController extends Controller
         $validated = $request->validate([
             'ten' => ['required', 'string', 'max:100'],
             'so_dienthoai' => ['required', 'string', 'regex:/^0\d{9,10}$/'],
+            'email' => ['nullable', 'email', 'max:150'],
             'ghi_chu' => ['nullable', 'string', 'max:500'],
             'hinh_thuc_nhan' => ['nullable', 'in:tai_cua_hang,giao_tan_noi'],
             'phuong_thuc' => ['required', 'in:pickup,qr'],
@@ -211,6 +215,11 @@ class DatHangOnlineController extends Controller
         // Phí giao hàng do R1 tính lại từ tiền hàng DB + config trong transaction;
         // controller không truyền phí để không tin giá session hay request.
 
+        // Email tùy chọn: chuẩn hóa trim + lowercase trước khi lưu/gửi.
+        $emailDat = isset($validated['email']) && $validated['email'] !== ''
+            ? mb_strtolower(trim((string) $validated['email']))
+            : null;
+
         $online = [
             'kenh' => 'online',
             'phuong_thuc' => $validated['phuong_thuc'] === 'qr' ? 'chuyenkhoan' : 'tienmat',
@@ -223,6 +232,7 @@ class DatHangOnlineController extends Controller
             'ten_nguoi_nhan' => $validated['ten_nguoi_nhan'] ?? null,
             'sdt_nguoi_nhan' => $validated['sdt_nguoi_nhan'] ?? null,
             'dia_chi_giao' => $validated['dia_chi_giao'] ?? null,
+            'email_dat' => $emailDat,
         ];
 
         try {
@@ -241,6 +251,21 @@ class DatHangOnlineController extends Controller
 
         $request->session()->forget(self::CART_KEY);
         $this->ghiBangChung($request, $don->ma_tra_cuu);
+
+        // Email xác nhận: gửi SAU khi transaction tạo đơn đã commit (service trả về
+        // sau DB::transaction). Lỗi mail chỉ log warning, không làm hỏng đơn.
+        // Đơn cũ/guest không email (email_dat null) thì bỏ qua, không lỗi.
+        if ($don->email_dat) {
+            try {
+                Mail::to($don->email_dat)->send(new DatHangOnlineXacNhanEmail($don));
+            } catch (Throwable $e) {
+                Log::warning('Đặt hàng online: gửi email xác nhận thất bại', [
+                    'invoice_id' => $don->id,
+                    'ma_hoadon' => $don->ma_hoadon,
+                    'message' => $e->getMessage(),
+                ]);
+            }
+        }
 
         NhatKyService::ghi(
             $request,

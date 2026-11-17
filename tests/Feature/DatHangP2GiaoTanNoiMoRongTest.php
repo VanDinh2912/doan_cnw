@@ -121,7 +121,8 @@ class DatHangP2GiaoTanNoiMoRongTest extends TestCase
         $res->assertOk();
         $res->assertSee('name="truong_phu"', false);
         $res->assertDontSee('name="trang_web"', false);
-        $res->assertDontSee('name="email"', false);
+        // Ô email tùy chọn đã được thêm có chủ đích (Bước B) — không còn là trường honeypot.
+        $res->assertSee('name="email"', false);
     }
 
     public function test_honeypot_trung_tinh_bi_dien_bi_tu_choi_khong_tao_don(): void

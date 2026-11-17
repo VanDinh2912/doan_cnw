@@ -49,7 +49,8 @@ class ThanhToanChuyenKhoanService
             foreach ($gioHangSorted as $item) {
                 $sanPham = SanPham::query()->lockForUpdate()->find($item['id']);
                 if (! $sanPham || ! $sanPham->trang_thai || $item['soluong'] > $sanPham->soluong) {
-                    throw new RuntimeException('Tồn kho đã thay đổi, vui lòng kiểm tra lại giỏ hàng.');
+                    $tenSanPham = $sanPham?->ten_sanpham ?? ('#'.$item['id']);
+                    throw new RuntimeException('Sản phẩm "'.$tenSanPham.'" đã hết hàng hoặc không đủ tồn kho, vui lòng kiểm tra lại giỏ hàng.');
                 }
 
                 $soLuong = (int) $item['soluong'];
@@ -153,6 +154,11 @@ class ThanhToanChuyenKhoanService
                 if (isset($online['so_dienthoai_dat'])) $duLieuDonHang['so_dienthoai_dat'] = $online['so_dienthoai_dat'];
                 if (isset($online['ghi_chu_khach'])) $duLieuDonHang['ghi_chu_khach'] = $online['ghi_chu_khach'];
                 if (isset($online['han_giu'])) $duLieuDonHang['han_giu'] = $online['han_giu'];
+                // email_dat: guard riêng vì cột thêm sau (migration 2026_11_17_000004);
+                // code đi trước schema vẫn tạo đơn bình thường, chỉ thiếu email.
+                if (isset($online['email_dat']) && Schema::hasColumn('invoices', 'email_dat')) {
+                    $duLieuDonHang['email_dat'] = $online['email_dat'];
+                }
             }
 
             // Cột giao hàng M3: chỉ ghi khi DB đã có cột (POS vẫn tạo QR trước khi áp M3).

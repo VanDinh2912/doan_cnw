@@ -285,7 +285,8 @@ class ToanVenGiaoDichTest extends TestCase
             $service->taoHoaDonChoThanhToan($gioHang, $thongTin, $this->cashier);
             $this->fail('Đơn thứ hai phải bị từ chối vì hết tồn kho.');
         } catch (RuntimeException $e) {
-            $this->assertSame('Tồn kho đã thay đổi, vui lòng kiểm tra lại giỏ hàng.', $e->getMessage());
+            $this->assertStringContainsString($sanPham->ten_sanpham, $e->getMessage());
+            $this->assertStringContainsString('không đủ tồn kho', $e->getMessage());
         }
 
         $this->assertSame(0, (int) $sanPham->fresh()->soluong);

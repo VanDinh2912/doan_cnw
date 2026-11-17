@@ -199,6 +199,9 @@ Lệnh kiểm tra số lượng bản ghi, tổng hóa đơn, tồn kho và move
 | `POS_DAT_HANG_ONLINE_BAT` | Không | **false** | Bật đặt hàng online; tắt → mọi route `/dat-hang`, `/don-hang` trả 404 | Đặt hàng online |
 | `POS_GIAO_TAN_NOI_BAT` | Không | **false** | Bật hình thức giao tận nơi (chỉ có ý nghĩa khi cờ trên bật) | Đặt hàng online |
 | `HOTLINE` | Không | 1900 0000 | Hotline hiển thị storefront (footer, thanh tin cậy, thông báo giỏ hàng khi cờ tắt) — nguồn `config/storefront.php` | Storefront |
+| `MAIL_MAILER` | Không | log | Mailer gửi email (`log` chỉ ghi log, `smtp` gửi thật) | Email đơn online |
+| `MAIL_HOST` / `MAIL_PORT` / `MAIL_USERNAME` / `MAIL_PASSWORD` / `MAIL_SCHEME` | Khi dùng smtp | 127.0.0.1 / 2525 | Cấu hình SMTP | Email đơn online |
+| `MAIL_FROM_ADDRESS` / `MAIL_FROM_NAME` | Không | hello@example.com / APP_NAME | Địa chỉ & tên người gửi | Email đơn online |
 | `LOG_STACK` | Không | daily | Kênh trong stack log; đặt `daily` để log xoay vòng | Ghi log |
 | `LOG_DAILY_DAYS` | Không | 14 | Số ngày giữ log daily | Ghi log |
 | `BACKUP_DISK` | Không | backups | Đĩa lưu bản sao lưu (khai báo trong `config/filesystems.php`) | Sao lưu |
@@ -1390,7 +1393,7 @@ Sau khi kiểm thử, tạo Pull Request để merge vào `main`.
 Ưu tiên các phần đã có dữ liệu mẫu trong `TaiLieu/`, không mở rộng sang mobile
 hoặc API khi chưa cần cho đồ án.
 
-- Đặt hàng online tối thiểu (guest + khách đăng nhập, QR/pickup): đã có thiết kế chờ duyệt tại [docs/THIET_KE_DAT_HANG_ONLINE.md](docs/THIET_KE_DAT_HANG_ONLINE.md) — chưa triển khai.
+- Đặt hàng online (guest + khách đăng nhập, QR/pickup/giao tận nơi): đã triển khai đầy đủ P0–P3, mặc định TẮT qua `POS_DAT_HANG_ONLINE_BAT=false` — chỉ cần bật cờ trong `.env` sau khi kiểm thử; email xác nhận đơn dùng `MAIL_*` (mặc định `log`).
 
 ### Pha 15 — Nhà cung cấp và đơn nhập hàng — Đã hoàn thành
 
@@ -1478,11 +1481,12 @@ merge vào `main`. Không import dữ liệu mẫu hoặc reset database product
 
 ### Email thông báo cho khách
 
-**Tùy chọn, chưa triển khai; cần cấu hình `MAIL_*` để gửi email thật.**
+**Một phần đã triển khai; cần cấu hình `MAIL_*` để gửi email thật (mặc định `MAIL_MAILER=log` chỉ ghi log).**
 
-- Email khôi phục mật khẩu tiếng Việt; hiện chưa có luồng quên/đặt lại mật khẩu.
-- Email xác nhận đơn hàng POS chỉ gửi khi khách có email (`customers.user_id` →
-  `users.email`), bỏ qua khách không có email. Storefront hiện chưa tạo đơn online.
+- **Email xác nhận đơn online** (`DatHangOnlineXacNhanEmail`): gửi sau khi transaction tạo đơn commit, chỉ khi khách nhập email ở checkout (ô "Email" tùy chọn, prefill từ tài khoản đăng nhập; lưu vào `invoices.email_dat`, chuẩn hóa trim + lowercase). Gửi đồng bộ trong `try/catch` — lỗi mail chỉ `Log::warning`, không làm hỏng đơn. Mail chỉ chứa mã đơn, sản phẩm, tổng tiền, phương thức thanh toán, hạn giữ hàng/hướng dẫn và link tra cứu — không chứa checkout token.
+- **Email "đã nhận thanh toán"** (`DatHangOnlineDaThanhToanEmail`): gửi từ webhook SePay sau khi đơn chuyển `da_thanh_toan` thành công, trong `DB::afterCommit`. Chống trùng nhờ idempotency sẵn có của webhook (cùng `ma_giaodich` hoặc đơn đã `da_thanh_toan` → return sớm), không gửi lại khi webhook retry.
+- Guest không nhập email và đơn cũ (`email_dat` null): không lỗi, không gửi mail.
+- **Chưa có**: email khôi phục mật khẩu (chưa có luồng quên/đặt lại mật khẩu), email xác nhận đơn POS tại quầy.
 
 Bằng chứng kiểm tra code: [Báo cáo rà soát — email](docs/BAO_CAO_RA_SOAT.md#bổ-sung--rà-soát-email-trên-nhánh-hiện-tại-2026-11-10).
 

@@ -50,6 +50,14 @@
                 @error('so_dienthoai')<div style="color:var(--sf-stock-out);font-size:var(--sf-text-sm);">{{ $message }}</div>@enderror
             </div>
 
+            <div style="margin-bottom:12px;">
+                <label for="email" style="display:block;margin-bottom:4px;">Email (không bắt buộc)</label>
+                <input id="email" name="email" type="email" value="{{ old('email', auth()->user()?->email) }}" maxlength="150"
+                       placeholder="Để nhận xác nhận đơn hàng qua email"
+                       style="width:100%;height:40px;border:1px solid var(--sf-border-strong);border-radius:8px;padding:0 10px;">
+                @error('email')<div style="color:var(--sf-stock-out);font-size:var(--sf-text-sm);">{{ $message }}</div>@enderror
+            </div>
+
             <div id="thong_tin_nguoi_nhan" style="display:none;margin-bottom:12px;">
                 <label for="ten_nguoi_nhan" style="display:block;margin-bottom:4px;">Tên người nhận</label>
                 <input id="ten_nguoi_nhan" name="ten_nguoi_nhan" type="text" value="{{ old('ten_nguoi_nhan') }}" maxlength="100"

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\DatHangOnlineDaThanhToanEmail;
 use App\Models\DonHang;
 use App\Models\PaymentWebhook;
 use App\Services\Payment\SepayWebhook;
@@ -12,6 +13,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Throwable;
 
 class WebhookController extends Controller
@@ -158,6 +160,20 @@ class WebhookController extends Controller
                     }
                     if ($treHan) {
                         $this->thongBaoService->canhBaoThanhToanTreHan($soTienChuyen, $maHoaDon, $txn['ma_giaodich'], $soPhutHan);
+                    }
+                    // Mail "đã nhận thanh toán" chỉ chạy trong nhánh success (đơn chuyển sang
+                    // da_thanh_toan); webhook lặp bị chặn ở bước idempotency/trạng thái nên không gửi trùng.
+                    // Lỗi mail chỉ log warning, không ảnh hưởng đối soát.
+                    if ($donHang->email_dat) {
+                        try {
+                            Mail::to($donHang->email_dat)->send(new DatHangOnlineDaThanhToanEmail($donHang));
+                        } catch (Throwable $e) {
+                            Log::warning('SePay Webhook: gửi email xác nhận thanh toán thất bại', [
+                                'invoice_id' => $donHang->id,
+                                'ma_hoadon' => $maHoaDon,
+                                'message' => $e->getMessage(),
+                            ]);
+                        }
                     }
                 });
 
