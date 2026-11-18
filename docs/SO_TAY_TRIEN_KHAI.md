@@ -203,6 +203,14 @@ php artisan down && php artisan up      # tắt/bật bảo trì đúng quy trì
 | `CACHE_STORE` / `SESSION_DRIVER` / `QUEUE_CONNECTION` | ✅ | `database`/`database`/`database` | Production nên `database` (hoặc redis nếu có) |
 | `DB_*` | ✅ | — | Trỏ `doan_cnw` |
 
+> **Chuẩn SePay (không được nhầm):** đường webhook duy nhất là
+> `POST /api/webhook/thanhtoan` (tên route `webhook.thanhtoan`) — không có
+> route `/webhook/sepay`. Mã giao dịch lưu trên `invoices` ở **hai cột song
+> song**: `ma_giaodich` (varchar 100) và `ma_giao_dich` (varchar 40), cả hai
+> unique; service ghi cả hai, webhook kiểm cả hai. Bảng `payment_webhooks`
+> lưu mã giao dịch ngoài ở `ma_giao_dich_ngoai` (unique) và mã tham chiếu
+> ngân hàng ở `ma_tham_chieu`.
+
 ## 4. Guard có thể gỡ SAU KHI migrate xong
 
 Giữ guard là an toàn (idempotent, cache theo request); chỉ gỡ nếu muốn code sạch.
