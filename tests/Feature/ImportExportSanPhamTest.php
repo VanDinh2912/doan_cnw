@@ -24,6 +24,18 @@ class ImportExportSanPhamTest extends TestCase
 
     private ?LoaiSanPham $loaiCache = null;
 
+    private array $tempFiles = [];
+
+    protected function tearDown(): void
+    {
+        foreach ($this->tempFiles as $f) {
+            if (is_file($f)) {
+                @unlink($f);
+            }
+        }
+        parent::tearDown();
+    }
+
     private function loai(): LoaiSanPham
     {
         return $this->loaiCache ??= LoaiSanPham::create(['ten_loai' => 'Củ sạc', 'ma_loai' => 'CS']);
@@ -77,6 +89,7 @@ class ImportExportSanPhamTest extends TestCase
         }
         $path = storage_path('app/test-import-'.uniqid().'.xlsx');
         (new XlsxWriter($spreadsheet))->save($path);
+        $this->tempFiles[] = $path;
 
         return new UploadedFile($path, 'test.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
     }
@@ -158,6 +171,7 @@ class ImportExportSanPhamTest extends TestCase
         $sheet->fromArray([['X', '', 'Ten', 'CS', '', 'Cái']], null, 'A2');
         $path = storage_path('app/test-bad-header.xlsx');
         (new XlsxWriter($spreadsheet))->save($path);
+        $this->tempFiles[] = $path;
         $file = new UploadedFile($path, 'bad.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
 
         $this->upload($file)->assertRedirect(route('sanpham.import'))
@@ -298,6 +312,41 @@ class ImportExportSanPhamTest extends TestCase
         $res->assertSee('trùng trong file');
         $this->assertNull($this->tokenTuResponse($res));
         $this->assertSame(0, SanPham::count());
+    }
+
+    public function test_sku_khong_hop_le_bi_tu_choi(): void
+    {
+        $this->actingAs($this->user());
+        // Ky tu dau = + - @ va ky tu dieu khien -> loi tung dong
+        foreach (['=1+1', '+cmd', '-2+3', '@SUM(1)', "SKU\tAB", "SKU\nCD"] as $sku) {
+            $res = $this->upload($this->makeXlsx([
+                [$sku, '', 'A', 'CS', '', 'Cái', 1000],
+            ]));
+            $res->assertSee('ký tự không hợp lệ');
+            $this->assertNull($this->tokenTuResponse($res));
+        }
+        $this->assertSame(0, SanPham::count());
+
+        // File chi gom 1 dong sku '=1+1' -> ok=false
+        $res = $this->upload($this->makeXlsx([
+            ['=1+1', '', 'A', 'CS', '', 'Cái', 1000],
+        ]));
+        $this->assertNull($this->tokenTuResponse($res));
+        $this->assertSame(0, SanPham::count());
+    }
+
+    public function test_sku_barcode_hop_le_van_qua(): void
+    {
+        $this->actingAs($this->user());
+        $token = $this->tokenTuResponse($this->upload($this->makeXlsx([
+            ['BCS-0011', '0089123456789', 'Cáp chuẩn', 'CS', '', 'Cái', 1000],
+            ['IMP-0001', '', 'Cáp imp', 'CS', '', 'Sợi', 2000],
+            ['0011', '', 'Cáp so 0', 'CS', '', 'Cái', 3000],
+        ])));
+        $this->assertNotNull($token);
+        $this->post(route('sanpham.import.xacnhan'), ['token' => $token]);
+        $this->assertSame(3, SanPham::count());
+        $this->assertDatabaseHas('products', ['sku' => '0011']);
     }
 
     public function test_sku_giu_so_0_dau(): void

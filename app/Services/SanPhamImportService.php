@@ -191,9 +191,13 @@ class SanPhamImportService
                 $loi[] = 'Thiếu SKU.';
             } elseif (mb_strlen($sku) > 50) {
                 $loi[] = 'SKU quá 50 ký tự.';
+            } elseif (! preg_match('/^[A-Za-z0-9][A-Za-z0-9._\/-]{0,49}$/', $sku)) {
+                $loi[] = "SKU '{$sku}' chứa ký tự không hợp lệ hoặc bắt đầu bằng = + - @.";
             }
             if ($barcode !== '' && mb_strlen($barcode) > 50) {
                 $loi[] = 'Barcode quá 50 ký tự.';
+            } elseif ($barcode !== '' && ! preg_match('/^[A-Za-z0-9][A-Za-z0-9._\/-]{0,49}$/', $barcode)) {
+                $loi[] = "Barcode '{$barcode}' chứa ký tự không hợp lệ hoặc bắt đầu bằng = + - @.";
             }
             if ($ten === '') {
                 $loi[] = 'Thiếu tên sản phẩm.';
