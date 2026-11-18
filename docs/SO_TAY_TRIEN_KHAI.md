@@ -262,7 +262,44 @@ Chỉ bật sau khi kiểm tra tay đủ 8 bước trên máy thật:
 Sau 8 bước đạt → đặt `POS_DAT_HANG_ONLINE_BAT=true` (và `POS_GIAO_TAN_NOI_BAT=true`
 nếu giao tận nơi), `php artisan config:cache`, theo dõi `he-thong:kiem-tra` + Telegram.
 
-## 7. Việc còn lại / cần xác nhận
+## 7. Instance thử nghiệm SePay qua tunnel (Giai đoạn test)
+
+Mục đích: SePay webhook không gọi được `127.0.0.1` → cần tunnel công khai,
+nhưng tuyệt đối không phơi toàn bộ app. Dùng instance riêng chỉ-webhook.
+
+**Cửa sổ PowerShell riêng cho instance test** (mở PowerShell mới, cd repo):
+
+```powershell
+$env:APP_ENV="sepay-test"; php artisan serve --port=8082 --no-reload
+```
+
+- `APP_ENV=sepay-test` khiến app nạp `.env.sepay-test` (KHÔNG phải `.env`):
+  `APP_ENV=staging`, `APP_DEBUG=false`, `DB_DATABASE=doan_cnw_dev`,
+  `POS_CHI_CHO_WEBHOOK=true` (mọi route ngoài `POST /api/webhook/thanhtoan`
+  trả 404), `MAIL_MAILER=log`, Telegram trống.
+- **Không chạy lệnh artisan nào khác trong cửa sổ đó** — chỉ giữ `serve`.
+- Xong việc: `Ctrl+C` dừng serve, rồi `Remove-Item Env:APP_ENV`.
+- `php artisan serve --env=sepay-test` **không** nạp file env đó (tùy chọn
+  `--env` của serve chỉ để watch file) — bắt buộc đặt biến `APP_ENV` như trên.
+
+**Kiểm tra trước khi khai báo URL với SePay** (bắt buộc, chạy ở cửa sổ khác):
+
+```powershell
+.\scripts\windows\kiem-tra-sepay-test.ps1                              # kiểm local
+.\scripts\windows\kiem-tra-sepay-test.ps1 -TunnelUrl https://xxx.trycloudflare.com  # kiểm qua tunnel
+```
+
+Script kiểm: `GET /` → 404, `GET /bai-viet` → 404, `POST /api/webhook/thanhtoan`
+không key → 401, và DB instance = `doan_cnw_dev` (qua `php artisan tinker`
+với `APP_ENV=sepay-test`, không ghi dữ liệu). Khi có `-TunnelUrl`, chạy lại
+3 kiểm tra HTTP qua URL công khai; thất bại → **KHÔNG khai báo URL đó với
+SePay**.
+
+`.env.sepay-test` đã nằm trong `.gitignore` (`.env.*`, trừ `.env.example`).
+Chỉ điền `SEPAY_WEBHOOK_API_KEY` khi bắt đầu Giai đoạn 2; key này chỉ dùng
+cho test, go-live phải đổi key khác.
+
+## 8. Việc còn lại / cần xác nhận
 
 - Migration `ma_tham_chieu` (mục 1 #1) chưa có guard `hasColumn` — thêm trước khi áp
   hoặc chấp nhận rủi ro thấp (bảng `payment_webhooks` chắc chắn tồn tại).
