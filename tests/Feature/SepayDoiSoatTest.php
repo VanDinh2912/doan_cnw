@@ -43,6 +43,7 @@ class SepayDoiSoatTest extends TestCase
             'pos.cho_thanh_toan_phut' => 15,
             'pos.telegram_bot_token' => 'telegram-token-test',
             'pos.telegram_chat_id' => 'telegram-chat-test',
+            'pos.bank_account' => '1017588888',
         ]);
 
         Http::preventStrayRequests();

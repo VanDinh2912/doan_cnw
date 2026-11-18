@@ -59,7 +59,17 @@ class SepayWebhook
             'thoi_gian' => (string) ($payload['transactionDate'] ?? now()->toDateTimeString()),
             'gateway' => (string) ($payload['gateway'] ?? ''),
             'reference_code' => (string) ($payload['referenceCode'] ?? ''),
+            'so_tai_khoan' => self::chuanHoaSoTaiKhoan($payload['accountNumber'] ?? null),
         ];
+    }
+
+    /**
+     * Chuẩn hóa số tài khoản nhận: chỉ giữ chữ số để so khớp với
+     * POS_BANK_ACCOUNT bất kể định dạng ngân hàng trả về.
+     */
+    public static function chuanHoaSoTaiKhoan(mixed $soTaiKhoan): string
+    {
+        return preg_replace('/\D/', '', (string) $soTaiKhoan) ?? '';
     }
 
     /**

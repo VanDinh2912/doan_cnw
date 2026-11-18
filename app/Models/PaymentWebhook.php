@@ -16,6 +16,7 @@ class PaymentWebhook extends Model
         'loi_he_thong' => 'Lỗi hệ thống khi xử lý',
         'api_doi_soat' => 'Có trên SePay API nhưng chưa nhận webhook',
         'hoadon_da_thanh_toan' => 'Hóa đơn đã thanh toán nhưng chưa có webhook',
+        'tai_khoan_khong_khop' => 'Tiền vào tài khoản không khớp POS_BANK_ACCOUNT',
     ];
 
     public $timestamps = false;

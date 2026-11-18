@@ -40,6 +40,7 @@ class ThanhToanChuyenKhoanTest extends TestCase
         $this->admin   = User::where('role', 'admin')->firstOrFail();
 
         Config::set('pos.sepay_webhook_api_key', $this->apiKey);
+        Config::set('pos.bank_account', '0388888888');
         Config::set('pos.cho_thanh_toan_phut', 15);
         Config::set('pos.telegram_bot_token', '');
         Config::set('pos.telegram_chat_id', '');
@@ -347,7 +348,7 @@ class ThanhToanChuyenKhoanTest extends TestCase
             'id'              => 771122,
             'gateway'         => 'VCB',
             'transactionDate' => now()->toDateTimeString(),
-            'accountNumber'   => '1017588888',
+            'accountNumber'   => '0388888888',
             'transferType'    => 'in',
             'transferAmount'  => 120000,
             'content'         => 'THANH TOAN DON ' . $cleanMa,

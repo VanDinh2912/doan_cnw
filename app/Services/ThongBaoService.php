@@ -162,6 +162,19 @@ class ThongBaoService
     }
 
     /**
+     * Cảnh báo tiền về nhưng tài khoản nhận không khớp POS_BANK_ACCOUNT.
+     * Không in số tài khoản (tránh lộ cấu hình) — chỉ tiền, mã GD, nội dung.
+     */
+    public function canhBaoTaiKhoanKhongKhop(int $soTien, string $noiDung, string $maGiaoDich): void
+    {
+        $gio = now()->format('H:i:s d/m/Y');
+        $soTienFmt = number_format($soTien, 0, ',', '.');
+        $msg = "⚠️ <b>CẢNH BÁO: TÀI KHOẢN NHẬN KHÔNG KHỚP</b>\nSố tiền: {$soTienFmt} đ\nMã GD: {$maGiaoDich}\nNội dung: {$noiDung}\nTiền vào tài khoản khác POS_BANK_ACCOUNT — kiểm tra lại tài khoản SePay/webhook.\nThời gian: {$gio}";
+
+        $this->guiTelegram($msg);
+    }
+
+    /**
      * Cảnh báo giao dịch không tìm thấy hóa đơn khớp.
      */
     public function canhBaoKhongKhopHoaDon(int $soTien, string $noiDung, string $maGiaoDich): void

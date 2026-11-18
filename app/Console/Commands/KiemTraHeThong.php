@@ -91,6 +91,10 @@ class KiemTraHeThong extends Command
             $this->bao('FAIL', 'SePay webhook', 'thiếu SEPAY_WEBHOOK_API_KEY — mọi webhook sẽ bị từ chối 401');
         } else {
             $this->bao('OK', 'SePay webhook', 'đã cấu hình SEPAY_WEBHOOK_API_KEY');
+
+            if ((string) config('pos.bank_account') === '') {
+                $this->bao('WARN', 'SePay webhook', 'POS_BANK_ACCOUNT trống — webhook không kiểm tra được tài khoản nhận tiền');
+            }
         }
 
         $coToken = (string) config('pos.telegram_bot_token') !== '';

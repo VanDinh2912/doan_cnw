@@ -33,6 +33,7 @@ class DatHangP2Buoc3Test extends TestCase
         $this->seed();
 
         Config::set('pos.sepay_webhook_api_key', $this->apiKey);
+        Config::set('pos.bank_account', '0388888888');
         Config::set('pos.telegram_bot_token', '');
         Config::set('pos.telegram_chat_id', '');
         Config::set('pos.online_tu_dong_xac_nhan', false);

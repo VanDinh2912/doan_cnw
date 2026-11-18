@@ -53,6 +53,24 @@ class WebhookController extends Controller
             return response()->json(['success' => true, 'message' => 'Bỏ qua giao dịch không phải tiền vào.']);
         }
 
+        // 3b. Kiểm tra tài khoản nhận khi đã cấu hình POS_BANK_ACCOUNT.
+        // SePay luôn gửi accountNumber; payload thiếu trường này được bỏ qua
+        // kiểm tra (API key vẫn là lớp xác thực chính). Không khớp → ghi hàng
+        // chờ đối soát + cảnh báo, KHÔNG đổi trạng thái đơn.
+        $taiKhoanCauHinh = SepayWebhook::chuanHoaSoTaiKhoan(config('pos.bank_account'));
+        if ($taiKhoanCauHinh !== '' && $txn['so_tai_khoan'] !== '' && $txn['so_tai_khoan'] !== $taiKhoanCauHinh) {
+            Log::warning('SePay Webhook: tiền vào tài khoản không khớp cấu hình', [
+                'ma_giaodich' => $txn['ma_giaodich'],
+                'noi_dung' => $txn['noi_dung'],
+                'thoi_gian' => $txn['thoi_gian'],
+            ]);
+
+            $this->thongBaoService->canhBaoTaiKhoanKhongKhop($txn['so_tien'], $txn['noi_dung'], $txn['ma_giaodich']);
+            $this->ghiCanDoiSoat($txn, null, null, 'tai_khoan_khong_khop');
+
+            return response()->json(['success' => true, 'message' => 'Tài khoản nhận không khớp cấu hình.']);
+        }
+
         // 4. Chống trùng lặp (Idempotent) chỉ dựa trên id giao dịch của webhook.
         // Mã tham chiếu có thể rỗng hoặc dùng lại cho giao dịch khác, nên tuyệt đối
         // không dùng nó để bỏ qua một webhook.
@@ -104,8 +122,12 @@ class WebhookController extends Controller
             return response()->json(['success' => true, 'message' => 'Hóa đơn đã bị hủy trước đó.']);
         }
 
-        // Nếu hóa đơn đã được thanh toán
+        // Nếu hóa đơn đã được thanh toán (thủ công hoặc một giao dịch SePay khác):
+        // không đổi gì thêm nhưng vẫn ghi hàng chờ đối soát để nhân viên thấy
+        // tiền về cho đơn đã tất toán (có thể là khách chuyển trùng/cần hoàn).
         if ($donHang->trang_thai === 'da_thanh_toan') {
+            $this->ghiCanDoiSoat($txn, $donHang->id, $maHoaDon, 'hoadon_da_thanh_toan');
+
             return response()->json(['success' => true, 'message' => 'Hóa đơn đã được thanh toán.']);
         }
 
