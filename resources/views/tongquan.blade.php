@@ -96,6 +96,19 @@
             <div class="stat-value" data-chi-so="so_hoa_don">{{ number_format($chiSo['so_hoa_don'], 0, ',', '.') }}</div>
         </div>
     </div>
+    <div class="col-12">
+        <div class="stat-card {{ ($chiSo['so_sp_chua_co_gia_nhap'] ?? 0) > 0 ? 'border-warning' : '' }}">
+            <div class="stat-label">Đang bán nhưng chưa có giá nhập</div>
+            <div class="stat-value {{ ($chiSo['so_sp_chua_co_gia_nhap'] ?? 0) > 0 ? 'text-warning' : '' }}" data-chi-so="so_sp_chua_co_gia_nhap">{{ number_format($chiSo['so_sp_chua_co_gia_nhap'] ?? 0, 0, ',', '.') }}</div>
+            <small class="text-muted">
+                @if (in_array(auth()->user()->role, ['admin', 'thukho'], true))
+                    <a href="{{ route('sanpham.danhsach', ['loc' => 'gia_nhap_0']) }}">Xem sản phẩm chưa có giá nhập</a> — bán ra sẽ tính lợi nhuận = toàn bộ giá bán.
+                @else
+                    Sản phẩm bán ra sẽ tính lợi nhuận = toàn bộ giá bán — cần nhập giá vốn.
+                @endif
+            </small>
+        </div>
+    </div>
 </div>
 
 <p class="text-muted small">

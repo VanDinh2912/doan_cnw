@@ -1511,13 +1511,18 @@ Sau khi kiểm thử, tạo Pull Request để merge vào `main`.
 - Tích hợp bên ngoài: hóa đơn điện tử, Zalo ZNS/SMS, đồng bộ Shopee/TikTok (Pha 24).
 - ~~Import/export Excel sản phẩm~~ — đã triển khai (xem mục 7, "Import/Export Excel").
 - Middleware chuẩn hóa/validate UTF-8 cho request web (đã duyệt, làm sau Excel).
-- **Rủi ro tồn tại sẵn — lợi nhuận phình khi `gia_nhap=0 AND soluong>0`**:
-  kiểm kê điều chỉnh tăng tồn **không đặt `gia_nhap`**; nếu SP như vậy bị
-  bán, `gia_von=0` → `ThongKeController` tính lợi nhuận = toàn bộ giá bán.
-  Trên `doan_cnw` hiện có **0** SP ở trạng thái này (đã đếm 2026-11). Đề
-  xuất xử lý (chờ quyết định, chưa sửa logic): (a) khi kiểm kê tăng tồn
-  cho SP `gia_nhap=0` yêu cầu nhập giá vốn; (b) báo cáo lợi nhuận loại
-  trừ/cảnh báo dòng `gia_von=0`; (c) chặn bán SP `gia_nhap=0`.
+- **Rủi ro tồn tại sẵn — lợi nhuận phình khi `gia_von=0`**: kiểm kê điều
+  chỉnh tăng tồn **không đặt `gia_nhap`**; nếu SP như vậy bị bán,
+  `gia_von=0` → `ThongKeController::getDoanhThu` tính lợi nhuận = toàn bộ
+  giá bán. Trên `doan_cnw` hiện có **0** dòng bán/`return_items` bị ảnh
+  hưởng và **0** SP `gia_nhap=0` (đã đếm 2026-11). Đã xử lý phần (b):
+  trang `/thongke` hiện banner cảnh báo khi có dòng bán `gia_von=0`
+  (kèm trang `/thongke/chua-co-gia-von` liệt kê), dashboard `/tongquan`
+  có chỉ số "Đang bán nhưng chưa có giá nhập" — **không đổi công thức
+  lợi nhuận, không sửa dữ liệu**. Việc còn hoãn, chỉ làm khi thực sự xuất
+  hiện SP `gia_nhap=0 AND soluong>0` hoặc dòng `gia_von=0` trên `doan_cnw`:
+  (a) khi kiểm kê tăng tồn cho SP `gia_nhap=0` yêu cầu nhập giá vốn;
+  (c) chặn bán SP `gia_nhap=0` (POS/đặt online).
 
 ### So sánh với LaraShop (TH/DuLieuBuoi08/larashop)
 

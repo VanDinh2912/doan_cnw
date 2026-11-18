@@ -262,11 +262,15 @@ nếu giao tận nơi), `php artisan config:cache`, theo dõi `he-thong:kiem-tra
   hoàn phí ship khi trả hàng, thời hạn gia hạn tối đa, định nghĩa doanh thu.
 - Middleware UTF-8 → 422 cho request web (đã duyệt, commit riêng sau Excel;
   chỉ nhóm web, bỏ qua file upload và webhook `/api/webhook/thanhtoan`).
-- **Rủi ro tồn tại sẵn — lợi nhuận phình `gia_nhap=0 AND soluong>0`** (kiểm
-  kê tăng tồn không đặt giá vốn; bán ra `gia_von=0` → lợi nhuận = full giá
-  bán). `doan_cnw` hiện 0 SP ở trạng thái này. Đề xuất chờ quyết: (a) bắt
-  nhập giá vốn khi kiểm kê tăng tồn SP `gia_nhap=0`; (b) báo cáo loại trừ/
-  cảnh báo `gia_von=0`; (c) chặn bán SP `gia_nhap=0`.
+- **Rủi ro tồn tại sẵn — lợi nhuận phình `gia_von=0`** (kiểm kê tăng tồn
+  không đặt giá vốn; bán ra `gia_von=0` → lợi nhuận = full giá bán).
+  `doan_cnw` hiện 0 dòng bán/`return_items` bị ảnh hưởng và 0 SP
+  `gia_nhap=0`. Đã làm (b): `/thongke` banner cảnh báo + trang
+  `/thongke/chua-co-gia-von` (chỉ admin) liệt kê dòng thiếu giá vốn;
+  `/tongquan` có chỉ số "Đang bán nhưng chưa có giá nhập" — không đổi
+  công thức lợi nhuận. (a) bắt nhập giá vốn khi kiểm kê tăng tồn và
+  (c) chặn bán SP `gia_nhap=0` hoãn lại — chỉ làm khi `doan_cnw` thực sự
+  xuất hiện SP `gia_nhap=0 AND soluong>0` hoặc dòng `gia_von=0`.
 - Import/export Excel sản phẩm + hãng: ĐÃ triển khai (commit `0b213bf`,
   vá injection `0f4a4a8`). Route: `/sanpham/xuat-excel`,
   `/hangsxuat/xuat-excel` (admin+thủ kho); `/sanpham/import-excel`

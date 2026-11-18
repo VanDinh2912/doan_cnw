@@ -23,6 +23,7 @@ class TongQuanKhoService
             SUM(CASE WHEN trang_thai = 1 THEN 1 ELSE 0 END) AS so_mat_hang_dang_kinh_doanh,
             SUM(CASE WHEN trang_thai = 1 AND soluong > 0 THEN 1 ELSE 0 END) AS so_con_hang,
             SUM(CASE WHEN trang_thai = 1 AND soluong = 0 THEN 1 ELSE 0 END) AS so_het_hang,
+            SUM(CASE WHEN trang_thai = 1 AND gia_nhap = 0 THEN 1 ELSE 0 END) AS so_sp_chua_co_gia_nhap,
             COALESCE(SUM(soluong), 0) AS tong_ton_tot,
             COALESCE(SUM(soluong_hong), 0) AS tong_ton_hong,
             COALESCE(SUM(soluong * gia_nhap), 0) AS gia_tri_ton
@@ -41,6 +42,8 @@ class TongQuanKhoService
             'so_mat_hang_dang_kinh_doanh' => (int) $row->so_mat_hang_dang_kinh_doanh,
             'so_con_hang' => (int) $row->so_con_hang,
             'so_het_hang' => (int) $row->so_het_hang,
+            // Đang bán nhưng chưa có giá nhập — bán ra sẽ có gia_von=0, lợi nhuận phình.
+            'so_sp_chua_co_gia_nhap' => (int) $row->so_sp_chua_co_gia_nhap,
             'tong_ton_tot' => $tonKhaDung,
             'ton_kha_dung' => $tonKhaDung,
             'dang_giu' => $dangGiu,

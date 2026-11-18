@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ChiTietDonHang;
 use App\Models\DonHang;
 use App\Models\SanPham;
 use App\Services\TongQuanKhoService;
@@ -37,7 +38,57 @@ class ThongKeController extends Controller
 
     public function getTrangThongKe(): View
     {
-        return view('thongke.index');
+        return view('thongke.index', [
+            'soDongChuaCoGiaVon' => $this->demDongChuaCoGiaVon(),
+        ]);
+    }
+
+    /**
+     * Đếm dòng bán (hóa đơn đã thanh toán) chưa có giá vốn — gia_von = 0/NULL.
+     * Chỉ dùng để CẢNH BÁO, không đổi cách tính lợi nhuận.
+     */
+    private function demDongChuaCoGiaVon()
+    {
+        return ChiTietDonHang::query()
+            ->join('invoices', 'invoices.id', '=', 'invoice_details.invoice_id')
+            ->where('invoices.trang_thai', 'da_thanh_toan')
+            ->where(function ($q) {
+                $q->whereNull('invoice_details.gia_von')
+                    ->orWhere('invoice_details.gia_von', 0);
+            })
+            ->count();
+    }
+
+    /** Danh sách các dòng bán chưa có giá vốn (chỉ admin, qua nhóm role:admin). */
+    public function getDongChuaCoGiaVon(): View
+    {
+        $cacDong = ChiTietDonHang::query()
+            ->join('invoices', 'invoices.id', '=', 'invoice_details.invoice_id')
+            ->join('products', 'products.id', '=', 'invoice_details.product_id')
+            ->where('invoices.trang_thai', 'da_thanh_toan')
+            ->where(function ($q) {
+                $q->whereNull('invoice_details.gia_von')
+                    ->orWhere('invoice_details.gia_von', 0);
+            })
+            ->orderByDesc('invoices.created_at')
+            ->orderByDesc('invoice_details.id')
+            ->select([
+                'invoice_details.id',
+                'invoices.ma_hoadon',
+                'invoices.created_at as ngay_ban',
+                'products.ten_sanpham',
+                'products.sku',
+                'invoice_details.soluong',
+                'invoice_details.don_gia',
+                'invoice_details.thanh_tien',
+            ])
+            ->paginate(50)
+            ->withQueryString();
+
+        return view('thongke.chua-co-gia-von', [
+            'cacDong' => $cacDong,
+            'tongDong' => $this->demDongChuaCoGiaVon(),
+        ]);
     }
 
     public function getDoanhThu(Request $request): JsonResponse

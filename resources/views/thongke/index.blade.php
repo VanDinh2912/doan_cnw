@@ -10,6 +10,17 @@
     </div>
 </div>
 
+@if (($soDongChuaCoGiaVon ?? 0) > 0)
+    <div class="alert alert-warning d-flex align-items-center gap-2" role="alert">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span>
+            Có <strong>{{ number_format($soDongChuaCoGiaVon, 0, ',', '.') }} dòng bán chưa có giá vốn</strong>
+            — lợi nhuận kỳ này có thể cao hơn thực tế.
+            <a href="{{ route('thongke.chuagivon') }}">Xem danh sách các dòng/SP đó</a>
+        </span>
+    </div>
+@endif
+
 <div class="row g-3">
     <div class="col-lg-7">
         <div class="card h-100">

@@ -327,6 +327,7 @@ Route::middleware(['auth', 'staff.only', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->
         Route::get('/thongke', [\App\Http\Controllers\ThongKeController::class, 'getTrangThongKe'])
             ->name('thongke.index');
         Route::get('/thongke/doanhthu', [\App\Http\Controllers\ThongKeController::class, 'getDoanhThu'])->name('thongke.doanhthu');
+        Route::get('/thongke/chua-co-gia-von', [\App\Http\Controllers\ThongKeController::class, 'getDongChuaCoGiaVon'])->name('thongke.chuagivon');
         Route::get('/thongke/topsanpham', [\App\Http\Controllers\ThongKeController::class, 'getTopSanPham'])->name('thongke.topsanpham');
         Route::get('/baocao/hoadon/{dinhDang}', [\App\Http\Controllers\BaoCaoController::class, 'getHoaDon'])->name('baocao.hoadon');
 
