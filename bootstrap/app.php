@@ -25,6 +25,10 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\ValidateUtf8Encoding::class,
         ]);
 
+        // Che do chi-webhook (POS_CHI_CHO_WEBHOOK): global de phu ca route
+        // webhook von withoutMiddleware('web'). Mac dinh tat.
+        $middleware->append(\App\Http\Middleware\ChiChoWebhook::class);
+
         $middleware->alias([
             'role' => \App\Http\Middleware\CheckRole::class,
             'staff.only' => \App\Http\Middleware\RedirectKhachhangFromStaff::class,

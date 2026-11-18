@@ -34,6 +34,9 @@ return [
     'sepay_api_min_interval_ms' => (int) env('SEPAY_API_MIN_INTERVAL_MS', 350),
     'sepay_api_max_retry_after' => (int) env('SEPAY_API_MAX_RETRY_AFTER', 30),
     'sepay_doi_soat_telegram_toi_da' => (int) env('SEPAY_DOI_SOAT_TELEGRAM_TOI_DA', 5),
+    // Chế độ chỉ-webhook cho instance thử nghiệm qua tunnel: mọi route
+    // ngoài /api/webhook/thanhtoan trả 404. Mặc định TẮT.
+    'chi_cho_webhook' => env('POS_CHI_CHO_WEBHOOK', false) === true,
     'telegram_bot_token' => env('TELEGRAM_BOT_TOKEN', ''),
     'telegram_chat_id' => env('TELEGRAM_CHAT_ID', ''),
 ];
