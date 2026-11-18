@@ -34,6 +34,11 @@
                 <div style="margin-top:20px;text-align:center;">
                     <p style="color:var(--sf-fg-muted);">Quét mã QR bên dưới để thanh toán:</p>
                     <img src="{{ $qrUrl }}" alt="QR Code" style="max-width:300px;height:auto;border:1px solid var(--sf-border);border-radius:8px;">
+                    <div style="margin-top:12px;padding:12px;background:var(--sf-bg);border:1px solid var(--sf-accent);border-radius:8px;max-width:420px;margin-left:auto;margin-right:auto;">
+                        <div style="color:var(--sf-fg-muted);font-size:var(--sf-text-sm);">Vui lòng chuyển <b>ĐÚNG số tiền
+                            {{ number_format((float) $don->tong_thanh_toan, 0, ',', '.') }} ₫</b> và giữ nguyên
+                            <b>nội dung chuyển khoản: {{ $don->ma_hoadon }}</b>.</div>
+                    </div>
                     <p style="margin-top:12px;color:var(--sf-fg-muted);font-size:var(--sf-text-sm);">
                         Hệ thống sẽ tự động cập nhật trạng thái sau khi thanh toán thành công.
                     </p>
