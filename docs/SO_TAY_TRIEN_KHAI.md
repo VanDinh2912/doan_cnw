@@ -260,8 +260,8 @@ nếu giao tận nơi), `php artisan config:cache`, theo dõi `he-thong:kiem-tra
   hoặc chấp nhận rủi ro thấp (bảng `payment_webhooks` chắc chắn tồn tại).
 - "Cần người dùng xác nhận": phí ship thật, vùng giao (`POS_GIAO_HANG_TINH`),
   hoàn phí ship khi trả hàng, thời hạn gia hạn tối đa, định nghĩa doanh thu.
-- Middleware UTF-8 → 422 cho request web (đã duyệt, commit riêng sau Excel;
-  chỉ nhóm web, bỏ qua file upload và webhook `/api/webhook/thanhtoan`).
+- ~~Middleware UTF-8 → 422 cho request web~~ — đã triển khai (chỉ nhóm web,
+  bỏ qua file upload và webhook `/api/webhook/thanhtoan`).
 - **Rủi ro tồn tại sẵn — lợi nhuận phình `gia_von=0`** (kiểm kê tăng tồn
   không đặt giá vốn; bán ra `gia_von=0` → lợi nhuận = full giá bán).
   `doan_cnw` hiện 0 dòng bán/`return_items` bị ảnh hưởng và 0 SP

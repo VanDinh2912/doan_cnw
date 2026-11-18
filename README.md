@@ -1510,7 +1510,7 @@ Sau khi kiểm thử, tạo Pull Request để merge vào `main`.
 - Khuyến mãi/voucher (Pha 22), ROP/ABC (Pha 21).
 - Tích hợp bên ngoài: hóa đơn điện tử, Zalo ZNS/SMS, đồng bộ Shopee/TikTok (Pha 24).
 - ~~Import/export Excel sản phẩm~~ — đã triển khai (xem mục 7, "Import/Export Excel").
-- Middleware chuẩn hóa/validate UTF-8 cho request web (đã duyệt, làm sau Excel).
+- ~~Middleware chuẩn hóa/validate UTF-8 cho request web~~ — đã triển khai (`ValidateUtf8Encoding`, nhóm web → 422; webhook/API không ảnh hưởng).
 - **Rủi ro tồn tại sẵn — lợi nhuận phình khi `gia_von=0`**: kiểm kê điều
   chỉnh tăng tồn **không đặt `gia_nhap`**; nếu SP như vậy bị bán,
   `gia_von=0` → `ThongKeController::getDoanhThu` tính lợi nhuận = toàn bộ
