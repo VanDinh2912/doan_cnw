@@ -474,4 +474,37 @@ class SepayDoiSoatTest extends TestCase
 
         $this->actingAs($this->cashier)->get(route('doisoat.index'))->assertForbidden();
     }
+
+    // T-SDS13: --chi-don-hang chỉ ghi giao dịch có mã đơn; giao dịch lạ bị bỏ qua.
+    public function test_T_SDS13_chi_don_hang_bo_qua_giao_dich_khong_co_ma(): void
+    {
+        $this->taoHoaDon('HD20261111-0013', 'cho_thanh_toan', 150000);
+        $this->fakeApi([
+            // Có mã đơn → vẫn ghi (hóa đơn không tồn tại cũng ghi để đối soát tay).
+            $this->giaoDichApi('uuid-ds-013a', 'THANH TOAN HD20261111-0013', 150000, 'FT-DS-013A'),
+            // Không có mã đơn → bỏ qua, không tạo payment_webhooks.
+            $this->giaoDichApi('uuid-ds-013b', 'CHUYEN TIEN MAT HANG NGAY', 50000, 'FT-DS-013B'),
+        ]);
+
+        $this->artisan('sepay:doi-soat', ['--gio' => 2, '--chi-don-hang' => true])
+            ->expectsOutputToContain('2 giao dịch tiền vào, 0 đã có, 1 thiếu mới')
+            ->expectsOutputToContain('đã bỏ qua do --chi-don-hang')
+            ->assertExitCode(0);
+
+        $this->assertDatabaseHas('payment_webhooks', ['ma_giao_dich_ngoai' => 'api:uuid-ds-013a']);
+        $this->assertDatabaseMissing('payment_webhooks', ['ma_giao_dich_ngoai' => 'api:uuid-ds-013b']);
+    }
+
+    // T-SDS14: Không cờ --chi-don-hang thì giao dịch lạ vẫn được ghi như cũ.
+    public function test_T_SDS14_khong_co_co_van_ghi_giao_dich_khong_ma(): void
+    {
+        $this->fakeApi([
+            $this->giaoDichApi('uuid-ds-014', 'CHUYEN TIEN KHONG MA DON', 50000, 'FT-DS-014'),
+        ]);
+
+        $this->artisan('sepay:doi-soat', ['--gio' => 2])->assertExitCode(0);
+
+        $banGhi = PaymentWebhook::where('ma_giao_dich_ngoai', 'api:uuid-ds-014')->firstOrFail();
+        $this->assertSame('khong_tim_thay_ma_hoadon', $banGhi->ly_do);
+    }
 }

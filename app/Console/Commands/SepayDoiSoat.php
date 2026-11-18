@@ -18,6 +18,7 @@ class SepayDoiSoat extends Command
 
     protected $signature = 'sepay:doi-soat
         {--gio=24 : Số giờ gần nhất cần đối soát}
+        {--chi-don-hang : Chỉ ghi giao dịch có mã đơn trong nội dung (bỏ qua giao dịch không liên quan)}
         {--ap-dung : Chỉ dùng khi đã chứng minh được khóa chống trùng chung}';
 
     protected $description = 'Đối soát giao dịch tiền vào từ SePay API (mặc định chỉ báo cáo)';
@@ -67,6 +68,7 @@ class SepayDoiSoat extends Command
         $soGiaoDich = 0;
         $soDaCo = 0;
         $soMoi = 0;
+        $soBoQua = 0;
 
         // Giới hạn số tin Telegram chi tiết mỗi lần chạy; phần vượt gộp thành một tin.
         $gioiHanTelegram = max(0, (int) config('pos.sepay_doi_soat_telegram_toi_da', 5));
@@ -86,6 +88,15 @@ class SepayDoiSoat extends Command
                 }
 
                 [$lyDo, $donHang, $maHoaDon] = $this->phanLoai($giaoDich->content, $giaoDich->amountIn);
+
+                // Chế độ chỉ-đơn-hàng (dùng cho lịch chạy): giao dịch không chứa
+                // mã đơn nào thì bỏ qua, tránh /doisoat đầy giao dịch không liên quan.
+                // Mã đơn có nhưng hóa đơn không tồn tại vẫn được ghi để đối soát tay.
+                if ($this->option('chi-don-hang') && $maHoaDon === null) {
+                    $soBoQua++;
+
+                    continue;
+                }
 
                 PaymentWebhook::create([
                     'nha_cung_cap' => 'sepay_api',
@@ -153,6 +164,9 @@ class SepayDoiSoat extends Command
             $soDaCo,
             $soMoi
         ));
+        if ($soBoQua > 0) {
+            $this->line(sprintf('  (%d giao dịch không có mã đơn đã bỏ qua do --chi-don-hang)', $soBoQua));
+        }
 
         return self::SUCCESS;
     }

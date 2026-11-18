@@ -10,7 +10,7 @@ Schedule::command('donhang:huy-qua-han')->everyMinute();
 Schedule::command('sao-luu:csdl')->dailyAt('02:00');
 
 // Chỉ báo cáo, không tự hoàn tất hóa đơn; tự bỏ qua khi chưa có SEPAY_API_TOKEN.
-Schedule::command('sepay:doi-soat --gio=6')
+Schedule::command('sepay:doi-soat --gio=6 --chi-don-hang')
     ->everyTenMinutes()
     ->withoutOverlapping()
     ->when(fn (): bool => trim((string) config('pos.sepay_api_token')) !== '');
