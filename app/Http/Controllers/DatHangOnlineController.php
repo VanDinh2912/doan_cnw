@@ -410,7 +410,7 @@ class DatHangOnlineController extends Controller
             return redirect()->route('storefront.home')->with('error', $this->thongBaoKhoa());
         }
 
-        $don = DonHang::where('ma_tra_cuu', $ma_tra_cuu)->first();
+        $don = DonHang::with('chiTietDonHangs.sanPham')->where('ma_tra_cuu', $ma_tra_cuu)->first();
         if (! $don || ! $this->coQuyenXem($request, $don)) {
             return redirect()->route('don-hang.tracuu');
         }
