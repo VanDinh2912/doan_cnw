@@ -29,3 +29,10 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+context.md
+du-lieu-mau-hoa-don-nhap-A-15-mat-hang.xlsx
+du-lieu-mau-hoa-don-nhap-B-12-mat-hang.xlsx
+hoa-don-mau-12-mat-hang-phu-kien-dien-thoai.pdf
+hoa-don-mau-15-mat-hang-phu-kien-dien-thoai.pdf
+backups/
+*.sql
