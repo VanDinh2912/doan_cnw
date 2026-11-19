@@ -763,6 +763,16 @@ Thanh toán sử dụng một transaction duy nhất:
   - Cơ chế **Human-in-the-Loop**: Dữ liệu bóc tách được đưa lên giao diện tiền kiểm tra (Draft Review UI) để thủ kho rà soát, chỉnh sửa ô thiếu trước khi xác nhận.
   - **Non-blocking Workflow**: Lỗi file PDF không làm gián đoạn nhập kho, người dùng luôn có thể nhập liệu thủ công.
 - Giá nhập là giá chưa thuế; thuế và tổng thanh toán tính ở cấp hóa đơn.
+- **Thuế trên hóa đơn nhập (thuế đầu vào chứng từ)**: `thue_suat` chỉ nhận
+  0/5/8/10% (mặc định form 8%), `tien_thue = round(tong_tien_hang × thue_suat/100)`,
+  `tong_thanh_toan = tong_tien_hang + tien_thue`. Parser PDF cũng bóc
+  `thue_suat`/`tien_thue` từ chứng từ NCC; `HoaDonNhapService` đối chiếu lại
+  tổng tiền/thuế trước khi xác nhận. Thuế này **chỉ lưu chứng từ kế toán** —
+  không cộng vào `gia_nhap`/giá vốn, không ảnh hưởng doanh thu hay lợi nhuận.
+  `ma_so_thue` của NCC là mã số thuế định danh doanh nghiệp (bắt buộc khi lưu
+  HĐ nhập), không phải thuế suất.
+- **Thuế GTGT khi BÁN: chưa triển khai** — hóa đơn bán (POS, đơn online),
+  `invoices`/`invoice_details` không có cột thuế/VAT; giá bán là giá thuần.
 - Chỉ xác nhận mới nhập kho; xác nhận dùng transaction, khóa dòng và ghi
   `purchase_invoice_id`.
 - Hóa đơn đã nhập kho không được sửa/hủy hoặc xác nhận lần hai.
@@ -1546,6 +1556,8 @@ Sau khi kiểm thử, tạo Pull Request để merge vào `main`.
 - In tự động không qua hộp thoại trình duyệt (cần QZ Tray).
 - CRUD tài khoản người dùng, ứng dụng mobile và API riêng (Pha 23).
 - Khuyến mãi/voucher (Pha 22), ROP/ABC (Pha 21).
+- **Thuế GTGT khi bán**: hóa đơn bán/đơn online không có thuế suất — chỉ có
+  thuế đầu vào trên hóa đơn nhập (xem mục 7, "Hóa đơn nhập").
 - Tích hợp bên ngoài: hóa đơn điện tử, Zalo ZNS/SMS, đồng bộ Shopee/TikTok (Pha 24).
 - ~~Import/export Excel sản phẩm~~ — đã triển khai (xem mục 7, "Import/Export Excel").
 - ~~Middleware chuẩn hóa/validate UTF-8 cho request web~~ — đã triển khai (`ValidateUtf8Encoding`, nhóm web → 422; webhook/API không ảnh hưởng).
