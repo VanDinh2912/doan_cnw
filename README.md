@@ -120,6 +120,12 @@ chỉ hoạt động khi cấu hình `SEPAY_WEBHOOK_API_KEY` và có tunnel côn
 
 Nếu MySQL có mật khẩu, điền mật khẩu vào `DB_PASSWORD`.
 
+> **Chạy thử trên DB dev (`doan_cnw_dev`) — bắt buộc trước mọi thao tác GHI:**
+> dùng `.env.dev-test` (gitignored, `APP_ENV=dev-test` + `DB_DATABASE=doan_cnw_dev`)
+> nạp qua `$env:APP_ENV='dev-test'` — KHÔNG đặt `DB_DATABASE` rời. Trước mỗi lượt
+> ghi chạy `.\scripts\windows\kiem-tra-db-dev.ps1` (thất bại → dừng). Chi tiết:
+> `docs/SO_TAY_TRIEN_KHAI.md` mục 7b.
+
 ### 3.5. Tạo bảng và dữ liệu mẫu
 
 Lệnh dưới đây xóa và tạo lại toàn bộ bảng trong database đã cấu hình:
@@ -199,6 +205,9 @@ Lệnh kiểm tra số lượng bản ghi, tổng hóa đơn, tồn kho và move
 | `POS_DAT_HANG_ONLINE_BAT` | Không | **false** | Bật đặt hàng online; tắt → mọi route `/dat-hang`, `/don-hang` trả 404 | Đặt hàng online |
 | `POS_GIAO_TAN_NOI_BAT` | Không | **false** | Bật hình thức giao tận nơi (chỉ có ý nghĩa khi cờ trên bật) | Đặt hàng online |
 | `HOTLINE` | Không | 1900 0000 | Hotline hiển thị storefront (footer, thanh tin cậy, thông báo giỏ hàng khi cờ tắt) — nguồn `config/storefront.php` | Storefront |
+| `STORE_NAME` | Không | PhoneShop | Tên cửa hàng — tiêu đề, logo chữ, footer, email khách, tiêu đề mặc định (`STORE_TITLE`) | Storefront |
+| `STORE_TITLE` | Không | Phụ kiện điện thoại chính hãng | Tagline/tiêu đề mặc định khi chưa override | Storefront |
+| `STORE_GIO_LAM_VIEC` | Không | 8:00 – 22:00 | Giờ hỗ trợ hiển thị footer + thanh tin cậy | Storefront |
 | `MAIL_MAILER` | Không | log | Mailer gửi email (`log` chỉ ghi log, `smtp` gửi thật) | Email đơn online |
 | `MAIL_HOST` / `MAIL_PORT` / `MAIL_USERNAME` / `MAIL_PASSWORD` / `MAIL_SCHEME` | Khi dùng smtp | 127.0.0.1 / 2525 | Cấu hình SMTP | Email đơn online |
 | `MAIL_FROM_ADDRESS` / `MAIL_FROM_NAME` | Không | hello@example.com / APP_NAME | Địa chỉ & tên người gửi | Email đơn online |
@@ -2259,3 +2268,20 @@ khỏi `config/pos.php`, `phpunit.xml`, `.env.example` và README.
 
 Bằng chứng chi tiết từng khẳng định nghiệp vụ: xem
 [docs/BAO_CAO_RA_SOAT.md](docs/BAO_CAO_RA_SOAT.md).
+### Đợt Storefront nội dung + dev-test + sửa lỗi vận hành — `main` (2026-11-19)
+
+- **Nội dung storefront đúng ngành phụ kiện**: tên cửa hàng/tagline gom về
+  `config/storefront.php` (`STORE_NAME`, `STORE_TITLE`, `STORE_GIO_LAM_VIEC`,
+  `HOTLINE` trong `.env.example`); brand-strip đọc bảng `brands` (`kich_hoat=1`,
+  1 query); hero/trust-bar đổi theo `POS_GIAO_TAN_NOI_BAT` (tắt → "Đặt online,
+  nhận tại cửa hàng", không nhắc freeship/24h); icon danh mục theo keyword cụ
+  thể trong FA 6.7.2; email dùng `storefront.ten_cua_hang` (sửa chữ ký "Laravel").
+- **Cơ chế dev-test**: `.env.dev-test` (gitignored) + `APP_ENV=dev-test` +
+  `scripts/windows/kiem-tra-db-dev.ps1` bắt buộc trước mọi lượt ghi lên
+  `doan_cnw_dev` — xem `docs/SO_TAY_TRIEN_KHAI.md` mục 7b và README mục 3.4.
+- **Sửa lỗi**: đơn nhập `cho_duyet` không có nút chuyển trạng thái trên UI
+  (blade lặp sai key); trang trạng thái đơn online lazy-load `sanPham`
+  (`local.ERROR`). Test hồi quy: `DonNhapVaTrangThaiDonTest`.
+- **Test song song**: `php artisan test --parallel` xanh — 953 test, 0 fail,
+  ~10–22 phút (tuần tự ~60 phút); 3 `*GuardTest` mock MySQL tắt auto-provision
+  DB của Laravel Parallel Testing trong `createApplication`.
