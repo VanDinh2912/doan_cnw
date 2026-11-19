@@ -215,6 +215,7 @@ Lệnh kiểm tra số lượng bản ghi, tổng hóa đơn, tồn kho và move
 | `GOOGLE_REDIRECT_URI` | Không | `{APP_URL}/auth/google/callback` | Redirect URI đăng ký trong Google Console | Đăng nhập |
 | `LOG_STACK` | Không | daily | Kênh trong stack log; đặt `daily` để log xoay vòng | Ghi log |
 | `LOG_DAILY_DAYS` | Không | 14 | Số ngày giữ log daily | Ghi log |
+| `POS_NHATKY_GIU_NGAY` | Không | 365 | Số ngày giữ `activity_logs` cho `nhatky:don-cu` | Nhật ký |
 | `BACKUP_DISK` | Không | backups | Đĩa lưu bản sao lưu (khai báo trong `config/filesystems.php`) | Sao lưu |
 | `BACKUP_GIU_BAN` | Không | 7 | Số bản sao lưu giữ lại | Sao lưu |
 | `BACKUP_TIMEOUT` | Không | 300 | Thời gian tối đa của `mysqldump` (giây) | Sao lưu |
@@ -481,6 +482,27 @@ php artisan migrate --force
 
 Khôi phục SQLite: dừng ứng dụng rồi chép đè tệp sao lưu lên đường dẫn
 `DB_DATABASE`.
+
+### Lệnh artisan vận hành khác
+
+| Lệnh | Tác dụng |
+|------|----------|
+| `khachhang:chuan-hoa-sdt {--ap-dung}` | Chuẩn hóa SĐT khách/đơn cũ (mặc định chỉ liệt kê, không ghi) |
+| `app:scrape-product-images {--limit=N} {--force}` | Sinh ảnh SVG cục bộ theo danh mục/hãng/model vào `storage/app/public/products` (không cần mạng); `public/storage` phải đã link |
+| `app:sync-tailieu-data {--seed-stock}` | Đồng bộ danh mục/sản phẩm từ `TaiLieu/` (không ghi đè tồn kho trừ khi `--seed-stock`) |
+| `nhatky:don-cu {--ngay=N} {--ap-dung}` | Dọn `activity_logs` cũ hơn N ngày (mặc định `POS_NHATKY_GIU_NGAY` hoặc 365; `--ap-dung` mới xóa) |
+| `hold:clean` | Xóa giỏ tạm giữ quá hạn (lịch mỗi ngày) |
+| `donhang:huy-qua-han` | Hủy đơn online quá hạn giữ + hoàn kho/điểm (lịch mỗi phút) |
+| `nguoidung:tao {email} {vai_tro}` | Tạo tài khoản nhân viên (`admin`/`thungan`/`thukho`) |
+| `nguoidung:doi-matkhau {email}` | Đặt lại mật khẩu nhân viên |
+| `app:backfill-product-brands {--apply}` | Gán `brand_id` từ tên SP (dry-run mặc định, idempotent) |
+| `demo:kiemtra-du-lieu` | Kiểm tra dữ liệu demo — **chỉ đọc** |
+| `demo:reset` / `db:wipe` / `migrate:fresh` | Lệnh phá hủy — bị chặn trên production, xem mục 10 |
+
+Lệnh liên quan webhook/đối soát SePay: `sepay:doi-soat {--gio=24}` (đối soát
+chủ động, mặc định chỉ báo cáo), `sepay:kiem-tra-ket-noi` (kiểm token/kết
+nối). Instance test qua tunnel: xem `docs/SO_TAY_TRIEN_KHAI.md` mục 7–7b
+(`.env.sepay-test` chỉ-webhook, `.env.dev-test` cho dev DB).
 
 ## 5A. Triển khai tại cửa hàng (checklist)
 
