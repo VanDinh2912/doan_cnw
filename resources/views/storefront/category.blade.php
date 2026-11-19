@@ -1,6 +1,6 @@
 @extends('storefront.layouts.app')
 
-@section('title', $category->ten_loai . ' — PhoneShop')
+@section('title', $category->ten_loai . ' — ' . config('storefront.ten_cua_hang'))
 
 @section('content')
     <div class="sf-container" style="padding-top:20px;">

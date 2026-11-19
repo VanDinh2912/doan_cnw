@@ -1,6 +1,6 @@
 @extends('storefront.layouts.app')
 
-@section('title', $don->trang_thai === 'da_huy' ? 'Đơn hàng đã hủy — PhoneShop' : 'Đặt hàng thành công — PhoneShop')
+@section('title', ($don->trang_thai === 'da_huy' ? 'Đơn hàng đã hủy' : 'Đặt hàng thành công') . ' — ' . config('storefront.ten_cua_hang'))
 
 @section('content')
     <div class="sf-container" style="padding-top:20px;">

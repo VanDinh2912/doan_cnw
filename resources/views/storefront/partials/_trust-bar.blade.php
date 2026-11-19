@@ -1,9 +1,16 @@
 @php
+    $giaoTanNoi = (bool) config('pos.giao_tan_noi_bat');
+    $mienPhiTu = (int) config('pos.mien_phi_giao_tu', 0);
+    $shipItem = $giaoTanNoi
+        ? ($mienPhiTu > 0
+            ? ['icon' => 'fa-truck-fast', 'title' => 'Miễn phí vận chuyển', 'sub' => 'Đơn từ '.number_format($mienPhiTu, 0, ',', '.').' ₫']
+            : ['icon' => 'fa-truck-fast', 'title' => 'Giao tận nơi', 'sub' => 'Giao trong 24h nội thành'])
+        : ['icon' => 'fa-store', 'title' => 'Nhận tại cửa hàng', 'sub' => 'Đặt online, ghé lấy hàng'];
     $items = [
-        ['icon' => 'fa-truck-fast', 'title' => 'Miễn phí vận chuyển', 'sub' => 'Đơn hàng từ 500.000 ₫'],
+        $shipItem,
         ['icon' => 'fa-rotate-left', 'title' => 'Đổi trả 30 ngày', 'sub' => 'Lỗi do nhà sản xuất'],
         ['icon' => 'fa-shield-halved', 'title' => 'Bảo hành 12 tháng', 'sub' => 'Chính hãng, toàn quốc'],
-        ['icon' => 'fa-headset', 'title' => 'Hỗ trợ 24/7', 'sub' => 'Hotline '.config('storefront.hotline')],
+        ['icon' => 'fa-headset', 'title' => 'Hỗ trợ '.config('storefront.gio_lam_viec'), 'sub' => 'Hotline '.config('storefront.hotline').' hằng ngày'],
     ];
 @endphp
 

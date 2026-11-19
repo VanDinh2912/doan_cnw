@@ -7,14 +7,14 @@
     <div class="sf-container sf-header-inner">
         <a class="sf-logo" href="{{ route('storefront.home') }}">
             <i class="fa-solid fa-mobile-screen"></i>
-            <span>PhoneShop</span>
+            <span>{{ config('storefront.ten_cua_hang') }}</span>
         </a>
 
         <form class="sf-search" action="{{ route('storefront.search') }}" method="GET" role="search">
             <label for="sf-search-input" class="visually-hidden">Tìm kiếm sản phẩm</label>
             <input id="sf-search-input" type="search" name="q"
                    value="{{ request('q') }}"
-                   placeholder="Bạn tìm điện thoại gì hôm nay?"
+                   placeholder="Bạn tìm phụ kiện gì hôm nay?"
                    autocomplete="off">
             <button type="submit" aria-label="Tìm kiếm">
                 <i class="fa-solid fa-magnifying-glass"></i>

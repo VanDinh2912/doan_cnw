@@ -10,13 +10,13 @@ return [
     'pages' => [
         'gioi-thieu' => [
             'tieu_de' => 'Giới thiệu',
-            'mo_ta' => 'PhoneShop — cửa hàng phụ kiện & thiết bị điện thoại chính hãng.',
+            'mo_ta' => config('storefront.ten_cua_hang').' — cửa hàng phụ kiện điện thoại chính hãng.',
             'noi_dung' => [
-                ['tieu_de' => 'Về PhoneShop', 'cac_doan' => [
-                    'PhoneShop là cửa hàng trực tuyến và trực tiếp chuyên kinh doanh điện thoại và phụ kiện chính hãng: sạc, cáp, tai nghe, ốp lưng, kính cường lực...',
+                ['tieu_de' => 'Về '.config('storefront.ten_cua_hang'), 'cac_doan' => [
+                    config('storefront.ten_cua_hang').' là cửa hàng trực tuyến và trực tiếp chuyên kinh doanh phụ kiện điện thoại chính hãng: sạc, cáp, tai nghe, ốp lưng, kính cường lực...',
                     'Chúng tôi cam kết sản phẩm chính hãng, bảo hành theo chính sách của hãng và hỗ trợ khách hàng trong giờ 8:00 – 22:00 hằng ngày.',
                 ]],
-                ['tieu_de' => 'Mua sắm tại PhoneShop', 'cac_doan' => [
+                ['tieu_de' => 'Mua sắm tại '.config('storefront.ten_cua_hang'), 'cac_doan' => [
                     'Bạn có thể đặt hàng online (nhận tại cửa hàng hoặc giao tận nơi) hoặc ghé cửa hàng để xem và thanh toán trực tiếp.',
                     'Mọi đơn hàng đều có mã tra cứu — bạn có thể kiểm tra trạng thái đơn bất cứ lúc nào tại trang Tra cứu đơn hàng.',
                 ]],
@@ -25,7 +25,7 @@ return [
 
         'he-thong-cua-hang' => [
             'tieu_de' => 'Hệ thống cửa hàng',
-            'mo_ta' => 'Danh sách chi nhánh và điểm bán PhoneShop.',
+            'mo_ta' => 'Danh sách chi nhánh và điểm bán '.config('storefront.ten_cua_hang').'.',
             'noi_dung' => [
                 ['tieu_de' => 'Chi nhánh chính', 'cac_doan' => [
                     '[ĐỊA CHỈ CHI NHÁNH CHÍNH — TODO: điền địa chỉ, quận/huyện, giờ mở cửa]',
@@ -138,7 +138,7 @@ return [
     ],
 
     'tuyen_dung' => [
-        'mo_ta' => 'PhoneShop đang tuyển dụng nhân sự cho cửa hàng và kho. Ứng tuyển bằng cách điền form liên hệ với loại "Ứng tuyển".',
+        'mo_ta' => config('storefront.ten_cua_hang').' đang tuyển dụng nhân sự cho cửa hàng và kho. Ứng tuyển bằng cách điền form liên hệ với loại "Ứng tuyển".',
         'vi_tri' => [
             'nhan-vien-ban-hang' => 'Nhân viên bán hàng',
             'thu-ngan' => 'Thu ngân',

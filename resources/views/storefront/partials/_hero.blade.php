@@ -1,3 +1,14 @@
+@php
+    $giaoTanNoi = (bool) config('pos.giao_tan_noi_bat');
+    $mienPhiTu = (int) config('pos.mien_phi_giao_tu', 0);
+    $shipTile = $giaoTanNoi
+        ? ($mienPhiTu > 0
+            ? 'Freeship từ '.number_format($mienPhiTu, 0, ',', '.').' ₫'
+            : 'Giao tận nơi')
+        : 'Nhận tại cửa hàng';
+    $shipTileSub = $giaoTanNoi ? 'Giao trong 24h nội thành' : 'Đặt online, ghé lấy hàng';
+    $diemNhanHang = $giaoTanNoi ? 'Giao 24h nội thành' : 'Nhận tại cửa hàng';
+@endphp
 <section class="sf-container sf-home-hero" aria-label="Khuyến mãi nổi bật">
     <div class="sf-bento">
         <div class="sf-bento-tile is-main">
@@ -6,7 +17,7 @@
                     <i class="fa-solid fa-circle-check" aria-hidden="true"></i> Chính hãng · Bảo hành 12 tháng
                 </span>
                 <h1 class="sf-bento-title">Phụ kiện điện thoại <span>chính hãng, giá tốt</span></h1>
-                <p class="sf-bento-sub">Củ sạc, cáp, tai nghe, pin dự phòng từ Hoco, Borofone, Remax và nhiều thương hiệu khác.</p>
+                <p class="sf-bento-sub">Củ sạc, cáp, tai nghe, pin dự phòng từ Hoco, Borofone và Remax.</p>
                 <div class="sf-bento-actions">
                     <a class="sf-btn is-accent" href="{{ route('storefront.search') }}">
                         Mua ngay <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
@@ -14,7 +25,7 @@
                     <a class="sf-btn is-ghost" href="#danh-muc">Xem danh mục</a>
                 </div>
                 <ul class="sf-bento-points">
-                    <li><i class="fa-solid fa-check" aria-hidden="true"></i> Giao 24h nội thành</li>
+                    <li><i class="fa-solid fa-check" aria-hidden="true"></i> {{ $diemNhanHang }}</li>
                     <li><i class="fa-solid fa-check" aria-hidden="true"></i> Kiểm tra hàng trước khi thanh toán</li>
                 </ul>
             </div>
@@ -29,8 +40,8 @@
         <a class="sf-bento-tile is-small is-ship" href="{{ route('storefront.search') }}">
             <span class="sf-tile-icon"><i class="fa-solid fa-truck-fast" aria-hidden="true"></i></span>
             <span class="sf-tile-text">
-                <strong>Freeship từ 500.000 ₫</strong>
-                <small>Giao trong 24h nội thành</small>
+                <strong>{{ $shipTile }}</strong>
+                <small>{{ $shipTileSub }}</small>
             </span>
             <i class="fa-solid fa-arrow-right sf-tile-arrow" aria-hidden="true"></i>
         </a>

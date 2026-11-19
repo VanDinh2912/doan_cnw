@@ -4,16 +4,16 @@
             <div>
                 <div class="sf-logo" style="margin-bottom:16px;">
                     <i class="fa-solid fa-mobile-screen"></i>
-                    <span>PhoneShop</span>
+                    <span>{{ config('storefront.ten_cua_hang') }}</span>
                 </div>
                 <p style="color:var(--sf-fg-muted);font-size:var(--sf-text-sm);margin:0 0 12px;max-width:320px;">
-                    Cửa hàng điện thoại chính hãng — bảo hành 12 tháng, đổi trả trong 30 ngày.
+                    Cửa hàng phụ kiện điện thoại chính hãng — bảo hành 12 tháng, đổi trả trong 30 ngày.
                 </p>
                 <div class="sf-footer-hotline">
                     <i class="fa-solid fa-phone"></i> {{ config('storefront.hotline') }}
                 </div>
                 <p style="font-size:var(--sf-text-xs);color:var(--sf-fg-subtle);margin:0;">
-                    Hỗ trợ 8:00 – 22:00 hằng ngày
+                    Hỗ trợ {{ config('storefront.gio_lam_viec') }} hằng ngày
                 </p>
             </div>
 
@@ -52,7 +52,7 @@
         </div>
 
         <div class="sf-footer-bottom">
-            <span>© {{ date('Y') }} PhoneShop — Đồ án Laravel.</span>
+            <span>© {{ date('Y') }} {{ config('storefront.ten_cua_hang') }} — Đồ án Laravel.</span>
             <span>Thanh toán: Tiền mặt · Chuyển khoản · VietQR</span>
         </div>
     </div>

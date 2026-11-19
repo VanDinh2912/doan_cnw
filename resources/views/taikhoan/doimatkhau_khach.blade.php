@@ -1,6 +1,6 @@
 @extends('storefront.layouts.app')
 
-@section('title', 'Đổi mật khẩu — PhoneShop')
+@section('title', 'Đổi mật khẩu — ' . config('storefront.ten_cua_hang'))
 
 @section('content')
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">

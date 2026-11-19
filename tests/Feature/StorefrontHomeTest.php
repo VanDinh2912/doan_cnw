@@ -17,7 +17,7 @@ class StorefrontHomeTest extends TestCase
         $response = $this->get(route('storefront.home'));
 
         $response->assertStatus(200);
-        $response->assertSee('PhoneShop');
+        $response->assertSee(config('storefront.ten_cua_hang'));
         $response->assertSee('Phụ kiện nổi bật');
         $response->assertSee('sfQuickViewModal', false);
     }

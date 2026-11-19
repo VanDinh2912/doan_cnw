@@ -1,6 +1,6 @@
 @extends('storefront.layouts.app')
 
-@section('title', 'Thanh toán QR — PhoneShop')
+@section('title', 'Thanh toán QR — ' . config('storefront.ten_cua_hang'))
 
 @section('content')
     <div class="sf-container" style="padding-top:20px;">

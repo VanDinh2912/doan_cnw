@@ -1,6 +1,6 @@
 @extends('storefront.layouts.app')
 
-@section('title', 'Liên hệ — PhoneShop')
+@section('title', 'Liên hệ — ' . config('storefront.ten_cua_hang'))
 
 @php
     $nhanLoai = ['lien_he' => 'Liên hệ', 'gop_y' => 'Góp ý', 'khieu_nai' => 'Khiếu nại', 'ung_tuyen' => 'Ứng tuyển'];

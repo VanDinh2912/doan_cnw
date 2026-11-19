@@ -164,7 +164,7 @@ function initQuickView() {
         if (qvTitle) qvTitle.textContent = card.dataset.name || '';
         if (qvPrice) qvPrice.textContent = card.dataset.price || '0 ₫';
         if (qvSku) qvSku.textContent = card.dataset.sku || '--';
-        if (qvCategory) qvCategory.textContent = card.dataset.category || 'Điện thoại';
+        if (qvCategory) qvCategory.textContent = card.dataset.category || 'Phụ kiện';
         if (qvImage) {
             qvImage.src = card.dataset.image || '';
             qvImage.alt = card.dataset.name || 'Sản phẩm';

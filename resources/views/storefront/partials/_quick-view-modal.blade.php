@@ -3,7 +3,7 @@
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content sf-qv-modal">
             <div class="modal-header border-0 pb-0">
-                <span class="sf-qv-badge badge bg-light text-dark px-3 py-2 border" id="qvCategory">Điện thoại</span>
+                <span class="sf-qv-badge badge bg-light text-dark px-3 py-2 border" id="qvCategory">Phụ kiện</span>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
             </div>
             <div class="modal-body pt-2">
@@ -34,7 +34,7 @@
 
                         <div class="alert alert-light border small text-muted mb-0">
                             <i class="fa-solid fa-circle-info text-primary me-1"></i>
-                            Quý khách có thể đến trực tiếp hệ thống cửa hàng PhoneShop để trải nghiệm máy và nhận tư vấn chi tiết từ nhân viên.
+                            Quý khách có thể đến trực tiếp hệ thống cửa hàng {{ config('storefront.ten_cua_hang') }} để xem sản phẩm và nhận tư vấn chi tiết từ nhân viên.
                         </div>
                     </div>
                 </div>

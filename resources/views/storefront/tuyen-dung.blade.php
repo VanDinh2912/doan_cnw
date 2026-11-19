@@ -1,6 +1,6 @@
 @extends('storefront.layouts.app')
 
-@section('title', 'Tuyển dụng — PhoneShop')
+@section('title', 'Tuyển dụng — ' . config('storefront.ten_cua_hang'))
 
 @section('content')
     @php

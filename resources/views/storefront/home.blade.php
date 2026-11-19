@@ -1,6 +1,6 @@
 @extends('storefront.layouts.app')
 
-@section('title', 'PhoneShop — Phụ kiện điện thoại chính hãng')
+@section('title', config('storefront.ten_cua_hang') . ' — ' . config('storefront.tieu_de'))
 
 @section('content')
 <div class="sf-home">

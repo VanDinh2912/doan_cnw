@@ -37,7 +37,12 @@ class StorefrontController extends Controller
             ->limit(4)
             ->get();
 
-        return view('storefront.home', compact('categories', 'featured', 'flashSale'));
+        $brands = Brand::query()
+            ->where('kich_hoat', true)
+            ->orderBy('ten')
+            ->get(['id', 'ten']);
+
+        return view('storefront.home', compact('categories', 'featured', 'flashSale', 'brands'));
     }
 
     public function category(Request $request, LoaiSanPham $loaiSanPham): View

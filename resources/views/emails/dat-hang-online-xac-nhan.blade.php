@@ -87,7 +87,7 @@
 
     <p style="color: #888; font-size: 12px; margin-top: 24px;">
         Trân trọng,<br>
-        {{ config('app.name', 'PhoneShop') }}
+        {{ config('storefront.ten_cua_hang') }}
     </p>
 </body>
 </html>

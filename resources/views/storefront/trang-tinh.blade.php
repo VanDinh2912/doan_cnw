@@ -1,6 +1,6 @@
 @extends('storefront.layouts.app')
 
-@section('title', ($page['tieu_de'] ?? 'Trang') . ' — PhoneShop')
+@section('title', ($page['tieu_de'] ?? 'Trang') . ' — ' . config('storefront.ten_cua_hang'))
 
 @section('content')
     <div class="sf-container" style="padding-top:20px;max-width:760px;">
