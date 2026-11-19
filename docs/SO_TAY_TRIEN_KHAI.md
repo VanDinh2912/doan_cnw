@@ -199,6 +199,9 @@ php artisan down && php artisan up      # tắt/bật bảo trì đúng quy trì
 | `POS_DAT_HANG_ONLINE_BAT` | tùy chọn | **`false`** | Cờ tổng mở đặt hàng online |
 | `POS_GIAO_TAN_NOI_BAT` | tùy chọn | **`false`** | Cờ giao tận nơi (chỉ ý nghĩa khi cờ trên bật) |
 | `HOTLINE` | tùy chọn | `1900 0000` | Hotline hiển thị storefront (footer, thanh tin cậy, thông báo giỏ hàng khi cờ tắt) — nguồn duy nhất `config/storefront.php` |
+| `STORE_NAME` | tùy chọn | `PhoneShop` | Tên cửa hàng hiển thị: logo header/footer, title mọi trang, email, trang giới thiệu/tuyển dụng — nguồn duy nhất `config/storefront.php`, đổi tên không cần sửa view |
+| `STORE_TITLE` | tùy chọn | `Phụ kiện điện thoại chính hãng` | Tagline đi kèm tên cửa hàng ở title trang chủ |
+| `STORE_GIO_LAM_VIEC` | tùy chọn | `8:00 – 22:00` | Giờ hỗ trợ hiển thị ở footer và thanh tin cậy |
 | `LOG_CHANNEL` / `LOG_LEVEL` / `LOG_STACK` / `LOG_DAILY_DAYS` | tùy chọn | `stack`/`debug`… | Logging; production nên `daily` + `info` |
 | `CACHE_STORE` / `SESSION_DRIVER` / `QUEUE_CONNECTION` | ✅ | `database`/`database`/`database` | Production nên `database` (hoặc redis nếu có) |
 | `DB_*` | ✅ | — | Trỏ `doan_cnw` |
@@ -210,6 +213,13 @@ php artisan down && php artisan up      # tắt/bật bảo trì đúng quy trì
 > unique; service ghi cả hai, webhook kiểm cả hai. Bảng `payment_webhooks`
 > lưu mã giao dịch ngoài ở `ma_giao_dich_ngoai` (unique) và mã tham chiếu
 > ngân hàng ở `ma_tham_chieu`.
+
+> **Nội dung hero/trust-bar theo cờ `POS_GIAO_TAN_NOI_BAT`:** khi TẮT,
+> storefront chỉ quảng bá "Nhận tại cửa hàng / Đặt online, ghé lấy hàng"
+> (không nhắc freeship hay giao 24h vì hệ thống chưa tính phí/giao tận
+> nơi). Khi BẬT: hiện "Giao 24h nội thành"; dòng freeship lấy ngưỡng từ
+> `POS_MIEN_PHI_GIAO_TU` — nếu ngưỡng = 0 (chưa cấu hình miễn phí) thì chỉ
+> hiện "Giao tận nơi", không bịa cam kết freeship.
 
 ## 4. Guard có thể gỡ SAU KHI migrate xong
 
