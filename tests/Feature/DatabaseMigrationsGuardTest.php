@@ -32,6 +32,13 @@ class DatabaseMigrationsGuardTest extends TestCase
             'password' => '',
         ]);
 
+        // Dưới paratest, hook ParallelTesting::setUpTestCase chạy TRƯỚC guard
+        // và tự kết nối DB khác :memory: → QueryException (port 9 refused)
+        // thay vì RuntimeException của guard. Tắt auto-provision cho tiến
+        // trình này: các test khác đều dùng sqlite :memory: nên hook vốn
+        // là no-op với chúng.
+        $_SERVER['LARAVEL_PARALLEL_TESTING_WITHOUT_DATABASES'] = '1';
+
         return $app;
     }
 
