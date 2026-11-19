@@ -894,12 +894,19 @@ Chạy toàn bộ test (tắt Xdebug để giảm thời gian chạy):
 
 ```powershell
 $env:XDEBUG_MODE='off'
-php artisan test --compact
+php artisan test --compact          # tuần tự: ~60 phút (951+ test)
+php artisan test --parallel          # song song 16 tiến trình: ~22 phút
 Remove-Item Env:XDEBUG_MODE
 ```
 
-Các test nghiệp vụ hiện có (số chạy thật cập nhật ở mục 17/18; có thể chạy song
-song bằng `vendor/bin/paratest` — ~9 phút thay ~39 phút):
+Cả hai cách cho cùng kết quả: ~953 test, 0 fail, ~45 skip (skip = test
+MySQL-copy cần DB thật, chỉ chạy bằng `--filter='MysqlCopyTest|KhoaDongMysqlTest'`
+trên bản sao `*_copy`). Mọi test dùng sqlite `:memory:` nên an toàn chạy
+song song; hook auto-provision DB của Laravel Parallel Testing là no-op.
+Test guard (`*GuardTest`) đã tắt auto-provision đó trong `createApplication`
+để mock MySQL không bị hook kết nối trước guard.
+
+Danh sách test nghiệp vụ (số chạy thật cập nhật ở mục 17/18):
 
 **Unit (66 test)**
 

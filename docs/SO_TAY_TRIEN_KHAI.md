@@ -309,6 +309,42 @@ SePay**.
 Chỉ điền `SEPAY_WEBHOOK_API_KEY` khi bắt đầu Giai đoạn 2; key này chỉ dùng
 cho test, go-live phải đổi key khác.
 
+## 7b. Chạy dev-test an toàn (ghi CHỈ lên `doan_cnw_dev`)
+
+Mục đích: mọi thao tác artisan/serve có GHI (migrate, seed, test HTTP,
+sửa dữ liệu) phải chắc chắn đọc `doan_cnw_dev`, tuyệt đối không đọc
+`doan_cnw` qua `.env` mặc định. Cơ chế giống `.env.sepay-test`:
+
+- File `.env.dev-test` (gitignored qua `.env.*`): `APP_ENV=dev-test`,
+  `DB_DATABASE=doan_cnw_dev`, `APP_URL=http://127.0.0.1:8899`,
+  `APP_DEBUG=true`, `MAIL_MAILER=log`.
+- `APP_ENV=dev-test` khiến Laravel nạp `.env.dev-test` thay vì `.env`.
+
+**Bắt buộc chạy kiểm tra trước mỗi lượt ghi** (cửa sổ PowerShell bất kỳ):
+
+```powershell
+.\scripts\windows\kiem-tra-db-dev.ps1
+```
+
+Script in `APP_ENV` và tên DB mà artisan thực sự kết nối; **thất bại
+(exit 1) → dừng, không được ghi**. Khi đạt, chạy trong **cùng cửa sổ**:
+
+```powershell
+$env:APP_ENV="dev-test"
+php artisan serve --port=8899 --no-reload   # chỉ giữ serve trong cửa sổ này
+# hoặc các lệnh artisan GHI khác
+Remove-Item Env:APP_ENV                      # xong việc, tránh rò env
+```
+
+Lưu ý:
+
+- **Không** đặt `DB_DATABASE=...` rời bằng biến shell — chỉ dùng
+  `APP_ENV=dev-test` để nạp cả file env một lần.
+- Mỗi cửa sổ PowerShell có env riêng; `Remove-Item Env:APP_ENV` sau khi
+  xong để cửa sổ khác không bị ảnh hưởng.
+- `php artisan serve --env=dev-test` **không** nạp file env (giống lưu ý
+  ở mục 7) — bắt buộc đặt `$env:APP_ENV` trước.
+
 ## 8. Việc còn lại / cần xác nhận
 
 - Migration `ma_tham_chieu` (mục 1 #1) chưa có guard `hasColumn` — thêm trước khi áp
