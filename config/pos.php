@@ -37,6 +37,10 @@ return [
     // Chế độ chỉ-webhook cho instance thử nghiệm qua tunnel: mọi route
     // ngoài /api/webhook/thanhtoan trả 404. Mặc định TẮT.
     'chi_cho_webhook' => env('POS_CHI_CHO_WEBHOOK', false) === true,
+    // Bảo vệ thao tác nhạy cảm bằng PIN 6 số (step-up). Mặc định TẮT.
+    'pin_bat' => env('POS_PIN_BAT', false) === true,
+    // Giảm giá POS vượt ngưỡng này (phần trăm) yêu cầu PIN mức thường.
+    'giam_gia_khong_pin_toi_da' => (int) env('POS_GIAM_GIA_KHONG_PIN_TOI_DA', 10),
     'telegram_bot_token' => env('TELEGRAM_BOT_TOKEN', ''),
     'telegram_chat_id' => env('TELEGRAM_CHAT_ID', ''),
 ];

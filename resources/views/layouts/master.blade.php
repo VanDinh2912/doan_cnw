@@ -160,6 +160,7 @@
     </main>
 </div>
 
+<script src="{{ asset('js/pin.js') }}" defer></script>
 @stack('scripts')
 @if (in_array(auth()->user()->role ?? '', ['admin', 'thungan', 'thukho'], true))
 <script>

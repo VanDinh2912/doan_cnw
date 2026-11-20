@@ -35,6 +35,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'khoa.luc' => \App\Http\Middleware\CheckKhoaLuc::class,
             'bat.buoc.doi.mat.khau' => \App\Http\Middleware\CheckBatBuocDoiMatKhau::class,
             'dat.hang.online' => \App\Http\Middleware\ChanDatHangOnline::class,
+            'xac.nhan.pin' => \App\Http\Middleware\XacNhanPin::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

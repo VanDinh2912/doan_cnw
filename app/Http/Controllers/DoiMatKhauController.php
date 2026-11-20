@@ -58,6 +58,7 @@ class DoiMatKhauController extends Controller
             'password' => Hash::make($validated['mat_khau_moi']),
             'bat_buoc_doi_mat_khau' => false, // Bỏ cờ bắt buộc đổi mật khẩu
         ]);
+        \App\Services\PinService::xoaSessionPin();
 
         // Ghi nhật ký (không ghi mật khẩu)
         NhatKyService::ghi(

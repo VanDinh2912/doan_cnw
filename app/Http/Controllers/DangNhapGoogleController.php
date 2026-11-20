@@ -90,6 +90,7 @@ class DangNhapGoogleController extends Controller
 
         Auth::login($user);
         $request->session()->regenerate();
+        \App\Services\PinService::xoaSessionPin();
         // last_login_at qua query builder — không đụng updated_at.
         DB::table('users')->where('id', $user->id)->update(['last_login_at' => now()]);
         NhatKyService::ghi(

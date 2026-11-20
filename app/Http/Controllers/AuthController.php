@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Rules\SoDienThoaiHopLe;
 use App\Services\CanhBaoMatKhauMacDinh;
 use App\Services\NhatKyService;
+use App\Services\PinService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -107,6 +108,7 @@ class AuthController extends Controller
         }
 
         $request->session()->regenerate();
+        PinService::xoaSessionPin();
         RateLimiter::clear($throttleKey);
         $this->ghiLastLogin($request->user()->id);
         NhatKyService::ghi($request, 'dang_nhap', 'user', $request->user()?->id, 'Đăng nhập thành công');

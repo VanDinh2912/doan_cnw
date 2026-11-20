@@ -109,6 +109,18 @@ Route::prefix('don-hang')->name('don-hang.')
 Route::middleware(['auth', 'staff.only', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->group(function (): void {
     Route::get('/tongquan', [\App\Http\Controllers\ThongKeController::class, 'getTongQuan'])->name('tongquan');
 
+    // PIN xác nhận thao tác nhạy cảm (ngoại lệ: không gắn xac.nhan.pin)
+    Route::get('/xac-nhan-pin', [\App\Http\Controllers\PinController::class, 'getNhap'])->name('pin.nhap');
+    Route::post('/xac-nhan-pin/kiem-tra', [\App\Http\Controllers\PinController::class, 'postKiemTra'])
+        ->middleware('throttle:20,1')->name('pin.kiemtra');
+    Route::post('/xac-nhan-pin/xac-nhan', [\App\Http\Controllers\PinController::class, 'postXacNhan'])
+        ->middleware('throttle:10,1')->name('pin.xacnhan');
+    Route::get('/doi-pin', [\App\Http\Controllers\PinController::class, 'getDoiPin'])->name('pin.doi');
+    Route::post('/doi-pin', [\App\Http\Controllers\PinController::class, 'postDoiPin'])
+        ->middleware('throttle:10,1')->name('pin.doi.post');
+    Route::post('/taikhoan/dat-lai-pin/{user}', [\App\Http\Controllers\PinController::class, 'postDatLaiPin'])
+        ->middleware(['role:admin', 'xac.nhan.pin:nghiemtrong', 'throttle:10,1'])->name('taikhoan.datlaipin');
+
     Route::get('/sanpham/timkiem', [\App\Http\Controllers\SanPhamController::class, 'getTimKiem'])
         ->middleware('role:admin,thungan')
         ->name('sanpham.timkiem');

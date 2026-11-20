@@ -124,6 +124,21 @@ class KiemTraHeThong extends Command
         if ($giaoTanNoiBat && ! $datHangBat) {
             $this->bao('WARN', 'Giao tận nơi', 'POS_GIAO_TAN_NOI_BAT bật nhưng POS_DAT_HANG_ONLINE_BAT tắt — cờ giao hàng không có tác dụng');
         }
+
+        // PIN thao tác nhạy cảm: WARN khi production tắt cờ hoặc admin chưa có PIN.
+        // Khi cờ tắt: KHÔNG truy vấn cột pin_* (code PIN phải chạy được cả khi
+        // migration chưa áp — chỉ kiểm tra khi cờ bật).
+        if (config('pos.pin_bat')) {
+            $adminChuaPin = \App\Models\User::where('role', 'admin')->whereNull('pin_hash')->count();
+            $this->bao($adminChuaPin === 0 ? 'OK' : 'WARN', 'PIN thao tác nhạy cảm',
+                $adminChuaPin === 0
+                    ? 'POS_PIN_BAT đang bật, mọi admin đã có PIN'
+                    : "POS_PIN_BAT đang bật nhưng {$adminChuaPin} admin chưa có PIN — chạy nguoidung:dat-pin");
+        } elseif (app()->environment('production')) {
+            $this->bao('WARN', 'PIN thao tác nhạy cảm', 'POS_PIN_BAT đang tắt trên production — thao tác nhạy cảm không yêu cầu PIN');
+        } else {
+            $this->bao('INFO', 'PIN thao tác nhạy cảm', 'POS_PIN_BAT đang tắt');
+        }
     }
 
     /**
