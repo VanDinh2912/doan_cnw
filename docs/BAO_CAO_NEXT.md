@@ -75,7 +75,21 @@ Nguồn dữ liệu: `DuLieuMau300Seeder` + `SyncTaiLieuDataCommand` import `thu
 
 ### 2.4 Đề xuất theo phase
 
-- **Phase 1 — Admin quản lý TK khách (nhỏ):** card "Tài khoản" hiện email/ngày tạo/trạng thái khóa + nút "Đặt lại MK" (MK tạm + force đổi + audit); cột "Có TK" ở danh sách `/khachhang` để lọc.
+- **Phase 1 — Admin quản lý TK khách — ✅ ĐÃ TRIỂN KHAI (2026-11-20):**
+  card "Tài khoản" hiện email/ngày tạo/trạng thái khóa/`last_login_at` +
+  nút "Đặt lại MK" (admin-only, route `role:admin` + `throttle:10,1`);
+  MK tạm ≥12 ký tự không ký tự dễ nhầm, hiện 1 lần (response 200 +
+  `Cache-Control: no-store`, không flash/redirect), hash bcrypt,
+  `bat_buoc_doi_mat_khau=1`, `remember_token` mới, xóa `sessions.user_id`;
+  audit `dat_lai_mat_khau` chỉ ghi người làm + lý do. Migration
+  `add_last_login_at_to_users_table` (additive) đã áp cả dev lẫn prod.
+  Throttle đăng nhập `RateLimiter` 5 lần sai/15 phút theo email thường
+  hóa + IP — áp cho MỌI role (endpoint dùng chung), xóa bộ đếm khi login
+  đúng, email không tồn tại cũng bị đếm (không lộ TK). `last_login_at`
+  cập nhật qua `DB::table` (không đụng `updated_at`) ở cả login MK lẫn
+  Google. Test: `tests/Feature/QuanLyTaiKhoanKhachHangTest.php` (16 test).
+  Bỏ qua: cảnh báo đổi email (form không cho sửa email TK), phân biệt
+  TK Google (schema không lưu provider).
 - **Phase 2 — Khách tự phục hồi:** flow quên MK qua email (broker có sẵn); hoàn thiện vòng đời TK. **Điều kiện:** cần SMTP thật — hiện `LOG_MAILER`.
 - **Phase 3 — Nâng cao, chi phí 0đ** (xem mục 2.5).
 
@@ -93,7 +107,8 @@ Nguồn dữ liệu: `DuLieuMau300Seeder` + `SyncTaiLieuDataCommand` import `thu
 - Heuristic: N lần sai MK → khóa tạm; login IP mới + đổi MK trong 5 phút → flag admin
 
 **Chống brute-force (Laravel throttle có sẵn):**
-- Rate-limit login/register/tra cứu/quên MK
+- ~~Rate-limit login~~ — **đã làm ở Phase 1** (5 sai/15ph email+IP); còn
+  register/tra cứu/quên MK
 - **Cloudflare Turnstile** — CAPTCHA miễn phí, ẩn hoàn toàn; đặt ở login/register/liên hệ/tra cứu
 - Lockout progressive: sai 5 lần → 15', tiếp → 1h (`RateLimiter` ~20 dòng)
 

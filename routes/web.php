@@ -181,6 +181,9 @@ Route::middleware(['auth', 'staff.only', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->
             ->name('khachhang.khoa');
         Route::post('/khachhang/mo-khoa/{khachHang}', [\App\Http\Controllers\KhachHangController::class, 'postMoKhoa'])
             ->name('khachhang.mokhoa');
+        Route::post('/khachhang/dat-lai-mat-khau/{khachHang}', [\App\Http\Controllers\KhachHangController::class, 'postDatLaiMatKhau'])
+            ->middleware('throttle:10,1')
+            ->name('khachhang.datlaimatkhau');
     });
 
     // P3: màn hình nhân viên xử lý đơn online (admin/thu ngân/thủ kho) — ngoài nhóm role:admin,thungan.

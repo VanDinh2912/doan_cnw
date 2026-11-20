@@ -7,6 +7,7 @@ use App\Services\NhatKyService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Laravel\Socialite\Facades\Socialite;
 
@@ -89,6 +90,8 @@ class DangNhapGoogleController extends Controller
 
         Auth::login($user);
         $request->session()->regenerate();
+        // last_login_at qua query builder — không đụng updated_at.
+        DB::table('users')->where('id', $user->id)->update(['last_login_at' => now()]);
         NhatKyService::ghi(
             $request,
             $laTaiKhoanMoi ? 'dang_ky_google' : 'dang_nhap_google',

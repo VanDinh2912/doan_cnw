@@ -29,6 +29,13 @@
                     <tr><th>Tài khoản</th><td>
                         @if ($khachHang->user)
                             {{ $khachHang->user->name }} ({{ $khachHang->user->email }})
+                            <br><small class="text-muted">
+                                Ngày tạo: {{ $khachHang->user->created_at?->format('H:i d/m/Y') ?: '—' }}
+                                · Đăng nhập gần nhất: {{ $khachHang->user->last_login_at?->format('H:i d/m/Y') ?: 'Chưa đăng nhập' }}
+                                @if ($khachHang->user->khoa_luc)
+                                    · <span class="text-danger">Tài khoản bị khóa</span>
+                                @endif
+                            </small>
                         @else
                             <span class="text-muted">Chưa liên kết tài khoản</span>
                         @endif
@@ -36,6 +43,22 @@
                     <tr><th>Điểm tích lũy</th><td>{{ number_format($khachHang->diem_tichluy) }}</td></tr>
                     <tr><th>Tổng chi tiêu</th><td><strong>{{ number_format($tongChiTieu, 0, ',', '.') }} đ</strong></td></tr>
                 </table>
+                @if ($laAdmin && $khachHang->user && $khachHang->user->role === 'khachhang'
+                        && $khachHang->user->khoa_luc === null && ! $khachHang->biKhoa())
+                <hr class="my-2">
+                <form method="POST" action="{{ route('khachhang.datlaimatkhau', $khachHang) }}"
+                      onsubmit="return confirm('Đặt lại mật khẩu tài khoản này? Mọi phiên đăng nhập sẽ bị hủy.')">
+                    @csrf
+                    <label class="form-label">Đặt lại mật khẩu (chỉ admin)</label>
+                    <div class="input-group input-group-sm">
+                        <input type="text" name="ly_do_khoa" class="form-control" maxlength="255"
+                               placeholder="Lý do (bắt buộc)" required>
+                        <button type="submit" class="btn btn-outline-danger">Tạo MK tạm</button>
+                    </div>
+                    <small class="text-muted">MK tạm chỉ hiện 1 lần; khách sẽ bị bắt đổi MK khi đăng nhập.</small>
+                    @error('ly_do_khoa')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+                </form>
+                @endif
             </div>
         </div>
     </div>

@@ -51,6 +51,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'khoa_luc' => 'datetime',
             'bat_buoc_doi_mat_khau' => 'boolean',
+            'last_login_at' => 'datetime',
         ];
     }
 

@@ -10,10 +10,18 @@
 </div>
 @if (session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
 @if (session('error'))<div class="alert alert-danger">{{ session('error') }}</div>@endif
+<form method="GET" action="{{ route('khachhang.danhsach') }}" class="d-flex gap-2 align-items-center mb-2">
+    <label class="form-label mb-0">Tài khoản:</label>
+    <select name="tai_khoan" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
+        <option value="" @selected(! $taiKhoan)>Tất cả</option>
+        <option value="co" @selected($taiKhoan === 'co')>Có tài khoản</option>
+        <option value="khong" @selected($taiKhoan === 'khong')>Chưa có tài khoản</option>
+    </select>
+</form>
 <div class="card">
     <div class="table-responsive">
         <table class="table table-striped mb-0 js-data-table">
-            <thead><tr><th>Họ tên</th><th>Số điện thoại</th><th>Địa chỉ</th><th>Điểm</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+            <thead><tr><th>Họ tên</th><th>Số điện thoại</th><th>Địa chỉ</th><th>Điểm</th><th>Tài khoản</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
             <tbody>
             @forelse ($khachHangs as $khachHang)
                 <tr>
@@ -21,6 +29,13 @@
                     <td>{{ $khachHang->so_dienthoai }}</td>
                     <td>{{ $khachHang->dia_chi ?: '—' }}</td>
                     <td>{{ $khachHang->diem_tichluy }}</td>
+                    <td>
+                        @if ($khachHang->user_exists)
+                            <span class="badge bg-info text-dark">Có TK</span>
+                        @else
+                            <span class="text-muted">—</span>
+                        @endif
+                    </td>
                     <td>
                         @if ($khachHang->biKhoa())
                             <span class="badge bg-danger" title="{{ $khachHang->ly_do_khoa }}">Đã khóa</span>
@@ -49,7 +64,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td class="text-center" colspan="6">Chưa có khách hàng.</td></tr>
+                <tr><td class="text-center" colspan="7">Chưa có khách hàng.</td></tr>
             @endforelse
             </tbody>
         </table>

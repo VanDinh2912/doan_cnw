@@ -11,6 +11,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -19,6 +20,23 @@ class AuthController extends Controller
 {
     /** Roles that belong to the internal staff dashboard. */
     private const STAFF_ROLES = ['admin', 'thungan', 'thukho'];
+
+    /** Throttle đăng nhập: 5 lần sai / 15 phút, khóa theo email (thường) + IP. */
+    private const DANG_NHAP_MAX_SAI = 5;
+
+    private const DANG_NHAP_DECAY_GIAY = 900;
+
+    private function throttleKey(string $email, Request $request): string
+    {
+        return 'dangnhap:'.sha1(Str::lower(trim($email)).'|'.$request->ip());
+    }
+
+    /** Ghi last_login_at bằng query builder — KHÔNG đụng updated_at
+     *  (Eloquent builder update() tự thêm updated_at nên phải dùng DB::table). */
+    private function ghiLastLogin(int $userId): void
+    {
+        DB::table('users')->where('id', $userId)->update(['last_login_at' => now()]);
+    }
 
     private function isStaff(?User $user): bool
     {
@@ -54,7 +72,21 @@ class AuthController extends Controller
             'password.required' => 'Vui lòng nhập mật khẩu.',
         ]);
 
+        $throttleKey = $this->throttleKey($credentials['email'], $request);
+
+        // Khóa theo email+IP kể cả khi email không tồn tại — Auth::attempt
+        // thất bại như nhau nên không lộ email có tài khoản hay không.
+        if (RateLimiter::tooManyAttempts($throttleKey, self::DANG_NHAP_MAX_SAI)) {
+            $choThem = (int) ceil(RateLimiter::availableIn($throttleKey) / 60);
+
+            return back()
+                ->withInput($request->only('email', 'remember'))
+                ->withErrors(['email' => "Quá nhiều lần thử, vui lòng thử lại sau {$choThem} phút."]);
+        }
+
         if (! Auth::attempt($credentials, $request->boolean('remember'))) {
+            RateLimiter::hit($throttleKey, self::DANG_NHAP_DECAY_GIAY);
+
             return back()
                 ->withInput($request->only('email', 'remember'))
                 ->withErrors(['email' => 'Email hoặc mật khẩu không đúng.']);
@@ -75,6 +107,8 @@ class AuthController extends Controller
         }
 
         $request->session()->regenerate();
+        RateLimiter::clear($throttleKey);
+        $this->ghiLastLogin($request->user()->id);
         NhatKyService::ghi($request, 'dang_nhap', 'user', $request->user()?->id, 'Đăng nhập thành công');
 
         return redirect()->intended($this->homeFor($request->user()));

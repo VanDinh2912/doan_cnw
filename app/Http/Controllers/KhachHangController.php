@@ -10,15 +10,30 @@ use App\Services\NhatKyService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class KhachHangController extends Controller
 {
-    public function getDanhSach(): View
+    public function getDanhSach(Request $request): View
     {
-        return view('khachhang.danhsach', ['khachHangs' => KhachHang::latest()->get()]);
+        // Lọc theo trạng thái liên kết tài khoản đăng nhập: ?tai_khoan=co|khong
+        $query = KhachHang::latest()->withExists('user');
+        $taiKhoan = $request->query('tai_khoan');
+        if ($taiKhoan === 'co') {
+            $query->whereHas('user');
+        } elseif ($taiKhoan === 'khong') {
+            $query->whereDoesntHave('user');
+        }
+
+        return view('khachhang.danhsach', [
+            'khachHangs' => $query->get(),
+            'taiKhoan' => $taiKhoan,
+        ]);
     }
 
     /**
@@ -107,6 +122,83 @@ class KhachHangController extends Controller
 
         return redirect()->route('khachhang.chitiet', $khachHang)
             ->with('success', 'Đã mở khóa khách hàng.');
+    }
+
+    /**
+     * Đặt lại mật khẩu tài khoản khách hàng (CHỈ admin — route role:admin +
+     * throttle). Sinh MK tạm ≥12 ký tự (loại ký tự dễ nhầm), hash bcrypt,
+     * đặt bat_buoc_doi_mat_khau, đổi remember_token, xóa mọi phiên DB của
+     * user đó. MK tạm KHÔNG lưu rõ ở đâu cả — chỉ render 1 lần trong response
+     * (header no-store, không redirect/flash). Audit chỉ ghi người làm + lý do.
+     */
+    public function postDatLaiMatKhau(Request $request, KhachHang $khachHang): View|RedirectResponse|Response
+    {
+        $data = $request->validate([
+            'ly_do_khoa' => ['required', 'string', 'max:255'],
+        ], [
+            'ly_do_khoa.required' => 'Vui lòng nhập lý do đặt lại mật khẩu.',
+            'ly_do_khoa.max' => 'Lý do tối đa 255 ký tự.',
+        ]);
+
+        $user = $khachHang->user;
+        if ($user === null) {
+            return back()->with('error', 'Khách hàng chưa liên kết tài khoản đăng nhập.');
+        }
+        if ($user->role !== 'khachhang') {
+            return back()->with('error', 'Chỉ hỗ trợ đặt lại mật khẩu cho tài khoản khách hàng.');
+        }
+        if ($user->khoa_luc !== null) {
+            return back()->with('error', 'Tài khoản đăng nhập đang bị khóa — hãy mở khóa trước.');
+        }
+        if ($khachHang->biKhoa()) {
+            return back()->with('error', 'Hồ sơ khách hàng đang bị khóa — hãy mở khóa trước.');
+        }
+
+        $matKhauTam = $this->sinhMatKhauTam();
+
+        DB::transaction(function () use ($user, $matKhauTam): void {
+            $user->forceFill([
+                'password' => Hash::make($matKhauTam),
+                'bat_buoc_doi_mat_khau' => true,
+                // remember_token mới → cookie "ghi nhớ đăng nhập" cũ vô hiệu.
+                'remember_token' => Str::random(60),
+            ])->save();
+
+            // Hủy mọi phiên DB đang đăng nhập của user này.
+            DB::table('sessions')->where('user_id', $user->id)->delete();
+        });
+
+        // Audit: người làm + lý do + id tài khoản — TUYỆT ĐỐI không chứa MK.
+        NhatKyService::ghi(
+            $request, 'dat_lai_mat_khau', 'user', $user->id,
+            'Đặt lại mật khẩu tài khoản khách #'.$khachHang->id,
+            null,
+            ['ly_do' => $data['ly_do_khoa'], 'bat_buoc_doi_mat_khau' => true]
+        );
+
+        // Response 200 trực tiếp (không redirect/flash) + no-store để MK
+        // tạm chỉ hiện đúng một lần và không bị cache/proxy lưu lại.
+        return response()
+            ->view('khachhang.matkhau_tam', [
+                'khachHang' => $khachHang,
+                'user' => $user,
+                'matKhauTam' => $matKhauTam,
+            ])
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate')
+            ->header('Pragma', 'no-cache');
+    }
+
+    /** MK tạm ≥12 ký tự, loại 0 O l 1 I (dễ nhầm khi đọc/ghi tay). */
+    private function sinhMatKhauTam(): string
+    {
+        $kyTu = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789';
+        $doDai = strlen($kyTu) - 1;
+        $mk = '';
+        for ($i = 0; $i < 14; $i++) {
+            $mk .= $kyTu[random_int(0, $doDai)];
+        }
+
+        return $mk;
     }
 
     public function getThem(): View
