@@ -388,3 +388,18 @@ Lưu ý:
   transaction all-or-nothing. SP mới: trang_thai=0/soluong=0/gia_nhap=0 —
   nhập kho rồi bật "Đang bán" tay. Không migration. Audit `import_san_pham`
   1 dòng/phiên, không log nội dung dòng.
+
+## 9. Triển khai PIN thao tác nhạy cảm (POS_PIN_BAT)
+
+Trình tự an toàn (cờ mặc định TẮT — migration không đổi hành vi):
+
+1. Áp migration `2026_11_20_000002_add_pin_to_users_table` (additive).
+2. Admin đặt PIN: `php artisan nguoidung:dat-pin admin@example.com` (nhập ẩn, trên máy chủ).
+3. Admin cấp PIN tạm cho thu ngân/thủ kho qua `/taikhoan/dat-lai-pin/{user}` (cần PIN admin, hiện 1 lần, ép đổi).
+4. Bật `POS_PIN_BAT=true` trong `.env` production.
+5. Kiểm tra 1 thao tác mức thường + 1 mức nghiêm trọng.
+6. Khẩn cấp: quên PIN admin → `nguoidung:dat-pin` trên máy chủ; tắt khẩn cấp → `POS_PIN_BAT=false`.
+
+Giới hạn: PIN chỉ chặn thay đổi/xuất dữ liệu đã liệt kê, KHÔNG chặn xem
+ VD `/khachhang/timkiem?sdt=` có thể bị quét — rủi ro còn lại, đề xuất
+ throttle riêng (chưa làm). PIN tĩnh không chống keylogger; nâng cấp TOTP.
