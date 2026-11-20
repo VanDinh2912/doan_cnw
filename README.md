@@ -1556,8 +1556,11 @@ Sau khi kiểm thử, tạo Pull Request để merge vào `main`.
 - In tự động không qua hộp thoại trình duyệt (cần QZ Tray).
 - CRUD tài khoản người dùng, ứng dụng mobile và API riêng (Pha 23).
 - Khuyến mãi/voucher (Pha 22), ROP/ABC (Pha 21).
-- **Thuế GTGT khi bán**: hóa đơn bán/đơn online không có thuế suất — chỉ có
-  thuế đầu vào trên hóa đơn nhập (xem mục 7, "Hóa đơn nhập").
+- **Thuế GTGT khi bán — KHÔNG triển khai**: giá bán hiện là **giá cuối**,
+  chưa tách VAT đầu ra, chưa có hóa đơn điện tử. Nếu sau này có yêu cầu,
+  phương án là **giá đã gồm thuế** — chỉ tách thuế để báo cáo, không đổi
+  giá bán. Thuế đầu vào trên hóa đơn nhập xem mục 7, "Hóa đơn nhập".
+  Phân tích đầy đủ: `docs/BAO_CAO_NEXT.md` phần 1.
 - Tích hợp bên ngoài: hóa đơn điện tử, Zalo ZNS/SMS, đồng bộ Shopee/TikTok (Pha 24).
 - ~~Import/export Excel sản phẩm~~ — đã triển khai (xem mục 7, "Import/Export Excel").
 - ~~Middleware chuẩn hóa/validate UTF-8 cho request web~~ — đã triển khai (`ValidateUtf8Encoding`, nhóm web → 422; webhook/API không ảnh hưởng).
