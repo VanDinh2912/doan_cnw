@@ -78,7 +78,7 @@
                 Bắt buộc ghi rõ cách đã xử lý (đã hoàn tiền tay, đã liên hệ khách, đã bỏ qua…).
                 Thao tác này chỉ cập nhật hàng chờ đối soát và ghi nhật ký, không tác động hóa đơn hay tồn kho.
             </p>
-            <form method="POST" action="{{ route('doisoat.xuly', $webhook) }}">
+            <form method="POST" action="{{ route('doisoat.xuly', $webhook) }}" data-can-pin="nghiemtrong">
                 @csrf
                 <div class="mb-3">
                     <label class="form-label" for="ghi_chu">Ghi chú xử lý <span class="text-danger">*</span></label>

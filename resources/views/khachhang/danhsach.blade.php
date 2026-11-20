@@ -49,7 +49,7 @@
                         @if ($laAdmin)
                             @if ($khachHang->biKhoa())
                                 <form class="d-inline" method="POST" action="{{ route('khachhang.mokhoa', $khachHang) }}"
-                                      onsubmit="return confirm('Mở khóa khách hàng này?')">
+                                      onsubmit="return confirm('Mở khóa khách hàng này?')" data-can-pin="nghiemtrong">
                                     @csrf
                                     <button class="btn btn-sm btn-outline-success" type="submit">Mở khóa</button>
                                 </form>
@@ -57,7 +57,7 @@
                                 <a class="btn btn-sm btn-outline-danger" href="{{ route('khachhang.chitiet', $khachHang) }}#khoa">Khóa</a>
                             @endif
                         @endif
-                        <form class="d-inline" method="POST" action="{{ route('khachhang.xoa', $khachHang) }}" onsubmit="return confirm('Xóa khách hàng này?')">
+                        <form class="d-inline" method="POST" action="{{ route('khachhang.xoa', $khachHang) }}" onsubmit="return confirm('Xóa khách hàng này?')" data-can-pin="nghiemtrong">
                             @csrf @method('DELETE')
                             <button class="btn btn-sm btn-outline-danger" type="submit">Xóa</button>
                         </form>

@@ -22,7 +22,7 @@
                     <td>{{ $loai->san_phams_count }}</td>
                     <td class="text-end">
                         <a class="btn btn-sm btn-outline-primary" href="{{ route('loaisanpham.sua', $loai) }}">Sửa</a>
-                        <form class="d-inline" method="POST" action="{{ route('loaisanpham.xoa', $loai) }}" onsubmit="return confirm('Xóa loại sản phẩm này?')">
+                        <form class="d-inline" method="POST" action="{{ route('loaisanpham.xoa', $loai) }}" onsubmit="return confirm('Xóa loại sản phẩm này?')" data-can-pin="nghiemtrong">
                             @csrf
                             @method('DELETE')
                             <button class="btn btn-sm btn-outline-danger" type="submit">Xóa</button>

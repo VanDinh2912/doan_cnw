@@ -46,7 +46,7 @@
                         <td>
                             <a class="btn btn-sm btn-outline-primary" href="{{ route('hangsxuat.sua', $hang) }}">Sửa</a>
                             @if ($hang->san_phams_count === 0)
-                                <form class="d-inline" method="POST" action="{{ route('hangsxuat.xoa', $hang) }}" onsubmit="return confirm('Xóa hãng này?')">
+                                <form class="d-inline" method="POST" action="{{ route('hangsxuat.xoa', $hang) }}" onsubmit="return confirm('Xóa hãng này?')" data-can-pin="nghiemtrong">
                                     @csrf
                                     <button class="btn btn-sm btn-outline-danger" type="submit">Xóa</button>
                                 </form>

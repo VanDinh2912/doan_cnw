@@ -48,16 +48,16 @@
                     <td>{{ $binhLuan->created_at->format('d/m/Y H:i') }}</td>
                     <td class="text-end text-nowrap">
                         @if (! $binhLuan->kiem_duyet)
-                            <form class="d-inline" method="POST" action="{{ route('binhluan.duyet', $binhLuan) }}">
+                            <form class="d-inline" method="POST" action="{{ route('binhluan.duyet', $binhLuan) }}" data-can-pin="thuong">
                                 @csrf
                                 <button class="btn btn-sm btn-outline-success" type="submit">Duyệt</button>
                             </form>
                         @endif
-                        <form class="d-inline" method="POST" action="{{ route('binhluan.an', $binhLuan) }}">
+                        <form class="d-inline" method="POST" action="{{ route('binhluan.an', $binhLuan) }}" data-can-pin="thuong">
                             @csrf
                             <button class="btn btn-sm btn-outline-secondary" type="submit">{{ $binhLuan->kich_hoat ? 'Ẩn' : 'Hiện' }}</button>
                         </form>
-                        <form class="d-inline" method="POST" action="{{ route('binhluan.xoa', $binhLuan) }}" onsubmit="return confirm('Xóa bình luận này?')">
+                        <form class="d-inline" method="POST" action="{{ route('binhluan.xoa', $binhLuan) }}" onsubmit="return confirm('Xóa bình luận này?')" data-can-pin="nghiemtrong">
                             @csrf
                             @method('DELETE')
                             <button class="btn btn-sm btn-outline-danger" type="submit">Xóa</button>

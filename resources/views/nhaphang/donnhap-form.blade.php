@@ -4,7 +4,7 @@
 
 @section('content')
 <h1 class="h3 mb-3">Tạo đơn nhập hàng</h1>
-<form method="POST" action="{{ route('nhaphang.donnhap.postthem') }}">@csrf
+<form method="POST" action="{{ route('nhaphang.donnhap.postthem') }}" data-can-pin="thuong">@csrf
 <div class="card mb-3"><div class="card-body row g-3">
 <div class="col-md-6"><label class="form-label">Nhà cung cấp</label><select class="form-select" name="supplier_id" required><option value="">-- Chọn --</option>@foreach ($nhaCungCaps as $nhaCungCap)<option value="{{ $nhaCungCap->id }}">{{ $nhaCungCap->ten_nhacungcap }}</option>@endforeach</select></div>
 <div class="col-md-3"><label class="form-label">Ngày dự kiến</label><input class="form-control" type="date" name="ngay_dukien"></div>

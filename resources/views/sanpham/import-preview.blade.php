@@ -120,7 +120,7 @@
                 Hệ thống sẽ kiểm tra lại dữ liệu trước khi ghi — nếu có thay đổi sẽ yêu cầu tải lên lại.
             </div>
             <form method="POST" action="{{ route('sanpham.import.xacnhan') }}"
-                  onsubmit="return confirm('Xác nhận ghi {{ ($counts['create'] ?? 0) + ($counts['update'] ?? 0) }} thay đổi vào database?');">
+                  onsubmit="return confirm('Xác nhận ghi {{ ($counts['create'] ?? 0) + ($counts['update'] ?? 0) }} thay đổi vào database?');" data-can-pin="nghiemtrong">
                 @csrf
                 <input type="hidden" name="token" value="{{ $token }}">
                 <button class="btn btn-success" type="submit">
