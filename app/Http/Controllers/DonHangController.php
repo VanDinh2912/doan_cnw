@@ -9,6 +9,7 @@ use App\Models\LoaiSanPham;
 use App\Models\KhachHang;
 use App\Models\SanPham;
 use App\Services\NhatKyService;
+use App\Services\PinService;
 use App\Services\ThanhToanChuyenKhoanService;
 use App\Services\VietQrService;
 use Illuminate\Http\JsonResponse;
@@ -311,6 +312,13 @@ class DonHangController extends Controller
             'customer_id.exists' => 'Khách hàng không tồn tại trong hệ thống.',
         ]);
 
+        // Giảm giá lớn cần PIN mức thường (khi POS_PIN_BAT bật, mọi role)
+        $giamGiaVuot = PinService::bat()
+            && (float) $validated['giam_gia_phantram'] > (float) config('pos.giam_gia_khong_pin_toi_da', 10);
+        if ($giamGiaVuot && ! PinService::daXacNhanThuong($request->user())) {
+            return response()->json(['ma' => 'CAN_PIN', 'muc' => 'thuong', 'message' => 'Giảm giá vượt ngưỡng cần xác nhận PIN.'], 423);
+        }
+
         if (! empty($validated['diem_su_dung']) && empty($validated['customer_id'])) {
             throw \Illuminate\Validation\ValidationException::withMessages([
                 'diem_su_dung' => ['Cần chọn khách hàng trước khi dùng điểm.'],
@@ -423,6 +431,11 @@ class DonHangController extends Controller
             }, 2);
 
             $request->session()->forget('gio_hang');
+
+            if ($giamGiaVuot) {
+                NhatKyService::ghi($request, 'giam_gia_lon', 'don_hang', $donHang->id,
+                    "Giảm giá {$validated['giam_gia_phantram']}% đã qua PIN (hóa đơn {$donHang->ma_hoadon})");
+            }
 
             return redirect()->route('donhang.inhoadon', $donHang)->with('success', 'Thanh toán thành công.');
         } catch (\Illuminate\Validation\ValidationException $exception) {
