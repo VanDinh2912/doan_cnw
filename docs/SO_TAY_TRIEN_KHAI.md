@@ -345,6 +345,21 @@ Lưu ý:
 - `php artisan serve --env=dev-test` **không** nạp file env (giống lưu ý
   ở mục 7) — bắt buộc đặt `$env:APP_ENV` trước.
 
+## 7c. Bảo vệ prod `doan_cnw` khỏi ghi nhầm (bài học 2026-11-19)
+
+- **Prod (`doan_cnw`, web 127.0.0.1:8081) là nơi người vận hành dùng
+  thật.** Agent KHÔNG thao tác GUI/HTTP có ghi trên prod — chỉ SELECT.
+  Mọi kiểm thử có ghi chạy trên `doan_cnw_dev` theo mục 7b.
+- **Baseline có giờ**: trước mọi lượt đối chiếu số liệu prod, chụp số
+  liệu + ghi rõ thời điểm. Người vận hành có thể phát sinh giao dịch
+  hợp lệ giữa 2 lần đo (ví dụ hóa đơn #19 và `held_carts` #2 lúc
+  16:49 ngày 2026-11-19). Mọi chênh lệch trong cửa sổ giờ đó phải đối
+  chiếu `activity_logs` (cột `nguon`, `user_agent`, `user_id`) trước
+  khi kết luận là "ghi nhầm" — UA `Chrome/...` + `nguon=web` nghĩa là
+  thao tác trình duyệt thật, không phải curl/artisan.
+- Không xóa/sửa `activity_logs` hay `held_carts` trên prod — audit log
+  giữ nguyên vĩnh viễn.
+
 ## 8. Việc còn lại / cần xác nhận
 
 - Migration `ma_tham_chieu` (mục 1 #1) chưa có guard `hasColumn` — thêm trước khi áp
