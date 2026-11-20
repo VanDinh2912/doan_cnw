@@ -170,7 +170,7 @@ Route::middleware(['auth', 'staff.only', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->
         Route::put('/khachhang/sua/{khachHang}', [\App\Http\Controllers\KhachHangController::class, 'postSua'])
             ->name('khachhang.postsua')->middleware('xac.nhan.pin:thuong');
         Route::delete('/khachhang/xoa/{khachHang}', [\App\Http\Controllers\KhachHangController::class, 'getXoa'])
-            ->name('khachhang.xoa');
+            ->name('khachhang.xoa')->middleware('xac.nhan.pin:nghiemtrong');
         // Chi tiết hồ sơ khách (admin + thu ngân xem; read-only).
         // Đặt SAU mọi route literal để {khachHang} không nuốt timkiem/nhanh/them.
         Route::get('/khachhang/{khachHang}', [\App\Http\Controllers\KhachHangController::class, 'getChiTiet'])
@@ -190,12 +190,12 @@ Route::middleware(['auth', 'staff.only', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->
     // Khóa/mở khóa hồ sơ khách — CHỈ admin (server chặn, không chỉ ẩn nút).
     Route::middleware('role:admin')->group(function (): void {
         Route::post('/khachhang/khoa/{khachHang}', [\App\Http\Controllers\KhachHangController::class, 'postKhoa'])
-            ->name('khachhang.khoa');
+            ->name('khachhang.khoa')->middleware('xac.nhan.pin:nghiemtrong');
         Route::post('/khachhang/mo-khoa/{khachHang}', [\App\Http\Controllers\KhachHangController::class, 'postMoKhoa'])
-            ->name('khachhang.mokhoa');
+            ->name('khachhang.mokhoa')->middleware('xac.nhan.pin:nghiemtrong');
         Route::post('/khachhang/dat-lai-mat-khau/{khachHang}', [\App\Http\Controllers\KhachHangController::class, 'postDatLaiMatKhau'])
             ->middleware('throttle:10,1')
-            ->name('khachhang.datlaimatkhau');
+            ->name('khachhang.datlaimatkhau')->middleware('xac.nhan.pin:nghiemtrong');
     });
 
     // P3: màn hình nhân viên xử lý đơn online (admin/thu ngân/thủ kho) — ngoài nhóm role:admin,thungan.
@@ -211,13 +211,13 @@ Route::middleware(['auth', 'staff.only', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->
         // HM4: hủy đơn đã thanh toán + hoàn tiền thủ công — chỉ admin
         Route::post('/donhang-online/{donHang}/huy-da-thanh-toan', [\App\Http\Controllers\DonHangOnlineController::class, 'postHuyDonDaThanhToan'])
             ->middleware('role:admin')
-            ->name('donhangonline.huydathanhtoan');
+            ->name('donhangonline.huydathanhtoan')->middleware('xac.nhan.pin:nghiemtrong');
         Route::get('/donhang-online-can-hoan-tien', [\App\Http\Controllers\DonHangOnlineController::class, 'getDonCanHoanTien'])
             ->middleware('role:admin')
             ->name('donhangonline.canhoantien');
         Route::post('/donhang-online/{donHang}/da-hoan-tien', [\App\Http\Controllers\DonHangOnlineController::class, 'postDanhDauDaHoanTien'])
             ->middleware('role:admin')
-            ->name('donhangonline.dahoantien');
+            ->name('donhangonline.dahoantien')->middleware('xac.nhan.pin:nghiemtrong');
         Route::get('/donhang-online/{donHang}/phieu-giao', [\App\Http\Controllers\DonHangOnlineController::class, 'getPhieuGiao'])
             ->name('donhangonline.phieugiaohang');
 
@@ -238,7 +238,7 @@ Route::middleware(['auth', 'staff.only', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->
             Route::put('/hangsxuat/sua/{hang}', [\App\Http\Controllers\HangsxuatController::class, 'postSua'])
                 ->name('hangsxuat.postsua')->middleware('xac.nhan.pin:thuong');
             Route::delete('/hangsxuat/xoa/{hang}', [\App\Http\Controllers\HangsxuatController::class, 'getXoa'])
-                ->name('hangsxuat.xoa');
+                ->name('hangsxuat.xoa')->middleware('xac.nhan.pin:nghiemtrong');
         });
     });
 
@@ -247,12 +247,12 @@ Route::middleware(['auth', 'staff.only', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->
         Route::prefix('taikhoan')->name('taikhoan.')->middleware('role:admin')->group(function (): void {
             Route::get('/', [\App\Http\Controllers\TaiKhoanNhanVienController::class, 'index'])->name('danhsach');
             Route::get('/them', [\App\Http\Controllers\TaiKhoanNhanVienController::class, 'create'])->name('them');
-            Route::post('/', [\App\Http\Controllers\TaiKhoanNhanVienController::class, 'store'])->name('store');
+            Route::post('/', [\App\Http\Controllers\TaiKhoanNhanVienController::class, 'store'])->name('store')->middleware('xac.nhan.pin:nghiemtrong');
             Route::get('/sua/{user}', [\App\Http\Controllers\TaiKhoanNhanVienController::class, 'edit'])->name('sua');
-            Route::put('/sua/{user}', [\App\Http\Controllers\TaiKhoanNhanVienController::class, 'update'])->name('update');
-            Route::post('/khoa/{user}', [\App\Http\Controllers\TaiKhoanNhanVienController::class, 'khoa'])->name('khoa');
-            Route::post('/mo-khoa/{user}', [\App\Http\Controllers\TaiKhoanNhanVienController::class, 'moKhoa'])->name('mokhoa');
-            Route::post('/dat-lai-mat-khau/{user}', [\App\Http\Controllers\TaiKhoanNhanVienController::class, 'datLaiMatKhau'])->name('datlaimatkhau');
+            Route::put('/sua/{user}', [\App\Http\Controllers\TaiKhoanNhanVienController::class, 'update'])->name('update')->middleware('xac.nhan.pin:nghiemtrong');
+            Route::post('/khoa/{user}', [\App\Http\Controllers\TaiKhoanNhanVienController::class, 'khoa'])->name('khoa')->middleware('xac.nhan.pin:nghiemtrong');
+            Route::post('/mo-khoa/{user}', [\App\Http\Controllers\TaiKhoanNhanVienController::class, 'moKhoa'])->name('mokhoa')->middleware('xac.nhan.pin:nghiemtrong');
+            Route::post('/dat-lai-mat-khau/{user}', [\App\Http\Controllers\TaiKhoanNhanVienController::class, 'datLaiMatKhau'])->name('datlaimatkhau')->middleware('xac.nhan.pin:nghiemtrong');
         });
         Route::get('/hoadonnhap', [\App\Http\Controllers\HoaDonNhapController::class, 'getDanhSach'])->name('hoadonnhap.danhsach');
         Route::get('/hoadonnhap/them', [\App\Http\Controllers\HoaDonNhapController::class, 'getThem'])->name('hoadonnhap.them');
@@ -261,8 +261,8 @@ Route::middleware(['auth', 'staff.only', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->
         Route::get('/hoadonnhap/xem/{hoaDon}', [\App\Http\Controllers\HoaDonNhapController::class, 'getXem'])->name('hoadonnhap.xem');
         Route::get('/hoadonnhap/sua/{hoaDon}', [\App\Http\Controllers\HoaDonNhapController::class, 'getSua'])->name('hoadonnhap.sua');
         Route::post('/hoadonnhap/sua/{hoaDon}', [\App\Http\Controllers\HoaDonNhapController::class, 'postSua'])->name('hoadonnhap.postsua')->middleware('xac.nhan.pin:thuong');
-        Route::post('/hoadonnhap/xacnhan/{hoaDon}', [\App\Http\Controllers\HoaDonNhapController::class, 'postXacNhan'])->name('hoadonnhap.xacnhan');
-        Route::post('/hoadonnhap/huy/{hoaDon}', [\App\Http\Controllers\HoaDonNhapController::class, 'postHuy'])->name('hoadonnhap.huy');
+        Route::post('/hoadonnhap/xacnhan/{hoaDon}', [\App\Http\Controllers\HoaDonNhapController::class, 'postXacNhan'])->name('hoadonnhap.xacnhan')->middleware('xac.nhan.pin:nghiemtrong');
+        Route::post('/hoadonnhap/huy/{hoaDon}', [\App\Http\Controllers\HoaDonNhapController::class, 'postHuy'])->name('hoadonnhap.huy')->middleware('xac.nhan.pin:nghiemtrong');
         Route::get('/loaisanpham/goiy', [\App\Http\Controllers\LoaiSanPhamController::class, 'getGoiY'])->name('loaisanpham.goiy');
         Route::get('/kiemke', [\App\Http\Controllers\KiemKeController::class, 'index'])->name('kiemke.index');
         Route::get('/kiemke/them', [\App\Http\Controllers\KiemKeController::class, 'create'])->name('kiemke.create');
@@ -274,12 +274,12 @@ Route::middleware(['auth', 'staff.only', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->
         Route::post('/nhaphang/nhacungcap/them', [\App\Http\Controllers\NhapHangController::class, 'postThemNhaCungCap'])->name('nhaphang.nhacungcap.postthem')->middleware('xac.nhan.pin:thuong');
         Route::get('/nhaphang/nhacungcap/sua/{nhaCungCap}', [\App\Http\Controllers\NhapHangController::class, 'getSuaNhaCungCap'])->name('nhaphang.nhacungcap.sua');
         Route::put('/nhaphang/nhacungcap/sua/{nhaCungCap}', [\App\Http\Controllers\NhapHangController::class, 'postSuaNhaCungCap'])->name('nhaphang.nhacungcap.postsua')->middleware('xac.nhan.pin:thuong');
-        Route::delete('/nhaphang/nhacungcap/xoa/{nhaCungCap}', [\App\Http\Controllers\NhapHangController::class, 'xoaNhaCungCap'])->name('nhaphang.nhacungcap.xoa');
+        Route::delete('/nhaphang/nhacungcap/xoa/{nhaCungCap}', [\App\Http\Controllers\NhapHangController::class, 'xoaNhaCungCap'])->name('nhaphang.nhacungcap.xoa')->middleware('xac.nhan.pin:nghiemtrong');
         Route::get('/nhaphang/donnhap', [\App\Http\Controllers\NhapHangController::class, 'getDonNhap'])->name('nhaphang.donnhap');
         Route::get('/nhaphang/donnhap/them', [\App\Http\Controllers\NhapHangController::class, 'getThemDonNhap'])->name('nhaphang.donnhap.them');
         Route::post('/nhaphang/donnhap/them', [\App\Http\Controllers\NhapHangController::class, 'postThemDonNhap'])->name('nhaphang.donnhap.postthem')->middleware('xac.nhan.pin:thuong');
         Route::get('/nhaphang/donnhap/{donNhap}', [\App\Http\Controllers\NhapHangController::class, 'getChiTietDonNhap'])->name('nhaphang.donnhap.chitiet');
-        Route::post('/nhaphang/donnhap/{donNhap}/trangthai', [\App\Http\Controllers\NhapHangController::class, 'capNhatTrangThai'])->name('nhaphang.donnhap.trangthai');
+        Route::post('/nhaphang/donnhap/{donNhap}/trangthai', [\App\Http\Controllers\NhapHangController::class, 'capNhatTrangThai'])->name('nhaphang.donnhap.trangthai')->middleware('xac.nhan.pin:nghiemtrong');
         Route::get('/kho', [\App\Http\Controllers\KhoController::class, 'getDanhSach'])->name('kho.danhsach');
         Route::get('/kho/nhap', [\App\Http\Controllers\KhoController::class, 'getNhapKho'])->name('kho.nhapkho');
         Route::post('/kho/nhap', [\App\Http\Controllers\KhoController::class, 'postNhapKho'])->name('kho.postnhapkho')->middleware('xac.nhan.pin:thuong');
@@ -297,7 +297,7 @@ Route::middleware(['auth', 'staff.only', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->
         Route::put('/sanpham/sua/{sanPham}', [\App\Http\Controllers\SanPhamController::class, 'postSua'])
             ->name('sanpham.postsua')->middleware('xac.nhan.pin:thuong');
         Route::delete('/sanpham/xoa/{sanPham}', [\App\Http\Controllers\SanPhamController::class, 'getXoa'])
-            ->name('sanpham.xoa');
+            ->name('sanpham.xoa')->middleware('xac.nhan.pin:nghiemtrong');
         // Export san pham ra Excel: admin + thu kho (nhom route da gioi han).
         Route::get('/sanpham/xuat-excel', [\App\Http\Controllers\SanPhamExcelController::class, 'getXuatExcel'])
             ->name('sanpham.xuatexcel')->middleware('xac.nhan.pin:thuong');
@@ -312,7 +312,7 @@ Route::middleware(['auth', 'staff.only', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->
                 ->name('sanpham.import.upload');
             Route::post('/sanpham/import-excel/xac-nhan', [\App\Http\Controllers\SanPhamExcelController::class, 'postXacNhan'])
                 ->middleware('throttle:10,1')
-                ->name('sanpham.import.xacnhan');
+                ->name('sanpham.import.xacnhan')->middleware('xac.nhan.pin:nghiemtrong');
         });
         Route::get('/loaisanpham', [\App\Http\Controllers\LoaiSanPhamController::class, 'getDanhSach'])
             ->name('loaisanpham.danhsach');
@@ -325,26 +325,26 @@ Route::middleware(['auth', 'staff.only', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->
         Route::put('/loaisanpham/sua/{loai}', [\App\Http\Controllers\LoaiSanPhamController::class, 'postSua'])
             ->name('loaisanpham.postsua')->middleware('xac.nhan.pin:thuong');
         Route::delete('/loaisanpham/xoa/{loai}', [\App\Http\Controllers\LoaiSanPhamController::class, 'getXoa'])
-            ->name('loaisanpham.xoa');
+            ->name('loaisanpham.xoa')->middleware('xac.nhan.pin:nghiemtrong');
     });
 
     Route::middleware('role:admin')->group(function (): void {
         Route::get('/tong-quan/so-lieu', [\App\Http\Controllers\ThongKeController::class, 'getSoLieuTongQuan'])
             ->middleware('throttle:30,1')
             ->name('tongquan.solieu');
-        Route::post('/kiemke/{phieu}/duyet', [\App\Http\Controllers\KiemKeController::class, 'approve'])->name('kiemke.approve');
+        Route::post('/kiemke/{phieu}/duyet', [\App\Http\Controllers\KiemKeController::class, 'approve'])->name('kiemke.approve')->middleware('xac.nhan.pin:nghiemtrong');
         Route::get('/nhatky', [\App\Http\Controllers\NhatKyController::class, 'index'])->name('nhatky.index');
-        Route::get('/nhatky/xuat-csv', [\App\Http\Controllers\NhatKyController::class, 'export'])->name('nhatky.export');
+        Route::get('/nhatky/xuat-csv', [\App\Http\Controllers\NhatKyController::class, 'export'])->name('nhatky.export')->middleware('xac.nhan.pin:nghiemtrong');
         Route::get('/doisoat', [\App\Http\Controllers\DoiSoatController::class, 'index'])->name('doisoat.index');
         Route::get('/doisoat/{webhook}', [\App\Http\Controllers\DoiSoatController::class, 'show'])->name('doisoat.show');
-        Route::post('/doisoat/{webhook}/xuly', [\App\Http\Controllers\DoiSoatController::class, 'xuLy'])->name('doisoat.xuly');
-        Route::post('/trahang/duyet/{phieuTra}', [\App\Http\Controllers\TraHangController::class, 'postDuyet'])->name('trahang.duyet');
+        Route::post('/doisoat/{webhook}/xuly', [\App\Http\Controllers\DoiSoatController::class, 'xuLy'])->name('doisoat.xuly')->middleware('xac.nhan.pin:nghiemtrong');
+        Route::post('/trahang/duyet/{phieuTra}', [\App\Http\Controllers\TraHangController::class, 'postDuyet'])->name('trahang.duyet')->middleware('xac.nhan.pin:nghiemtrong');
         Route::get('/thongke', [\App\Http\Controllers\ThongKeController::class, 'getTrangThongKe'])
             ->name('thongke.index');
         Route::get('/thongke/doanhthu', [\App\Http\Controllers\ThongKeController::class, 'getDoanhThu'])->name('thongke.doanhthu');
         Route::get('/thongke/chua-co-gia-von', [\App\Http\Controllers\ThongKeController::class, 'getDongChuaCoGiaVon'])->name('thongke.chuagivon');
         Route::get('/thongke/topsanpham', [\App\Http\Controllers\ThongKeController::class, 'getTopSanPham'])->name('thongke.topsanpham');
-        Route::get('/baocao/hoadon/{dinhDang}', [\App\Http\Controllers\BaoCaoController::class, 'getHoaDon'])->name('baocao.hoadon');
+        Route::get('/baocao/hoadon/{dinhDang}', [\App\Http\Controllers\BaoCaoController::class, 'getHoaDon'])->name('baocao.hoadon')->middleware('xac.nhan.pin:nghiemtrong');
 
         // Quản trị tin tức: chủ đề, bài viết, bình luận (chỉ admin).
         Route::prefix('tin-tuc')->group(function (): void {
@@ -353,7 +353,7 @@ Route::middleware(['auth', 'staff.only', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->
             Route::post('/chu-de/them', [\App\Http\Controllers\ChuDeController::class, 'postThem'])->name('chude.postthem')->middleware('xac.nhan.pin:thuong');
             Route::get('/chu-de/sua/{chuDe}', [\App\Http\Controllers\ChuDeController::class, 'getSua'])->name('chude.sua');
             Route::put('/chu-de/sua/{chuDe}', [\App\Http\Controllers\ChuDeController::class, 'postSua'])->name('chude.postsua')->middleware('xac.nhan.pin:thuong');
-            Route::delete('/chu-de/xoa/{chuDe}', [\App\Http\Controllers\ChuDeController::class, 'getXoa'])->name('chude.xoa');
+            Route::delete('/chu-de/xoa/{chuDe}', [\App\Http\Controllers\ChuDeController::class, 'getXoa'])->name('chude.xoa')->middleware('xac.nhan.pin:nghiemtrong');
 
             Route::get('/bai-viet', [\App\Http\Controllers\BaiVietController::class, 'getDanhSach'])->name('baiviet.danhsach');
             Route::get('/bai-viet/them', [\App\Http\Controllers\BaiVietController::class, 'getThem'])->name('baiviet.them');
@@ -362,12 +362,12 @@ Route::middleware(['auth', 'staff.only', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->
             Route::put('/bai-viet/sua/{baiViet}', [\App\Http\Controllers\BaiVietController::class, 'postSua'])->name('baiviet.postsua')->middleware('xac.nhan.pin:thuong');
             Route::post('/bai-viet/duyet/{baiViet}', [\App\Http\Controllers\BaiVietController::class, 'postDuyet'])->name('baiviet.duyet')->middleware('xac.nhan.pin:thuong');
             Route::post('/bai-viet/kich-hoat/{baiViet}', [\App\Http\Controllers\BaiVietController::class, 'postKichHoat'])->name('baiviet.kichhoat')->middleware('xac.nhan.pin:thuong');
-            Route::delete('/bai-viet/xoa/{baiViet}', [\App\Http\Controllers\BaiVietController::class, 'getXoa'])->name('baiviet.xoa');
+            Route::delete('/bai-viet/xoa/{baiViet}', [\App\Http\Controllers\BaiVietController::class, 'getXoa'])->name('baiviet.xoa')->middleware('xac.nhan.pin:nghiemtrong');
 
             Route::get('/binh-luan', [\App\Http\Controllers\BinhLuanBaiVietController::class, 'getDanhSach'])->name('binhluan.danhsach');
             Route::post('/binh-luan/duyet/{binhLuan}', [\App\Http\Controllers\BinhLuanBaiVietController::class, 'postDuyet'])->name('binhluan.duyet')->middleware('xac.nhan.pin:thuong');
             Route::post('/binh-luan/an/{binhLuan}', [\App\Http\Controllers\BinhLuanBaiVietController::class, 'postAn'])->name('binhluan.an')->middleware('xac.nhan.pin:thuong');
-            Route::delete('/binh-luan/xoa/{binhLuan}', [\App\Http\Controllers\BinhLuanBaiVietController::class, 'getXoa'])->name('binhluan.xoa');
+            Route::delete('/binh-luan/xoa/{binhLuan}', [\App\Http\Controllers\BinhLuanBaiVietController::class, 'getXoa'])->name('binhluan.xoa')->middleware('xac.nhan.pin:nghiemtrong');
         });
     });
 
