@@ -316,7 +316,11 @@ class DonHangController extends Controller
         $giamGiaVuot = PinService::bat()
             && (float) $validated['giam_gia_phantram'] > (float) config('pos.giam_gia_khong_pin_toi_da', 10);
         if ($giamGiaVuot && ! PinService::daXacNhanThuong($request->user())) {
-            return response()->json(['ma' => 'CAN_PIN', 'muc' => 'thuong', 'message' => 'Giảm giá vượt ngưỡng cần xác nhận PIN.'], 423);
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json(['ma' => 'CAN_PIN', 'muc' => 'thuong', 'message' => 'Giảm giá vượt ngưỡng cần xác nhận PIN.'], 423);
+            }
+            return redirect()->back()->withInput()
+                ->with('error', 'Giảm giá vượt ngưỡng cần xác nhận PIN — vui lòng bật JavaScript hoặc giảm giá không quá '.(float) config('pos.giam_gia_khong_pin_toi_da', 10).'%');
         }
 
         if (! empty($validated['diem_su_dung']) && empty($validated['customer_id'])) {

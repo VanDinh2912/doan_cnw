@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\SanPham;
 use App\Models\User;
 use App\Services\PinService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -71,5 +72,46 @@ class PinGiamGiaTest extends TestCase
         // Kiểm chứng gián tiếp: guard audit chỉ chạy sau transaction thành công
         // — unit-level đã cover ở PinHaTangTest; ở đây chỉ đảm bảo không 423 khi đủ PIN.
         $this->assertTrue(true);
+    }
+
+    public function test_vuot_nguong_thanh_toan_dung_mot_lan(): void
+    {
+        $this->seed();
+        config(['pos.pin_bat' => true, 'pos.giam_gia_khong_pin_toi_da' => 10]);
+        $u = User::where('role', 'thungan')->firstOrFail();
+        PinService::datPin($u, '135792');
+        $sp = SanPham::where('sku', 'CS-0001')->firstOrFail();
+        $slTruoc = (int) $sp->soluong;
+
+        $this->actingAs($u)->withSession([
+            'gio_hang' => [
+                (string) $sp->id => ['id' => $sp->id, 'soluong' => 2, 'gia_ban' => (float) $sp->gia_ban],
+            ],
+        ]);
+
+        $payload = ['giam_gia_phantram' => 50, 'tien_khach_dua' => 99999999, 'phuong_thuc' => 'tienmat'];
+
+        // Chưa PIN -> 423, chưa có hóa đơn
+        $this->postJson('/donhang/thanhtoan', $payload)->assertStatus(423)->assertJsonPath('ma', 'CAN_PIN');
+        $this->assertDatabaseCount('invoices', 0);
+
+        // PIN sai -> vẫn 423
+        $this->postJson('/xac-nhan-pin/kiem-tra', ['pin' => '000001', 'muc' => 'thuong', 'hanh_dong' => 'POST /donhang/thanhtoan'])->assertStatus(422);
+        $this->postJson('/donhang/thanhtoan', $payload)->assertStatus(423);
+        $this->assertDatabaseCount('invoices', 0);
+
+        // PIN đúng -> đúng 1 hóa đơn, tồn trừ đúng 1 lần
+        $this->postJson('/xac-nhan-pin/kiem-tra', ['pin' => '135792', 'muc' => 'thuong', 'hanh_dong' => 'POST /donhang/thanhtoan'])->assertOk();
+        $this->postJson('/donhang/thanhtoan', $payload)->assertStatus(302);
+        $this->assertDatabaseCount('invoices', 1);
+        $invoiceId = (int) \App\Models\DonHang::query()->value('id');
+        $this->assertSame($slTruoc - 2, (int) SanPham::findOrFail($sp->id)->soluong);
+        $this->assertSame(1, \App\Models\BienDongKho::where('invoice_id', $invoiceId)->count());
+
+        // Gửi lại -> giỏ đã trống, không hóa đơn thứ hai
+        $this->postJson('/donhang/thanhtoan', $payload)->assertStatus(302);
+        $this->assertDatabaseCount('invoices', 1);
+        $this->assertSame($slTruoc - 2, (int) SanPham::findOrFail($sp->id)->soluong);
+        $this->assertSame(1, \App\Models\BienDongKho::where('invoice_id', $invoiceId)->count());
     }
 }

@@ -71,7 +71,7 @@
                     </form>
                     <hr>
                     <div class="text-end fs-5"><strong>Tổng: {{ number_format($tongTien, 0, ',', '.') }} đ</strong></div>
-                    <form class="border-top mt-3 pt-3" method="POST" action="{{ route('donhang.thanhtoan') }}">
+                    <form class="border-top mt-3 pt-3" method="POST" action="{{ route('donhang.thanhtoan') }}" id="form-thanhtoan">
                         @csrf
                         <div class="row g-2 mb-2">
                             <div class="col-md-8">
@@ -614,6 +614,32 @@ pointsInput.addEventListener('input', () => {
         }
     }
 });
+
+// Thanh toán gửi qua fetch: server trả 423 CAN_PIN khi giảm giá vượt ngưỡng,
+// pin.js tự mở hộp thoại PIN và thử lại; redirect đi theo res.url.
+(function () {
+    var form = document.getElementById('form-thanhtoan');
+    if (!form) return;
+    var btn = document.getElementById('btn-submit-tienmat');
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        if (btn) btn.disabled = true;
+        fetch(form.action, {
+            method: 'POST',
+            body: new FormData(form),
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(function (res) {
+            if (!res.redirected) {
+                if (btn) btn.disabled = false; // 423 da huy / loi — o lai trang POS
+                return;
+            }
+            window.location.href = res.url;
+        }).catch(function () {
+            if (btn) btn.disabled = false;
+            window.location.reload();
+        });
+    });
+})();
 </script>
 @endpush
 @endsection
