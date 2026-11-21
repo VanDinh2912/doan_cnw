@@ -41,6 +41,10 @@ return [
     'pin_bat' => env('POS_PIN_BAT', false) === true,
     // Giảm giá POS vượt ngưỡng này (phần trăm) yêu cầu PIN mức thường.
     'giam_gia_khong_pin_toi_da' => (int) env('POS_GIAM_GIA_KHONG_PIN_TOI_DA', 10),
+    // Dùng điểm POS vượt ngưỡng này yêu cầu PIN mức thường (khi POS_PIN_BAT bật).
+    'diem_dung_khong_pin_toi_da' => (int) env('POS_DIEM_DUNG_KHONG_PIN_TOI_DA', 50),
+    // Giới hạn |số điểm| tối đa mỗi lần điều chỉnh thủ công bởi admin.
+    'diem_dieu_chinh_toi_da' => (int) env('POS_DIEM_DIEU_CHINH_TOI_DA', 500),
     'telegram_bot_token' => env('TELEGRAM_BOT_TOKEN', ''),
     'telegram_chat_id' => env('TELEGRAM_CHAT_ID', ''),
     // Cửa sổ xác thực lại hồ sơ khách (phút), mặc định 10, giới hạn 2-30.

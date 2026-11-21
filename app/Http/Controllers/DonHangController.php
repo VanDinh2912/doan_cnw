@@ -8,6 +8,7 @@ use App\Models\DonHang;
 use App\Models\LoaiSanPham;
 use App\Models\KhachHang;
 use App\Models\SanPham;
+use App\Services\DiemService;
 use App\Services\NhatKyService;
 use App\Services\PinService;
 use App\Services\ThanhToanChuyenKhoanService;
@@ -71,6 +72,17 @@ class DonHangController extends Controller
             throw \Illuminate\Validation\ValidationException::withMessages([
                 'diem_su_dung' => ['Cần chọn khách hàng trước khi dùng điểm.'],
             ]);
+        }
+
+        // Dùng điểm lớn cần PIN mức thường (khi POS_PIN_BAT bật, mọi role)
+        $diemSuDungQr = (int) ($validated['diem_su_dung'] ?? 0);
+        if (PinService::bat()
+            && $diemSuDungQr > (int) config('pos.diem_dung_khong_pin_toi_da', 50)
+            && ! PinService::daXacNhanThuong($request->user())) {
+            return response()->json([
+                'ma' => 'CAN_PIN', 'muc' => 'thuong',
+                'message' => 'Sử dụng điểm vượt ngưỡng cần xác nhận PIN.',
+            ], 423);
         }
 
         $gioHang = $request->session()->get('gio_hang', []);
@@ -329,6 +341,18 @@ class DonHangController extends Controller
             ]);
         }
 
+        // Dùng điểm lớn cần PIN mức thường (khi POS_PIN_BAT bật, mọi role)
+        $diemSuDung = (int) ($validated['diem_su_dung'] ?? 0);
+        $diemVuot = PinService::bat()
+            && $diemSuDung > (int) config('pos.diem_dung_khong_pin_toi_da', 50);
+        if ($diemVuot && ! PinService::daXacNhanThuong($request->user())) {
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json(['ma' => 'CAN_PIN', 'muc' => 'thuong', 'message' => 'Sử dụng điểm vượt ngưỡng cần xác nhận PIN.'], 423);
+            }
+            return redirect()->back()->withInput()
+                ->with('error', 'Sử dụng '.$diemSuDung.' điểm vượt ngưỡng cần xác nhận PIN — vui lòng bật JavaScript hoặc giảm số điểm không quá '.(int) config('pos.diem_dung_khong_pin_toi_da', 50));
+        }
+
         $gioHang = collect($request->session()->get('gio_hang', []))
             ->sortBy(fn (array $item, string|int $key): int => (int) ($item['id'] ?? $key))
             ->all();
@@ -426,9 +450,23 @@ class DonHangController extends Controller
                 }
 
                 if ($khachHang) {
-                    $khachHang->update([
-                        'diem_tichluy' => $khachHang->diem_tichluy - $diemSuDung + $diemTichLuyNhan,
-                    ]);
+                    $soDuTruoc = (int) $khachHang->diem_tichluy;
+                    $khachHang->diem_tichluy = $soDuTruoc - $diemSuDung + $diemTichLuyNhan;
+                    $khachHang->save();
+                    // Sổ cái điểm: trừ điểm dùng trước, cộng điểm nhận sau —
+                    // mỗi dòng ghi số dư sau đúng thời điểm biến động đó.
+                    if ($diemSuDung > 0) {
+                        DiemService::ghi($khachHang->id, DiemService::LOAI_DUNG, -$diemSuDung,
+                            $soDuTruoc - $diemSuDung,
+                            ['invoice_id' => $donHang->id, 'user_id' => $request->user()->id,
+                                'su_kien' => 'pos-thanh-toan:'.$donHang->id.':dung_diem']);
+                    }
+                    if ($diemTichLuyNhan > 0) {
+                        DiemService::ghi($khachHang->id, DiemService::LOAI_TICH, $diemTichLuyNhan,
+                            $soDuTruoc - $diemSuDung + $diemTichLuyNhan,
+                            ['invoice_id' => $donHang->id, 'user_id' => $request->user()->id,
+                                'su_kien' => 'pos-thanh-toan:'.$donHang->id.':tich_diem']);
+                    }
                 }
 
                 return $donHang;
@@ -439,6 +477,10 @@ class DonHangController extends Controller
             if ($giamGiaVuot) {
                 NhatKyService::ghi($request, 'giam_gia_lon', 'don_hang', $donHang->id,
                     "Giảm giá {$validated['giam_gia_phantram']}% đã qua PIN (hóa đơn {$donHang->ma_hoadon})");
+            }
+            if ($diemVuot) {
+                NhatKyService::ghi($request, 'dung_diem_lon', 'don_hang', $donHang->id,
+                    "Dùng {$diemSuDung} điểm đã qua PIN (hóa đơn {$donHang->ma_hoadon})");
             }
 
             return redirect()->route('donhang.inhoadon', $donHang)->with('success', 'Thanh toán thành công.');
