@@ -34,7 +34,6 @@ return Application::configure(basePath: dirname(__DIR__))
             'staff.only' => \App\Http\Middleware\RedirectKhachhangFromStaff::class,
             'khoa.luc' => \App\Http\Middleware\CheckKhoaLuc::class,
             'bat.buoc.doi.mat.khau' => \App\Http\Middleware\CheckBatBuocDoiMatKhau::class,
-            'bat.buoc.doi.pin' => \App\Http\Middleware\CheckBatBuocDoiPin::class,
             'dat.hang.online' => \App\Http\Middleware\ChanDatHangOnline::class,
             'xac.nhan.pin' => \App\Http\Middleware\XacNhanPin::class,
         ]);

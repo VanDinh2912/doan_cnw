@@ -50,7 +50,6 @@
             Trạng thái:
             @if ($user->pin_hash)
                 <span class="badge bg-success">Đã có PIN</span>
-                @if ($user->bat_buoc_doi_pin)<span class="badge bg-warning text-dark">Chờ đổi PIN tạm</span>@endif
                 <small class="text-muted">(đổi lần cuối: {{ $user->pin_doi_luc ?? '—' }})</small>
             @else
                 <span class="badge bg-secondary">Chưa có PIN</span>

@@ -15,13 +15,22 @@
 <body>
     <div class="card">
         <h2 style="margin-top:0">PIN tạm đã được tạo</h2>
-        <p>Tài khoản <strong>{{ $user->email }}</strong> ({{ $user->role }}) được cấp PIN tạm:</p>
-        <div class="pin">{{ $pinTam }}</div>
-        <div class="warn">
-            <strong>Chỉ hiển thị MỘT LẦN.</strong> Tải lại trang sẽ tạo PIN mới và PIN này mất hiệu lực.
-            PIN tạm chỉ dùng được <strong>một lần</strong> để đặt PIN mới tại <code>/doi-pin</code> —
-            sau đó tự vô hiệu, nhân viên không dùng PIN tạm cho thao tác bán hàng.
-        </div>
+        <p>Tài khoản <strong>{{ $user->email }}</strong> ({{ $user->role }}) được cấp PIN tạm.</p>
+        @if($chePin ?? false)
+            <div class="pin">••••••</div>
+            <div class="warn">
+                <strong>Quản trị viên không thấy PIN.</strong> Nhân viên tự xem PIN tại trang
+                <strong>PIN tạm của tôi</strong> (<code>/pin/tam-cua-toi</code>) — chỉ hiển thị
+                <strong>một lần</strong>, hết hạn sau 30 phút.
+            </div>
+        @else
+            <div class="pin">{{ $pinTam }}</div>
+            <div class="warn">
+                <strong>Chỉ hiển thị MỘT LẦN.</strong> Tải lại trang sẽ không xem lại được.
+                Đây là PIN xác nhận thao tác của bạn — dùng như PIN thường, có thể đổi bất cứ
+                lúc nào tại <code>/doi-pin</code> (cần PIN hiện tại).
+            </div>
+        @endif
         <p style="margin-top:1rem"><a href="{{ $urlLai ?? route('taikhoan.danhsach') }}">{{ $nhanLai ?? 'Quay lại danh sách tài khoản' }}</a></p>
     </div>
 </body>

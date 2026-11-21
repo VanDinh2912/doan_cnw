@@ -234,7 +234,7 @@ class PinController extends Controller
             'pin_sai_lien_tiep' => 0,
             'pin_khoa_den' => null,
             'pin_doi_luc' => now(),
-            'bat_buoc_doi_pin' => true,
+            'bat_buoc_doi_pin' => false, // PIN tạm dùng luon lam PIN thuong, khong ep doi
         ])->save();
         PinService::xoaSessionPin();
         // Lưu PIN tạm mã hóa trong cache 30' để CHÍNH NV đó tự xem 1 lần
@@ -245,9 +245,10 @@ class PinController extends Controller
         NhatKyService::ghi($request, 'pin_dat_lai', 'user', $user->id,
             "Admin #{$admin->id} đặt lại PIN cho user #{$user->id} — {$validated['ly_do']}", null, null, null, 'pin');
 
-        // Hiện PIN tạm ĐÚNG MỘT LẦN: 200 trực tiếp + no-store, không flash/log
+        // KHONG hien PIN cho admin — chi NV tu xem 1 lan tai /pin/tam-cua-toi.
+        // Admin biet PIN cua NV se danh bai muc dich "chong nguoi la o quay".
         return response()->view('pin.tam', [
-            'user' => $user, 'pinTam' => $pinTam,
+            'user' => $user, 'pinTam' => null, 'chePin' => true,
             'urlLai' => route('taikhoan.danhsach'), 'nhanLai' => 'Quay lại danh sách tài khoản',
         ])
             ->header('Cache-Control', 'no-store, no-cache')

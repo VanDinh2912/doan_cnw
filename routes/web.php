@@ -106,7 +106,7 @@ Route::prefix('don-hang')->name('don-hang.')
     Route::post('/{ma_tra_cuu}/huy', [\App\Http\Controllers\DatHangOnlineController::class, 'postHuy'])->name('huy');
 });
 
-Route::middleware(['auth', 'staff.only', 'khoa.luc', 'bat.buoc.doi.mat.khau', 'bat.buoc.doi.pin'])->group(function (): void {
+Route::middleware(['auth', 'staff.only', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->group(function (): void {
     Route::get('/tongquan', [\App\Http\Controllers\ThongKeController::class, 'getTongQuan'])->name('tongquan');
 
     // PIN xác nhận thao tác nhạy cảm (ngoại lệ: không gắn xac.nhan.pin)
