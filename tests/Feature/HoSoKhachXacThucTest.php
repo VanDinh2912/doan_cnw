@@ -91,6 +91,19 @@ class HoSoKhachXacThucTest extends TestCase
         $response->assertSee('Xác thực', false);
     }
 
+    public function test_trang_lich_su_don_hang_che_pii_khi_chua_xac_thuc(): void
+    {
+        $user = $this->khachHangUser();
+
+        $response = $this->actingAs($user)->get(route('profile.orders'));
+
+        $response->assertOk();
+        $response->assertDontSee('Nguyen Van An', false);
+        $response->assertDontSee('0901234567', false);
+        $response->assertSee('N*** V*** A***', false);
+        $response->assertSee('090****567', false);
+    }
+
     public function test_sau_xac_thuc_hien_du_lieu_day_du_va_form(): void
     {
         $user = $this->khachHangUser();

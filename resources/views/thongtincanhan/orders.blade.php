@@ -15,9 +15,19 @@
                     <i class="fa-solid fa-user"></i>
                 </div>
                 <div style="flex:1;">
-                    <h2 style="margin:0 0 4px 0;font-size:20px;">{{ auth()->user()->name }}</h2>
+                    <h2 style="margin:0 0 4px 0;font-size:20px;">
+                        @if (\App\Support\HoSoXacThuc::conHieuLuc(request()))
+                            {{ auth()->user()->name }}
+                        @else
+                            {{ \App\Support\ChePII::hoTen(auth()->user()->name) }}
+                        @endif
+                    </h2>
                     <p style="margin:0;font-size:14px;opacity:0.9;">
-                        {{ $khachHang ? $khachHang->so_dienthoai : 'Chưa cập nhật' }}
+                        @if (\App\Support\HoSoXacThuc::conHieuLuc(request()))
+                            {{ $khachHang ? $khachHang->so_dienthoai : 'Chưa cập nhật' }}
+                        @else
+                            {{ $khachHang ? \App\Support\ChePII::soDienThoai($khachHang->so_dienthoai) : 'Chưa cập nhật' }}
+                        @endif
                     </p>
                 </div>
             </div>

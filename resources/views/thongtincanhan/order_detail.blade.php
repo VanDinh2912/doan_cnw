@@ -15,9 +15,19 @@
                     <i class="fa-solid fa-user"></i>
                 </div>
                 <div style="flex:1;">
-                    <h2 style="margin:0 0 4px 0;font-size:20px;">{{ auth()->user()->name }}</h2>
+                    <h2 style="margin:0 0 4px 0;font-size:20px;">
+                        @if (\App\Support\HoSoXacThuc::conHieuLuc(request()))
+                            {{ auth()->user()->name }}
+                        @else
+                            {{ \App\Support\ChePII::hoTen(auth()->user()->name) }}
+                        @endif
+                    </h2>
                     <p style="margin:0;font-size:14px;opacity:0.9;">
-                        {{ $khachHang ? $khachHang->so_dienthoai : 'Chưa cập nhật' }}
+                        @if (\App\Support\HoSoXacThuc::conHieuLuc(request()))
+                            {{ $khachHang ? $khachHang->so_dienthoai : 'Chưa cập nhật' }}
+                        @else
+                            {{ $khachHang ? \App\Support\ChePII::soDienThoai($khachHang->so_dienthoai) : 'Chưa cập nhật' }}
+                        @endif
                     </p>
                 </div>
             </div>
@@ -115,10 +125,22 @@
                 @if ($don->hinh_thuc_nhan === 'giao_tan_noi')
                     <div>Nhận hàng: Giao tận nơi</div>
                     @if ($don->ten_nguoi_nhan)
-                        <div>Người nhận: {{ $don->ten_nguoi_nhan }} — {{ $don->sdt_nguoi_nhan }}</div>
+                        <div>Người nhận:
+                            @if (\App\Support\HoSoXacThuc::conHieuLuc(request()))
+                                {{ $don->ten_nguoi_nhan }} — {{ $don->sdt_nguoi_nhan }}
+                            @else
+                                {{ \App\Support\ChePII::hoTen($don->ten_nguoi_nhan) }} — {{ \App\Support\ChePII::soDienThoai($don->sdt_nguoi_nhan) }}
+                            @endif
+                        </div>
                     @endif
                     @if ($don->dia_chi_giao)
-                        <div>Địa chỉ: {{ $don->dia_chi_giao }}</div>
+                        <div>Địa chỉ:
+                            @if (\App\Support\HoSoXacThuc::conHieuLuc(request()))
+                                {{ $don->dia_chi_giao }}
+                            @else
+                                {{ \App\Support\ChePII::diaChi($don->dia_chi_giao) }}
+                            @endif
+                        </div>
                     @endif
                 @else
                     <div>Nhận hàng: Tại cửa hàng</div>

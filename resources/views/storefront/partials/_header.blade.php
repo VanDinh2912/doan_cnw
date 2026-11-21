@@ -43,7 +43,7 @@
                 <a class="sf-icon-btn" href="{{ route('profile.show') }}" title="Thông tin cá nhân">
                     <i class="fa-solid fa-user"></i>
                     <span class="d-none d-md-inline">
-                        @if (request()->routeIs('profile.show') && ! \App\Support\HoSoXacThuc::conHieuLuc(request()))
+                        @if (request()->routeIs('profile.*') && ! \App\Support\HoSoXacThuc::conHieuLuc(request()))
                             {{ \App\Support\ChePII::hoTen($user->name) }}
                         @else
                             {{ $user->name }}
