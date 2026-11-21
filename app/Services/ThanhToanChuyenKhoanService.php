@@ -198,7 +198,13 @@ class ThanhToanChuyenKhoanService
 
             // 6. Trừ điểm đã dùng của khách (điểm thưởng nhận chỉ cộng khi da_thanh_toan)
             if ($khachHang && $diemSuDung > 0) {
+                $soDuTruoc = (int) $khachHang->diem_tichluy;
                 $khachHang->decrement('diem_tichluy', $diemSuDung);
+                DiemService::ghi($khachHang->id, DiemService::LOAI_DUNG, -$diemSuDung,
+                    $soDuTruoc - $diemSuDung,
+                    ['invoice_id' => $donHang->id, 'user_id' => $user?->id,
+                        'ly_do' => 'Giữ điểm khi tạo đơn chờ thanh toán',
+                        'su_kien' => 'cho-thanh-toan:'.$donHang->id.':dung_diem']);
             }
 
             return $donHang;
@@ -240,7 +246,7 @@ class ThanhToanChuyenKhoanService
         $customerId = $unlocked->customer_id;
         $productIds = $unlocked->chiTietDonHangs->pluck('product_id')->sort()->unique()->values()->all();
 
-        return DB::transaction(function () use ($invoiceId, $customerId, $productIds, $maGiaoDich, $ghiChu): array {
+        return DB::transaction(function () use ($invoiceId, $customerId, $productIds, $maGiaoDich, $ghiChu, $nguoi): array {
             // 1. Khóa sản phẩm theo product_id tăng dần
             if (! empty($productIds)) {
                 SanPham::whereIn('id', $productIds)->orderBy('id')->lockForUpdate()->get();
@@ -300,7 +306,12 @@ class ThanhToanChuyenKhoanService
 
             // 5. Cộng điểm tích lũy nhận (đúng 1 lần)
             if ($customer && $lockedInvoice->diem_tichluy_nhan > 0) {
+                $soDuTruoc = (int) $customer->diem_tichluy;
                 $customer->increment('diem_tichluy', $lockedInvoice->diem_tichluy_nhan);
+                DiemService::ghi($customer->id, DiemService::LOAI_TICH, (int) $lockedInvoice->diem_tichluy_nhan,
+                    $soDuTruoc + (int) $lockedInvoice->diem_tichluy_nhan,
+                    ['invoice_id' => $lockedInvoice->id, 'user_id' => $nguoi?->id,
+                        'su_kien' => 'xac-nhan-tt:'.$lockedInvoice->id.':tich_diem']);
             }
 
             return [
@@ -381,7 +392,13 @@ class ThanhToanChuyenKhoanService
 
             // 5. Hoàn điểm đã dùng cho khách
             if ($customer && $lockedInvoice->diem_su_dung > 0) {
+                $soDuTruoc = (int) $customer->diem_tichluy;
                 $customer->increment('diem_tichluy', $lockedInvoice->diem_su_dung);
+                DiemService::ghi($customer->id, DiemService::LOAI_HOAN_DIEM_HUY, (int) $lockedInvoice->diem_su_dung,
+                    $soDuTruoc + (int) $lockedInvoice->diem_su_dung,
+                    ['invoice_id' => $lockedInvoice->id, 'user_id' => $userId,
+                        'ly_do' => 'Hoàn điểm khi hủy đơn chờ thanh toán',
+                        'su_kien' => 'huy-cho:'.$lockedInvoice->id.':hoan_diem']);
             }
 
             // 6. Đổi trạng thái sang da_huy
@@ -467,9 +484,21 @@ class ThanhToanChuyenKhoanService
 
             // 2. Thu hồi điểm đã cộng — không để số dư âm
             if ($customer && $lockedInvoice->diem_tichluy_nhan > 0) {
-                $customer->update([
-                    'diem_tichluy' => max(0, (int) $customer->diem_tichluy - (int) $lockedInvoice->diem_tichluy_nhan),
-                ]);
+                $soDuTruoc = (int) $customer->diem_tichluy;
+                $soDuSau = max(0, $soDuTruoc - (int) $lockedInvoice->diem_tichluy_nhan);
+                $thuHoiThucTe = $soDuTruoc - $soDuSau;
+                $customer->diem_tichluy = $soDuSau;
+                $customer->save();
+                if ($thuHoiThucTe > 0) {
+                    DiemService::ghi($customer->id, DiemService::LOAI_THU_HOI_HUY, -$thuHoiThucTe,
+                        $soDuSau,
+                        ['invoice_id' => $lockedInvoice->id, 'user_id' => $userId,
+                            'ly_do' => 'Thu hồi điểm khi hủy đơn đã thanh toán'
+                                .($thuHoiThucTe < (int) $lockedInvoice->diem_tichluy_nhan
+                                    ? ' (thiếu '.((int) $lockedInvoice->diem_tichluy_nhan - $thuHoiThucTe).' điểm do số dư không đủ)'
+                                    : ''),
+                            'su_kien' => 'huy-da-tt:'.$lockedInvoice->id.':thu_hoi']);
+                }
             }
 
             // 3. Trạng thái + cờ hoàn tiền (guard thiếu cột: vẫn hủy được)

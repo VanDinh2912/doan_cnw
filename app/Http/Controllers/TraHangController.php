@@ -7,6 +7,7 @@ use App\Models\ChiTietPhieuTra;
 use App\Models\DonHang;
 use App\Models\PhieuTra;
 use App\Models\SanPham;
+use App\Services\DiemService;
 use App\Services\NhatKyService;
 use App\Support\KiemTraSchema;
 use Brick\Math\BigInteger;
@@ -297,8 +298,28 @@ class TraHangController extends Controller
             if ($customer) {
                 $soDu = (int) $customer->diem_tichluy;
                 $thuHoiThucTe = min($soDu, $diemThuHoi);
-                $customer->diem_tichluy = $soDu - $thuHoiThucTe + $diemHoan;
+                $soDuSauThuHoi = $soDu - $thuHoiThucTe;
+                $customer->diem_tichluy = $soDuSauThuHoi + $diemHoan;
                 $customer->save();
+
+                if ($thuHoiThucTe > 0) {
+                    DiemService::ghi($customer->id, DiemService::LOAI_THU_HOI_TRA, -$thuHoiThucTe,
+                        $soDuSauThuHoi,
+                        ['invoice_id' => $phieuTra->invoice_id, 'return_id' => $phieuTra->id,
+                            'user_id' => $request->user()->id,
+                            'ly_do' => 'Thu hồi điểm theo phiếu trả '.$phieuTra->ma_phieu
+                                .($thuHoiThucTe < $diemThuHoi
+                                    ? ' (thiếu '.($diemThuHoi - $thuHoiThucTe).' điểm do số dư không đủ)'
+                                    : ''),
+                            'su_kien' => 'tra-hang:'.$phieuTra->id.':thu_hoi']);
+                }
+                if ($diemHoan > 0) {
+                    DiemService::ghi($customer->id, DiemService::LOAI_HOAN_DIEM_TRA, $diemHoan,
+                        $soDuSauThuHoi + $diemHoan,
+                        ['invoice_id' => $phieuTra->invoice_id, 'return_id' => $phieuTra->id,
+                            'user_id' => $request->user()->id,
+                            'su_kien' => 'tra-hang:'.$phieuTra->id.':hoan_diem']);
+                }
 
                 if ($diemHoan > 0) {
                     NhatKyService::ghi(
