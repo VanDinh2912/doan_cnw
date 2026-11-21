@@ -16,7 +16,9 @@ class KhachHang extends Model
 
     protected $table = 'customers';
 
-    protected $fillable = ['user_id', 'ho_ten', 'so_dienthoai', 'dia_chi', 'diem_tichluy', 'khoa_den', 'ly_do_khoa'];
+    // diem_tichluy cố ý KHÔNG fillable: chỉ đổi qua luồng thanh toán/trả hàng
+    // hoặc điều chỉnh có kiểm soát (KhachHangController::postDieuChinhDiem).
+    protected $fillable = ['user_id', 'ho_ten', 'so_dienthoai', 'dia_chi', 'khoa_den', 'ly_do_khoa'];
 
     protected function casts(): array
     {

@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\DiemBienDong;
 use App\Models\DonHang;
 use App\Models\KhachHang;
 use App\Models\User;
 use App\Rules\SoDienThoaiHopLe;
+use App\Services\DiemService;
 use App\Services\NhatKyService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -52,11 +54,73 @@ class KhachHangController extends Controller
             ->whereNotIn('trang_thai', ['da_huy'])
             ->sum('tong_thanh_toan');
 
+        $soGiaoDichDiem = DiemService::sanSang()
+            ? DiemBienDong::where('customer_id', $khachHang->id)->latest('id')->limit(10)->get()
+            : collect();
+
         return view('khachhang.chitiet', [
             'khachHang' => $khachHang,
             'donHangs' => $donHangs,
             'tongChiTieu' => $tongChiTieu,
+            'soGiaoDichDiem' => $soGiaoDichDiem,
         ]);
+    }
+
+    /**
+     * Điều chỉnh điểm tích lũy thủ công (CHỈ admin — route role:admin +
+     * PIN nghiêm trọng). Lý do bắt buộc, |điểm| <= POS_DIEM_DIEU_CHINH_TOI_DA,
+     * số dư sau điều chỉnh không âm. Ghi sổ diem_bien_dong loai=dieu_chinh.
+     */
+    public function postDieuChinhDiem(Request $request, KhachHang $khachHang): RedirectResponse
+    {
+        $data = $request->validate([
+            'so_diem' => ['required', 'integer'],
+            'ly_do' => ['required', 'string', 'min:3', 'max:255'],
+        ], [
+            'so_diem.required' => 'Vui lòng nhập số điểm điều chỉnh.',
+            'so_diem.integer' => 'Số điểm phải là số nguyên.',
+            'ly_do.required' => 'Vui lòng nhập lý do điều chỉnh.',
+            'ly_do.min' => 'Lý do tối thiểu 3 ký tự.',
+            'ly_do.max' => 'Lý do tối đa 255 ký tự.',
+        ]);
+
+        $soDiem = (int) $data['so_diem'];
+        $toiDa = max(1, (int) config('pos.diem_dieu_chinh_toi_da', 500));
+        if ($soDiem === 0) {
+            return back()->withInput()->with('error', 'Số điểm điều chỉnh phải khác 0.');
+        }
+        if (abs($soDiem) > $toiDa) {
+            return back()->withInput()->with('error', 'Mỗi lần điều chỉnh tối đa '.$toiDa.' điểm.');
+        }
+
+        $soDuMoi = null;
+        DB::transaction(function () use ($khachHang, $soDiem, $data, &$soDuMoi): void {
+            $kh = KhachHang::whereKey($khachHang->id)->lockForUpdate()->firstOrFail();
+            $soDuMoi = (int) $kh->diem_tichluy + $soDiem;
+            if ($soDuMoi < 0) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'so_diem' => ['Số dư điểm không đủ cho mức điều chỉnh này.'],
+                ]);
+            }
+            $kh->diem_tichluy = $soDuMoi;
+            $kh->save();
+
+            DiemService::ghi($kh->id, DiemService::LOAI_DIEU_CHINH, $soDiem, $soDuMoi, [
+                'user_id' => auth()->id(),
+                'ly_do' => $data['ly_do'],
+                'su_kien' => 'dieu-chinh:'.$kh->id.':'.Str::uuid(),
+            ]);
+        });
+
+        NhatKyService::ghi(
+            $request, 'dieu_chinh_diem', 'customers', $khachHang->id,
+            'Điều chỉnh điểm khách #'.$khachHang->id.': '.($soDiem > 0 ? '+' : '').$soDiem.' điểm (số dư '.$soDuMoi.')',
+            null,
+            ['ly_do' => $data['ly_do']]
+        );
+
+        return redirect()->route('khachhang.chitiet', $khachHang)
+            ->with('success', 'Đã điều chỉnh điểm: '.($soDiem > 0 ? '+' : '').$soDiem.' (số dư mới '.$soDuMoi.').');
     }
 
     /**

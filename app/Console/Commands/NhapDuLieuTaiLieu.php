@@ -60,14 +60,17 @@ class NhapDuLieuTaiLieu extends Command
                 $skipped++;
                 continue;
             }
-            KhachHang::create([
+            $khachHang = KhachHang::create([
                 'ho_ten' => $name,
                 'so_dienthoai' => $phone,
                 'dia_chi' => $row['dia_chi'] ?? null,
-                'diem_tichluy' => max(0, (int) ($row['diem_tichluy'] ?? 0)),
                 'created_at' => $row['created_at'] ?? now(),
                 'updated_at' => $row['updated_at'] ?? now(),
             ]);
+            // diem_tichluy không fillable (chỉ đổi qua luồng có kiểm soát) —
+            // gán trực tiếp cho dữ liệu import một lần.
+            $khachHang->diem_tichluy = max(0, (int) ($row['diem_tichluy'] ?? 0));
+            $khachHang->save();
             $inserted++;
         }
 

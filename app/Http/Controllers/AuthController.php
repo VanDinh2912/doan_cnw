@@ -183,7 +183,6 @@ class AuthController extends Controller
                     'ho_ten' => $data['name'],
                     'so_dienthoai' => $data['so_dienthoai'],
                     'dia_chi' => null,
-                    'diem_tichluy' => 0,
                 ]);
             }
 

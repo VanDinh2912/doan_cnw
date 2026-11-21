@@ -101,6 +101,67 @@
     </div>
 </div>
 
+@if ($laAdmin || $soGiaoDichDiem->isNotEmpty())
+<div class="card mb-3">
+    <div class="card-header fw-bold">Điểm tích lũy</div>
+    <div class="card-body">
+        <p class="mb-2">Số dư hiện tại: <strong>{{ number_format($khachHang->diem_tichluy) }}</strong> điểm
+            <small class="text-muted">(≈ {{ number_format($khachHang->diem_tichluy * (int) config('pos.gia_tri_diem'), 0, ',', '.') }} đ)</small></p>
+
+        @if ($laAdmin)
+        <form method="POST" action="{{ route('khachhang.dieuchinhdiem', $khachHang) }}" class="row g-2 align-items-end mb-3" data-can-pin="nghiemtrong">
+            @csrf
+            <div class="col-auto">
+                <label class="form-label">Điểm (+/-)</label>
+                <input type="number" name="so_diem" class="form-control form-control-sm" step="1" required
+                       placeholder="VD: 50 hoặc -20" style="width:130px">
+                @error('so_diem')<div class="text-danger small">{{ $message }}</div>@enderror
+            </div>
+            <div class="col">
+                <label class="form-label">Lý do (bắt buộc)</label>
+                <input type="text" name="ly_do" class="form-control form-control-sm" maxlength="255"
+                       placeholder="VD: tri ân khách hàng, sửa sai điểm..." required>
+                @error('ly_do')<div class="text-danger small">{{ $message }}</div>@enderror
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary btn-sm">Điều chỉnh</button>
+            </div>
+            <div class="col-12"><small class="text-muted">Tối đa {{ (int) config('pos.diem_dieu_chinh_toi_da', 500) }} điểm/lần; số dư không được âm.</small></div>
+        </form>
+        @endif
+
+        @if ($soGiaoDichDiem->isNotEmpty())
+        <div class="table-responsive">
+            <table class="table table-sm mb-0">
+                <thead><tr><th>Thời gian</th><th>Loại</th><th class="text-end">Điểm</th><th class="text-end">Số dư sau</th><th>Ghi chú</th></tr></thead>
+                <tbody>
+                @foreach ($soGiaoDichDiem as $gd)
+                    <tr>
+                        <td>{{ $gd->created_at?->format('H:i d/m/Y') }}</td>
+                        <td>{{ \App\Services\DiemService::nhanLoai($gd->loai) }}</td>
+                        <td class="text-end {{ $gd->diem >= 0 ? 'text-success' : 'text-danger' }}">{{ $gd->diem >= 0 ? '+' : '' }}{{ $gd->diem }}</td>
+                        <td class="text-end">{{ number_format($gd->so_du_sau) }}</td>
+                        <td>
+                            @if ($gd->loai === 'dieu_chinh')
+                                Điều chỉnh bởi cửa hàng
+                            @elseif ($gd->loai === 'so_du_dau_ky')
+                                Số dư đầu kỳ
+                            @else
+                                {{ $gd->ly_do ?: ($gd->invoice_id ? 'Hóa đơn #'.$gd->invoice_id : ($gd->return_id ? 'Phiếu trả #'.$gd->return_id : '—')) }}
+                            @endif
+                        </td>
+                    </tr>
+                @endforeach
+                </tbody>
+            </table>
+        </div>
+        @else
+            <p class="text-muted mb-0"><small>Chưa có biến động điểm nào được ghi sổ.</small></p>
+        @endif
+    </div>
+</div>
+@endif
+
 <div class="card">
     <div class="card-header fw-bold">Lịch sử đơn hàng ({{ $donHangs->total() }})</div>
     <div class="table-responsive">
