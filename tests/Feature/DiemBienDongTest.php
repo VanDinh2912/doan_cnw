@@ -279,6 +279,36 @@ class DiemBienDongTest extends TestCase
         $this->assertSame(0, DiemBienDong::where('customer_id', $kh->id)->count());
     }
 
+    public function test_dieu_chinh_hai_lan_lien_tiep_deu_ghi_so_va_doi_soat_khop(): void
+    {
+        $kh = $this->khach(100);
+
+        foreach ([30, -20] as $i => $soDiem) {
+            $this->actingAs($this->admin)->post(route('khachhang.dieuchinhdiem', $kh), [
+                'so_diem' => $soDiem, 'ly_do' => 'Dieu chinh lan '.($i + 1).' cho khach',
+            ])->assertRedirect();
+        }
+
+        $kh->refresh();
+        $this->assertSame(110, (int) $kh->diem_tichluy);
+
+        // Hai lần điều chỉnh = hai dòng sổ riêng (su_kien khác nhau),
+        // so_du_sau lần lượt đúng số dư sau mỗi lần.
+        $cacDong = DiemBienDong::where('customer_id', $kh->id)
+            ->where('loai', DiemService::LOAI_DIEU_CHINH)->orderBy('id')->get();
+        $this->assertCount(2, $cacDong);
+        $this->assertSame(30, $cacDong[0]->diem);
+        $this->assertSame(130, $cacDong[0]->so_du_sau);
+        $this->assertSame(-20, $cacDong[1]->diem);
+        $this->assertSame(110, $cacDong[1]->so_du_sau);
+        $this->assertNotSame($cacDong[0]->su_kien, $cacDong[1]->su_kien);
+
+        // Đối soát: ghi số dư đầu kỳ 100 rồi tổng sổ phải = số dư (không lệch).
+        DiemService::ghi($kh->id, DiemService::LOAI_SO_DAU_KY, 100, 100, ['su_kien' => 'test-dieu-chinh-ky']);
+        $this->assertSame((int) $kh->diem_tichluy,
+            (int) DiemBienDong::where('customer_id', $kh->id)->sum('diem'));
+    }
+
     public function test_route_dieu_chinh_diem_co_middleware_pin_nghiem_trong(): void
     {
         $route = \Illuminate\Support\Facades\Route::getRoutes()->getByName('khachhang.dieuchinhdiem');
