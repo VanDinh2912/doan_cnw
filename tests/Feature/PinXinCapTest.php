@@ -91,6 +91,25 @@ class PinXinCapTest extends TestCase
             ->assertRedirect(route('pin.xincap'));
     }
 
+    public function test_admin_thay_nhan_xin_pin_va_form_duyet(): void
+    {
+        $this->actingAs($this->nv)->post('/pin/xin-cap', ['ly_do' => 'Quên PIN ca sáng']);
+
+        // Danh sách tài khoản: badge "Đã xin PIN"
+        $this->actingAs($this->admin)
+            ->get('/taikhoan')
+            ->assertOk()
+            ->assertSee('Đã xin PIN');
+
+        // Trang sửa: card PIN có form dat-lai-pin + ô lý do
+        $this->actingAs($this->admin)
+            ->get("/taikhoan/sua/{$this->nv->id}")
+            ->assertOk()
+            ->assertSee('/taikhoan/dat-lai-pin/'.$this->nv->id)
+            ->assertSee('name="ly_do"', false)
+            ->assertSee('data-can-pin="nghiemtrong"', false);
+    }
+
     public function test_nv_khac_khong_xem_duoc_pin_tam(): void
     {
         config(['pos.pin_bat' => false]);

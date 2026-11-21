@@ -317,10 +317,13 @@ class TongQuanSoLieuTest extends TestCase
         $this->assertSame(10, $chiSo['tong_ton_tot']);
     }
 
-    public function test_endpoint_chi_admin_duoc_truy_cap(): void
+    public function test_endpoint_moi_staff_deu_truy_cap_duoc(): void
     {
-        $this->actingAs($this->thungan)->getJson(route('tongquan.solieu'))->assertForbidden();
-        $this->actingAs($this->thukho)->getJson(route('tongquan.solieu'))->assertForbidden();
+        // Trang /tongquan da render cung chi so phia server cho moi staff,
+        // nen endpoint JSON poll cung mo cho staff (khach hang van bi chan).
+        $this->actingAs($this->thungan)->getJson(route('tongquan.solieu'))->assertOk();
+        $this->actingAs($this->thukho)->getJson(route('tongquan.solieu'))->assertOk();
+        $this->actingAs($this->admin)->getJson(route('tongquan.solieu'))->assertOk();
 
         $khach = $this->nguoiDung('khachhang');
         $this->actingAs($khach)->getJson(route('tongquan.solieu'))
@@ -383,6 +386,9 @@ class TongQuanSoLieuTest extends TestCase
         $this->assertSame(['GET', 'HEAD'], $route->methods());
         $middleware = $route->gatherMiddleware();
         $this->assertContains('throttle:30,1', $middleware);
-        $this->assertContains('role:admin', $middleware);
+        // Endpoint mo cho moi staff (trang /tongquan da hien so lieu cho staff);
+        // quyen duoc kiem qua middleware staff.only cua nhom route.
+        $this->assertContains('staff.only', $middleware);
+        $this->assertNotContains('role:admin', $middleware);
     }
 }

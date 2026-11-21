@@ -338,10 +338,13 @@ Route::middleware(['auth', 'staff.only', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->
             ->name('loaisanpham.xoa')->middleware('xac.nhan.pin:nghiemtrong');
     });
 
+    // So lieu tong quan (JSON poll) — moi nhan vien staff deu xem duoc
+    // (trang /tongquan da render cung so lieu phia server)
+    Route::get('/tong-quan/so-lieu', [\App\Http\Controllers\ThongKeController::class, 'getSoLieuTongQuan'])
+        ->middleware('throttle:30,1')
+        ->name('tongquan.solieu');
+
     Route::middleware('role:admin')->group(function (): void {
-        Route::get('/tong-quan/so-lieu', [\App\Http\Controllers\ThongKeController::class, 'getSoLieuTongQuan'])
-            ->middleware('throttle:30,1')
-            ->name('tongquan.solieu');
         Route::post('/kiemke/{phieu}/duyet', [\App\Http\Controllers\KiemKeController::class, 'approve'])->name('kiemke.approve')->middleware('xac.nhan.pin:nghiemtrong');
         Route::get('/nhatky', [\App\Http\Controllers\NhatKyController::class, 'index'])->name('nhatky.index');
         Route::get('/nhatky/xuat-csv', [\App\Http\Controllers\NhatKyController::class, 'export'])->name('nhatky.export')->middleware('xac.nhan.pin:nghiemtrong');

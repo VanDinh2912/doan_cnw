@@ -38,7 +38,10 @@ class TaiKhoanNhanVienController extends Controller
             ->paginate(20)
             ->withQueryString();
 
-        return view('taikhoan.danhsach', compact('users'));
+        // Yeu cau xin cap PIN gan nhat cua tung NV (de admin thay cho duyet)
+        $xinPinGanNhat = $this->layXinPinGanNhat($users->pluck('id')->all());
+
+        return view('taikhoan.danhsach', compact('users', 'xinPinGanNhat'));
     }
 
     /**
@@ -107,7 +110,9 @@ class TaiKhoanNhanVienController extends Controller
             abort(403, 'Chỉ được sửa tài khoản nhân viên.');
         }
 
-        return view('taikhoan.sua', compact('user'));
+        $xinPinGanNhat = $this->layXinPinGanNhat([$user->id])->get($user->id);
+
+        return view('taikhoan.sua', compact('user', 'xinPinGanNhat'));
     }
 
     /**
@@ -303,6 +308,25 @@ class TaiKhoanNhanVienController extends Controller
         return back()
             ->with('temp_password', $tempPassword)
             ->with('success', 'Đã đặt lại mật khẩu. Mật khẩu tạm mới hiển thị bên dưới (chỉ hiện một lần).');
+    }
+
+    /**
+     * Lay yeu cau xin cap PIN (pin_xin_cap) gan nhat cua tung user.
+     * Tra ve collection key=user_id -> NhatKyHoatDong (mo_ta chua ly do).
+     */
+    private function layXinPinGanNhat(array $userIds)
+    {
+        if ($userIds === []) {
+            return collect();
+        }
+
+        return \App\Models\NhatKyHoatDong::where('hanh_dong', 'pin_xin_cap')
+            ->where('doi_tuong', 'user')
+            ->whereIn('doi_tuong_id', $userIds)
+            ->orderByDesc('id')
+            ->get()
+            ->unique('doi_tuong_id')
+            ->keyBy('doi_tuong_id');
     }
 
     /**

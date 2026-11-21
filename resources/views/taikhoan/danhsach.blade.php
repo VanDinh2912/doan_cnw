@@ -45,7 +45,12 @@
             <tbody>
             @forelse ($users as $user)
                 <tr>
-                    <td>{{ $user->name }}</td>
+                    <td>
+                        {{ $user->name }}
+                        @if (isset($xinPinGanNhat[$user->id]))
+                            <span class="badge bg-warning text-dark" title="{{ $xinPinGanNhat[$user->id]->mo_ta }} — {{ $xinPinGanNhat[$user->id]->created_at }}">Đã xin PIN</span>
+                        @endif
+                    </td>
                     <td>{{ $user->email }}</td>
                     <td>
                         @if ($user->role === 'admin') <span class="badge bg-danger">Admin</span>

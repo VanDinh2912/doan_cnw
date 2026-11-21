@@ -42,4 +42,35 @@
         <button class="btn btn-primary" type="submit">Lưu thay đổi</button>
     </div>
 </form>
+
+<div class="card mt-3">
+    <div class="card-header fw-bold">PIN xác nhận thao tác</div>
+    <div class="card-body">
+        <p class="mb-2">
+            Trạng thái:
+            @if ($user->pin_hash)
+                <span class="badge bg-success">Đã có PIN</span>
+                @if ($user->bat_buoc_doi_pin)<span class="badge bg-warning text-dark">Chờ đổi PIN tạm</span>@endif
+                <small class="text-muted">(đổi lần cuối: {{ $user->pin_doi_luc ?? '—' }})</small>
+            @else
+                <span class="badge bg-secondary">Chưa có PIN</span>
+            @endif
+        </p>
+        @if (isset($xinPinGanNhat))
+            <p class="small text-muted mb-2">
+                Yêu cầu gần nhất: {{ $xinPinGanNhat->mo_ta }} — {{ $xinPinGanNhat->created_at }}
+            </p>
+        @endif
+        <form method="POST" action="{{ route('taikhoan.datlaipin', $user) }}" data-can-pin="nghiemtrong"
+              onsubmit="return confirm('Cấp PIN tạm mới? PIN hiện tại của nhân viên sẽ vô hiệu và họ bắt buộc đổi PIN.');">
+            @csrf
+            <div class="input-group" style="max-width: 34rem;">
+                <input type="text" name="ly_do" class="form-control" maxlength="255" required
+                       placeholder="Lý do cấp/đặt lại PIN (bắt buộc, ghi vào nhật ký)" value="{{ old('ly_do') }}">
+                <button class="btn btn-outline-primary" type="submit">Đặt lại PIN</button>
+            </div>
+            <div class="form-text">PIN tạm 6 số hiện đúng một lần sau khi bạn xác nhận PIN của chính mình — đồng thời nhân viên tự xem được một lần tại trang "PIN tạm của tôi".</div>
+        </form>
+    </div>
+</div>
 @endsection
