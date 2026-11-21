@@ -74,7 +74,7 @@ class DuLieuMau300Seeder extends Seeder
         foreach ($this->rows('TaiLieu/ThongTinKhachHang/khach-hang-mau-100.xlsx', 'customers') as $row) {
             KhachHang::create([
                 'ho_ten' => $row['ho_ten'], 'so_dienthoai' => SoDienThoaiHopLe::chuanHoa((string) $row['so_dienthoai']),
-                'dia_chi' => $row['dia_chi'] ?: null, 'diem_tichluy' => 0,
+                'dia_chi' => $row['dia_chi'] ?: null,
                 'created_at' => $row['created_at'], 'updated_at' => $row['updated_at'],
             ]);
         }
