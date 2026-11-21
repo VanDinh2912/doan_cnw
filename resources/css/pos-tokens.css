@@ -136,8 +136,8 @@
 :root {
   /* Sidebar */
   --sidebar-width: 232px;
-  --sidebar-link-height: 36px;
-  --sidebar-link-radius: var(--prim-radius-md);
+  --sidebar-link-height: 38px;
+  --sidebar-link-radius: var(--prim-radius-lg);
   --sidebar-link-fg: var(--color-fg-muted);
   --sidebar-link-hover-bg: var(--prim-slate-100);
   --sidebar-link-active-bg: var(--color-primary-soft);
@@ -553,7 +553,16 @@ h3, .h3 { font-size: var(--text-xl); }
   top: var(--topbar-height);
   height: calc(100vh - var(--topbar-height));
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--prim-slate-300, #cbd5e1) transparent;
 }
+.app-sidebar::-webkit-scrollbar { width: 8px; }
+.app-sidebar::-webkit-scrollbar-thumb {
+  background: var(--prim-slate-300, #cbd5e1);
+  border-radius: 8px;
+}
+.app-sidebar::-webkit-scrollbar-thumb:hover { background: var(--prim-slate-400, #94a3b8); }
+.app-sidebar::-webkit-scrollbar-track { background: transparent; }
 
 .app-nav { display: flex; flex-direction: column; gap: 2px; }
 
@@ -579,17 +588,24 @@ h3, .h3 { font-size: var(--text-xl); }
   text-decoration: none;
   cursor: pointer;
   transition: background-color var(--motion-fast) var(--motion-ease),
-              color var(--motion-fast) var(--motion-ease);
+              color var(--motion-fast) var(--motion-ease),
+              box-shadow var(--motion-fast) var(--motion-ease),
+              transform var(--motion-fast) var(--motion-ease);
 }
 
 .app-nav-link i { width: 16px; text-align: center; font-size: var(--text-sm); flex: 0 0 16px; }
 
-.app-nav-link:hover { background: var(--sidebar-link-hover-bg); color: var(--color-fg); }
+.app-nav-link:hover {
+  background: var(--sidebar-link-hover-bg);
+  color: var(--color-fg);
+  transform: translateX(2px);
+}
 
 .app-nav-link.active {
   background: var(--sidebar-link-active-bg);
   color: var(--sidebar-link-active-fg);
   font-weight: var(--weight-semibold);
+  box-shadow: inset 3px 0 0 var(--color-primary);
 }
 
 /* Nhom menu thu gon (details/summary, khong thu vien) */
@@ -608,9 +624,12 @@ h3, .h3 { font-size: var(--text-xl); }
   cursor: pointer;
   list-style: none;
   user-select: none;
+  border-radius: var(--sidebar-link-radius);
+  transition: background-color var(--motion-fast) var(--motion-ease),
+              color var(--motion-fast) var(--motion-ease);
 }
 .app-nav-group-toggle::-webkit-details-marker { display: none; }
-.app-nav-group-toggle:hover { color: var(--color-fg); }
+.app-nav-group-toggle:hover { background: var(--sidebar-link-hover-bg); color: var(--color-fg); }
 .app-nav-group-caret {
   font-size: 10px;
   transition: transform var(--motion-fast) var(--motion-ease);
