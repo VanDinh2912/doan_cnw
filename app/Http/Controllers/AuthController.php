@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\KhachHang;
 use App\Models\User;
+use App\Rules\EmailThucTe;
 use App\Rules\SoDienThoaiHopLe;
 use App\Services\CanhBaoMatKhauMacDinh;
 use App\Services\NhatKyService;
@@ -134,7 +135,7 @@ class AuthController extends Controller
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:100'],
-            'email' => ['required', 'email', 'max:150', 'unique:users,email'],
+            'email' => ['required', 'max:150', new EmailThucTe(), 'unique:users,email'],
             'so_dienthoai' => ['bail', 'required', 'string', new SoDienThoaiHopLe()],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ], [

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\DonHang;
 use App\Models\KhachHang;
+use App\Rules\EmailThucTe;
 use App\Rules\SoDienThoaiHopLe;
 use App\Services\NhatKyService;
 use App\Services\ThongBaoService;
@@ -149,7 +150,7 @@ class ThongTinCaNhanController extends Controller
 
         $validated = $request->validate([
             'ho_ten' => ['required', 'string', 'max:100'],
-            'email' => ['sometimes', 'required', 'email', 'max:150', Rule::unique('users', 'email')->ignore($user->id)],
+            'email' => ['sometimes', 'required', 'max:150', new EmailThucTe(), Rule::unique('users', 'email')->ignore($user->id)],
             'so_dienthoai' => ['bail', 'required', 'string', new SoDienThoaiHopLe(), Rule::unique('customers', 'so_dienthoai')->ignore($khachHang)],
             'dia_chi' => ['nullable', 'string', 'max:255'],
         ], [

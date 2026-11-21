@@ -33,5 +33,6 @@
         <env name="POS_DAT_HANG_ONLINE_BAT" value="true"/>
         <env name="POS_GIAO_TAN_NOI_BAT" value="true"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
+        <env name="EMAIL_KIEM_TRA_DNS" value="false"/>
     </php>
 </phpunit>

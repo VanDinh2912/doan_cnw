@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\LienHe;
+use App\Rules\EmailThucTe;
 use App\Services\ThongBaoService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -69,7 +70,7 @@ class LienHeController extends Controller
         $validated = $request->validate([
             'ho_ten' => ['required', 'string', 'max:100'],
             'so_dien_thoai' => ['nullable', 'string', 'max:30'],
-            'email' => ['nullable', 'email', 'max:150'],
+            'email' => ['nullable', 'max:150', new EmailThucTe()],
             'loai' => ['required', 'string', 'in:'.implode(',', LienHe::LOAI)],
             'vi_tri' => ['nullable', 'string', 'max:100'],
             'chu_de' => ['required', 'string', 'max:150'],

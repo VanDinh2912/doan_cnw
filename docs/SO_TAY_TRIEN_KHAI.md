@@ -463,3 +463,31 @@ Giới hạn: PIN chỉ chặn thay đổi/xuất dữ liệu đã liệt kê, K
   chỉ giao đầy đủ (chỉ báo cáo, chưa che — chờ quyết định).
 - Chưa có: xác thực sở hữu email (cần SMTP thật, vd Gmail App Password);
   đề xuất cờ `EMAIL_XAC_THUC_BAT` mặc định false cho giai đoạn sau.
+
+## 12. Lọc email rác form khách công khai (EmailThucTe)
+
+- Rule dùng chung `App\Rules\EmailThucTe` + config `config/email_rac.php`.
+  Các lớp theo thứ tự: định dạng/chuẩn hóa -> tên miền ví dụ/TLD cấm ->
+  disposable -> gõ nhầm (GỢI Ý, không tự sửa) -> DNS MX/A.
+- DNS qua `App\Support\TraCuuDns`: MX trước, fallback A; cache theo tên
+  miền (`email_rac.dns_cache_gio`, mặc định 6h). Lỗi mạng/timeout ->
+  fail-open (cho qua + log info); chỉ từ chối khi chắc chắn không tồn tại.
+- Cờ `EMAIL_KIEM_TRA_DNS` (mặc định true; `phpunit.xml` đặt false để
+  test không phụ thuộc mạng). Thêm `.env.example`.
+- ĐÃ ÁP: đăng ký (`auth.postdangky`), cập nhật hồ sơ khách
+  (`profile.update` field email), form liên hệ (`lien-he.gui`), email
+  nhận xác nhận đặt hàng online (`dat-hang.dat`, vẫn nullable).
+- CỐ Ý KHÔNG ÁP: đăng nhập (email cũ vẫn vào được), đăng nhập Google,
+  màn hình admin tạo/sửa nhân viên (`taikhoan`) và khách
+  (`khachhang.*`), seeder/tài khoản demo.
+- Ngoại lệ test: `email_rac.cho_phep_khi_test` (example.com/org/net,
+  test.local...) chỉ có tác dụng khi `app()->environment('testing')`.
+- Dữ liệu prod `doan_cnw` (SELECT-only, 2026-11): chỉ 3 email tồn tại
+  (users khachhang=1, invoices.email_dat=1, lien_he=1) — đều hợp lệ,
+  không disposable/ví dụ/sai định dạng.
+- CHƯA LÀM (chờ duyệt): xác thực sở hữu email cần SMTP thật (vd Gmail
+  App Password); `users.email_verified_at` đã tồn tại (Google set).
+  Đề xuất cờ `EMAIL_XAC_THUC_BAT` mặc định false cho giai đoạn sau.
+- CHƯA LÀM (báo cáo, chờ quyết định): chuẩn hóa Gmail (a.b@gmail.com,
+  ab+tag@gmail.com cùng hộp thư) để chống tạo nhiều tài khoản — cần
+  quyết định có thêm cột normalized email hay không.

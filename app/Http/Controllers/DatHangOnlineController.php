@@ -7,6 +7,7 @@ use App\Models\DonHang;
 use App\Models\KhachHang;
 use App\Services\NhatKyService;
 use App\Services\ThanhToanChuyenKhoanService;
+use App\Rules\EmailThucTe;
 use App\Services\ThongBaoService;
 use App\Services\VietQrService;
 use App\Support\CheThongTin;
@@ -109,7 +110,7 @@ class DatHangOnlineController extends Controller
         $validated = $request->validate([
             'ten' => ['required', 'string', 'max:100'],
             'so_dienthoai' => ['required', 'string', 'regex:/^0\d{9,10}$/'],
-            'email' => ['nullable', 'email', 'max:150'],
+            'email' => ['nullable', 'max:150', new EmailThucTe()],
             'ghi_chu' => ['nullable', 'string', 'max:500'],
             'hinh_thuc_nhan' => ['nullable', 'in:tai_cua_hang,giao_tan_noi'],
             'phuong_thuc' => ['required', 'in:pickup,qr'],
