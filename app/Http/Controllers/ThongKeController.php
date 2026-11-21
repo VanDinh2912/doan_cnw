@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ChiTietDonHang;
 use App\Models\DonHang;
+use App\Models\KhachHang;
 use App\Models\SanPham;
 use App\Services\TongQuanKhoService;
 use Illuminate\Http\JsonResponse;
@@ -26,6 +27,8 @@ class ThongKeController extends Controller
             'canhBaoMatKhauMacDinh' => auth()->user()->role === 'admin'
                 ? app(\App\Services\CanhBaoMatKhauMacDinh::class)->danhSachEmail()
                 : [],
+            // Công nợ điểm: chỉ đọc, không đổi công thức doanh thu/lợi nhuận.
+            'congNoDiem' => $this->congNoDiem(),
         ];
 
         return view('tongquan', $data);
@@ -47,6 +50,26 @@ class ThongKeController extends Controller
      * Đếm dòng bán (hóa đơn đã thanh toán) chưa có giá vốn — gia_von = 0/NULL.
      * Chỉ dùng để CẢNH BÁO, không đổi cách tính lợi nhuận.
      */
+    /**
+     * Công nợ điểm: tổng diem_tichluy quy đổi + số khách đang có điểm.
+     * Chỉ đọc — không liên quan doanh thu/lợi nhuận.
+     */
+    private function congNoDiem(): array
+    {
+        $row = KhachHang::query()
+            ->where('diem_tichluy', '>', 0)
+            ->selectRaw('COUNT(*) AS so_khach, COALESCE(SUM(diem_tichluy), 0) AS tong_diem')
+            ->first();
+
+        $tongDiem = (int) ($row->tong_diem ?? 0);
+
+        return [
+            'tong_diem' => $tongDiem,
+            'so_khach' => (int) ($row->so_khach ?? 0),
+            'quy_doi' => $tongDiem * (int) config('pos.gia_tri_diem', 1000),
+        ];
+    }
+
     private function demDongChuaCoGiaVon()
     {
         return ChiTietDonHang::query()

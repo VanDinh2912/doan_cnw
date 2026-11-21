@@ -96,6 +96,18 @@
             <div class="stat-value" data-chi-so="so_hoa_don">{{ number_format($chiSo['so_hoa_don'], 0, ',', '.') }}</div>
         </div>
     </div>
+    <div class="col-sm-6 col-lg-6">
+        <div class="stat-card">
+            <div class="stat-label">Công nợ điểm</div>
+            <div class="stat-value">{{ number_format($congNoDiem['quy_doi'], 0, ',', '.') }} đ</div>
+            <small class="text-muted">
+                {{ number_format($congNoDiem['tong_diem'], 0, ',', '.') }} điểm của {{ number_format($congNoDiem['so_khach'], 0, ',', '.') }} khách đang có điểm
+                @if (in_array(auth()->user()->role, ['admin'], true))
+                    — <a href="{{ route('khachhang.danhsach') }}">quản lý khách hàng</a>
+                @endif
+            </small>
+        </div>
+    </div>
     <div class="col-12">
         <div class="stat-card {{ ($chiSo['so_sp_chua_co_gia_nhap'] ?? 0) > 0 ? 'border-warning' : '' }}">
             <div class="stat-label">Đang bán nhưng chưa có giá nhập</div>

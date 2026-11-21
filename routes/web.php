@@ -93,6 +93,7 @@ Route::middleware(['auth', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->group(function
     Route::post('/thong-tin-ca-nhan', [\App\Http\Controllers\ThongTinCaNhanController::class, 'postProfile'])->name('profile.update');
     Route::get('/thong-tin-ca-nhan/don-hang', [\App\Http\Controllers\ThongTinCaNhanController::class, 'getOrders'])->name('profile.orders');
     Route::get('/thong-tin-ca-nhan/don-hang/{donHang}', [\App\Http\Controllers\ThongTinCaNhanController::class, 'getOrderDetail'])->name('profile.orders.show');
+    Route::get('/thong-tin-ca-nhan/diem', [\App\Http\Controllers\ThongTinCaNhanController::class, 'getDiem'])->name('profile.diem');
 });
 
 Route::prefix('don-hang')->name('don-hang.')
@@ -204,6 +205,8 @@ Route::middleware(['auth', 'staff.only', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->
         Route::post('/khachhang/dat-lai-mat-khau/{khachHang}', [\App\Http\Controllers\KhachHangController::class, 'postDatLaiMatKhau'])
             ->middleware('throttle:10,1')
             ->name('khachhang.datlaimatkhau')->middleware('xac.nhan.pin:nghiemtrong');
+        Route::post('/khachhang/{khachHang}/dieu-chinh-diem', [\App\Http\Controllers\KhachHangController::class, 'postDieuChinhDiem'])
+            ->name('khachhang.dieuchinhdiem')->middleware('xac.nhan.pin:nghiemtrong');
     });
 
     // P3: màn hình nhân viên xử lý đơn online (admin/thu ngân/thủ kho) — ngoài nhóm role:admin,thungan.

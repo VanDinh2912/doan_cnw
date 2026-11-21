@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\DiemBienDong;
 use App\Models\DonHang;
 use App\Models\KhachHang;
 use App\Rules\EmailThucTe;
 use App\Rules\SoDienThoaiHopLe;
+use App\Services\DiemService;
 use App\Services\NhatKyService;
 use App\Services\ThongBaoService;
 use App\Support\ChePII;
@@ -185,7 +187,6 @@ class ThongTinCaNhanController extends Controller
                 'ho_ten' => $validated['ho_ten'],
                 'so_dienthoai' => $validated['so_dienthoai'],
                 'dia_chi' => $validated['dia_chi'] ?? null,
-                'diem_tichluy' => 0,
             ]);
         } else {
             $khachHang->update([
@@ -237,6 +238,30 @@ class ThongTinCaNhanController extends Controller
         return view('thongtincanhan.order_detail', [
             'khachHang' => $khachHang,
             'don' => $donHang,
+        ]);
+    }
+
+    /**
+     * Lịch sử biến động điểm của chính khách đang đăng nhập.
+     * Không yêu cầu bước xác thực lại hồ sơ; khi bảng sổ chưa tồn tại
+     * (code đi trước migration) chỉ hiện số dư, không lỗi.
+     */
+    public function getDiem(Request $request): View
+    {
+        $khachHang = $request->user()->khachHang;
+
+        $soGiaoDich = null;
+        if ($khachHang !== null && DiemService::sanSang()) {
+            $soGiaoDich = DiemBienDong::where('customer_id', $khachHang->id)
+                ->with('donHang:id,ma_hoadon')
+                ->latest('id')
+                ->paginate(15)
+                ->withQueryString();
+        }
+
+        return view('thongtincanhan.diem', [
+            'khachHang' => $khachHang,
+            'soGiaoDich' => $soGiaoDich,
         ]);
     }
 }

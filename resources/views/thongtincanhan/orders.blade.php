@@ -55,6 +55,9 @@
             <a href="{{ route('profile.orders') }}" class="sf-icon-btn {{ request()->is('thong-tin-ca-nhan/don-hang') ? 'is-primary' : '' }}" style="height:40px;padding:0 16px;">
                 <i class="fa-solid fa-list"></i> Lịch sử đơn hàng
             </a>
+            <a href="{{ route('profile.diem') }}" class="sf-icon-btn {{ request()->is('thong-tin-ca-nhan/diem') ? 'is-primary' : '' }}" style="height:40px;padding:0 16px;">
+                <i class="fa-solid fa-star"></i> Điểm thưởng
+            </a>
         </div>
 
         <!-- Main content -->
