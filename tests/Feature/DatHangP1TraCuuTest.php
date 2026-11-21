@@ -106,7 +106,7 @@ class DatHangP1TraCuuTest extends TestCase
             ->post(route('don-hang.poll', 'MA123456789'));
 
         $res->assertOk();
-        $res->assertExactJson(['trang_thai' => 'cho_thanh_toan', 'trang_thai_giao' => null]);
+        $res->assertExactJson(['trang_thai' => 'cho_thanh_toan', 'trang_thai_giao' => null, 'da_nhan' => false]);
     }
 
     public function test_polling_va_trang_thai_yeu_cau_bang_chung_session(): void
@@ -160,7 +160,7 @@ class DatHangP1TraCuuTest extends TestCase
         $res = $this->withSession(['don_hang_xac_thuc' => ['MA123456789' => true]])
             ->post(route('don-hang.poll', 'MA123456789'));
 
-        $res->assertExactJson(['trang_thai' => 'da_huy', 'trang_thai_giao' => null]);
+        $res->assertExactJson(['trang_thai' => 'da_huy', 'trang_thai_giao' => null, 'da_nhan' => false]);
         $this->assertDatabaseHas('products', ['id' => $sp->id, 'soluong' => 10]);
     }
 }

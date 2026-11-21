@@ -208,7 +208,7 @@ class DatHangP2QrOnlineTest extends TestCase
         // Có bằng chứng → chỉ trả trạng thái, không PII.
         $res = $this->withSession($this->bangChung($don))
             ->post(route('don-hang.poll', $don->ma_tra_cuu));
-        $res->assertOk()->assertExactJson(['trang_thai' => 'cho_thanh_toan', 'trang_thai_giao' => null]);
+        $res->assertOk()->assertExactJson(['trang_thai' => 'cho_thanh_toan', 'trang_thai_giao' => null, 'da_nhan' => false]);
         $res->assertDontSee('0901234567', false);
         $res->assertDontSee('Nguyễn Trãi', false);
         $res->assertDontSee('Người Nhận', false);
