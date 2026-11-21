@@ -23,6 +23,9 @@ class AppServiceProvider extends ServiceProvider
     {
         Schema::defaultStringLength(150);
 
+        // Mot view phan trang duy nhat cho toan he thong (gon, mot bo nut).
+        \Illuminate\Pagination\Paginator::defaultView('vendor.pagination.app');
+
         // Ngoài production, ném lỗi khi quan hệ bị lazy-load để phát hiện N+1
         // ngay trong lúc phát triển/test thay vì âm thầm bắn truy vấn.
         if (! $this->app->isProduction()) {
