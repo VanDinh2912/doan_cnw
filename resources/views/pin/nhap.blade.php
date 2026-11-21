@@ -31,7 +31,7 @@
                 @endif
             </form>
             <hr>
-            <p class="small text-muted mb-0">Quên PIN? Liên hệ quản trị viên (PIN của quản trị viên chỉ đặt lại được trên máy chủ).</p>
+            <p class="small text-muted mb-0">Quên PIN? <a href="{{ route('pin.xincap') }}">Gửi yêu cầu cấp/đặt lại PIN</a> cho quản trị viên.</p>
         </div>
     </div>
 </div>

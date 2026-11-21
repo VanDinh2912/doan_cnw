@@ -26,7 +26,7 @@ class PinKiemKeRouteTest extends TestCase
         // Import: bước upload/preview không ghi DB
         'sanpham.import.upload',
         // Hạ tầng PIN — chính cơ chế xác thực
-        'pin.kiemtra', 'pin.xacnhan', 'pin.doi.post',
+        'pin.kiemtra', 'pin.xacnhan', 'pin.doi.post', 'pin.xincap.post',
         // Webhook + framework
         'webhook.thanhtoan', 'storage.local.upload',
     ];

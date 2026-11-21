@@ -32,6 +32,13 @@
                 </div>
                 <button type="submit" class="btn btn-primary w-100">Đổi PIN</button>
             </form>
+            <hr>
+            <p class="small text-muted mb-0">
+                Quên PIN? <a href="{{ route('pin.xincap') }}">Gửi yêu cầu cấp/đặt lại PIN</a>.
+                @if(\Illuminate\Support\Facades\Cache::has(\App\Http\Controllers\PinController::KHOA_PIN_TAM().auth()->id()))
+                    · <a href="{{ route('pin.tam') }}">Xem PIN tạm vừa được cấp</a>
+                @endif
+            </p>
         </div>
     </div>
 </div>

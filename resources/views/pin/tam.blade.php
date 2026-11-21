@@ -21,7 +21,7 @@
             <strong>Chỉ hiển thị MỘT LẦN.</strong> Tải lại trang sẽ tạo PIN mới và PIN này mất hiệu lực.
             Nhân viên bắt buộc đổi PIN ở lần sử dụng đầu tiên tại <code>/doi-pin</code>.
         </div>
-        <p style="margin-top:1rem"><a href="{{ route('taikhoan.danhsach') }}">Quay lại danh sách tài khoản</a></p>
+        <p style="margin-top:1rem"><a href="{{ $urlLai ?? route('taikhoan.danhsach') }}">{{ $nhanLai ?? 'Quay lại danh sách tài khoản' }}</a></p>
     </div>
 </body>
 </html>

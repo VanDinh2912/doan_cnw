@@ -104,10 +104,88 @@ class PinController extends Controller
     {
         $user = $request->user();
         if (! $user->pin_hash) {
-            return redirect()->route('pin.nhap')->with('loi_pin', 'Tài khoản chưa có PIN — liên hệ quản trị viên.');
+            return redirect()->route('pin.xincap')->with('loi_pin', 'Tài khoản chưa có PIN — gửi yêu cầu để quản trị viên cấp.');
         }
 
         return view('pin.doi');
+    }
+
+    /** GET /pin/xin-cap — NV gửi yêu cầu cấp/đặt lại PIN kèm lý do. */
+    public function getXinCap(Request $request): View|RedirectResponse
+    {
+        $user = $request->user();
+        abort_unless($user && in_array($user->role, ['admin', 'thungan', 'thukho'], true), 403);
+
+        return view('pin.xincap');
+    }
+
+    /**
+     * POST /pin/xin-cap — ghi yêu cầu + lý do vào nhật ký, báo Telegram cho admin.
+     * Admin duyệt bằng luồng cũ /taikhoan/dat-lai-pin (PIN admin + lý do).
+     */
+    public function postXinCap(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+        abort_unless($user && in_array($user->role, ['admin', 'thungan', 'thukho'], true), 403);
+
+        $validated = $request->validate([
+            'ly_do' => ['required', 'string', 'min:5', 'max:255'],
+        ], [
+            'ly_do.required' => 'Vui lòng nhập lý do xin cấp PIN.',
+            'ly_do.min' => 'Lý do phải có ít nhất 5 ký tự.',
+        ]);
+
+        $lyDo = trim($validated['ly_do']);
+        NhatKyService::ghi($request, 'pin_xin_cap', 'user', $user->id,
+            "NV #{$user->id} ({$user->role}) xin cấp/đặt lại PIN — {$lyDo}", null, null, null, 'pin');
+
+        try {
+            app(\App\Services\ThongBaoService::class)->guiTelegram(
+                "NV #{$user->id} ({$user->role}) xin cấp/đặt lại PIN. Lý do: {$lyDo}. Vào /taikhoan để duyệt."
+            );
+        } catch (\Throwable) {
+            // Telegram lỗi không chặn yêu cầu
+        }
+
+        return redirect()->route('pin.xincap')->with('thanh_cong', 'Đã gửi yêu cầu tới quản trị viên. Sau khi được cấp, PIN tạm sẽ hiện tại mục "PIN tạm của tôi" — trang này, chỉ xem được một lần.');
+    }
+
+    /**
+     * GET /pin/tam-cua-toi — NV xem PIN tạm admin vừa cấp cho CHÍNH MÌNH.
+     * Đọc cache mã hóa (TTL 30'), hiện 1 lần rồi xóa ngay.
+     */
+    public function getTamCuaToi(Request $request): View|RedirectResponse
+    {
+        $user = $request->user();
+        abort_unless($user && in_array($user->role, ['admin', 'thungan', 'thukho'], true), 403);
+
+        $key = self::KHOA_PIN_TAM().$user->id;
+        $maHoa = \Illuminate\Support\Facades\Cache::get($key);
+        if (! is_string($maHoa) || $maHoa === '') {
+            return redirect()->route('pin.xincap')->with('loi_pin', 'Không có PIN tạm nào đang chờ — có thể đã xem hoặc chưa được cấp.');
+        }
+
+        try {
+            $pinTam = decrypt($maHoa);
+        } catch (\Throwable) {
+            \Illuminate\Support\Facades\Cache::forget($key);
+
+            return redirect()->route('pin.xincap')->with('loi_pin', 'PIN tạm không còn hiệu lực — liên hệ quản trị viên cấp lại.');
+        }
+        \Illuminate\Support\Facades\Cache::forget($key); // hiện đúng 1 lần
+
+        return view('pin.tam', [
+            'user' => $user,
+            'pinTam' => $pinTam,
+            'urlLai' => route('pin.xincap'),
+            'nhanLai' => 'Về trang xin cấp PIN',
+        ]);
+    }
+
+    /** Khóa cache giữ PIN tạm cho từng user (mã hóa bằng APP_KEY, TTL 30'). */
+    public static function KHOA_PIN_TAM(): string
+    {
+        return 'pin_tam_user_';
     }
 
     /** POST /doi-pin — đổi PIN; chia sẻ bộ đếm sai/khóa với mọi điểm kiểm PIN. */
@@ -159,11 +237,19 @@ class PinController extends Controller
             'bat_buoc_doi_pin' => true,
         ])->save();
         PinService::xoaSessionPin();
+        // Lưu PIN tạm mã hóa trong cache 30' để CHÍNH NV đó tự xem 1 lần
+        // tại /pin/tam-cua-toi (không cần admin đọc cho NV).
+        \Illuminate\Support\Facades\Cache::put(
+            self::KHOA_PIN_TAM().$user->id, encrypt($pinTam), now()->addMinutes(30)
+        );
         NhatKyService::ghi($request, 'pin_dat_lai', 'user', $user->id,
             "Admin #{$admin->id} đặt lại PIN cho user #{$user->id} — {$validated['ly_do']}", null, null, null, 'pin');
 
         // Hiện PIN tạm ĐÚNG MỘT LẦN: 200 trực tiếp + no-store, không flash/log
-        return response()->view('pin.tam', ['user' => $user, 'pinTam' => $pinTam])
+        return response()->view('pin.tam', [
+            'user' => $user, 'pinTam' => $pinTam,
+            'urlLai' => route('taikhoan.danhsach'), 'nhanLai' => 'Quay lại danh sách tài khoản',
+        ])
             ->header('Cache-Control', 'no-store, no-cache')
             ->header('Pragma', 'no-cache');
     }

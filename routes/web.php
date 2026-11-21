@@ -118,6 +118,12 @@ Route::middleware(['auth', 'staff.only', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->
     Route::get('/doi-pin', [\App\Http\Controllers\PinController::class, 'getDoiPin'])->name('pin.doi');
     Route::post('/doi-pin', [\App\Http\Controllers\PinController::class, 'postDoiPin'])
         ->middleware('throttle:10,1')->name('pin.doi.post');
+    // NV tu xin cap/dat lai PIN (ghi ly do, admin duyet qua /taikhoan)
+    Route::get('/pin/xin-cap', [\App\Http\Controllers\PinController::class, 'getXinCap'])->name('pin.xincap');
+    Route::post('/pin/xin-cap', [\App\Http\Controllers\PinController::class, 'postXinCap'])
+        ->middleware('throttle:10,1')->name('pin.xincap.post');
+    // NV tu xem PIN tam admin vua cap — hien 1 lan, tu huy
+    Route::get('/pin/tam-cua-toi', [\App\Http\Controllers\PinController::class, 'getTamCuaToi'])->name('pin.tam');
     Route::post('/taikhoan/dat-lai-pin/{user}', [\App\Http\Controllers\PinController::class, 'postDatLaiPin'])
         ->middleware(['role:admin', 'xac.nhan.pin:nghiemtrong', 'throttle:10,1'])->name('taikhoan.datlaipin');
 
