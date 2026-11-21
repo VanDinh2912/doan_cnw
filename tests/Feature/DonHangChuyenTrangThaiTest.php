@@ -169,8 +169,10 @@ class DonHangChuyenTrangThaiTest extends TestCase
     {
         $this->seed();
         $kh = KhachHang::create([
-            'ho_ten' => 'KH Test', 'so_dienthoai' => '0909999888', 'diem_tichluy' => 50,
+            'ho_ten' => 'KH Test', 'so_dienthoai' => '0909999888',
         ]);
+        $kh->diem_tichluy = 50;
+        $kh->save();
         $don = $this->donGiaoDaThanhToan([
             'customer_id' => $kh->id,
             'diem_tichluy_nhan' => 10, // giả lập điểm đã cộng khi thanh toán

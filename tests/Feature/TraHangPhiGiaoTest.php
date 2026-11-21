@@ -161,7 +161,9 @@ class TraHangPhiGiaoTest extends TestCase
     public function test_diem_thu_hoi_khong_tinh_phi_ship_da_hoan(): void
     {
         $this->seed();
-        $kh = KhachHang::create(['ho_ten' => 'KH Điểm', 'so_dienthoai' => '0907777000', 'diem_tichluy' => 10]);
+        $kh = KhachHang::create(['ho_ten' => 'KH Điểm', 'so_dienthoai' => '0907777000']);
+        $kh->diem_tichluy = 10;
+        $kh->save();
         $don = $this->donShip(['customer_id' => $kh->id, 'diem_tichluy_nhan' => 1]);
         $chiTiet = $don->chiTietDonHangs()->firstOrFail();
 

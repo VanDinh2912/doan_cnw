@@ -189,6 +189,8 @@ Lệnh kiểm tra số lượng bản ghi, tổng hóa đơn, tồn kho và move
 | `TELEGRAM_CHAT_ID` | Không | (rỗng) | Chat ID nhận thông báo | Thông báo |
 | `POS_DIEM_MOI_DONG` | Không | 100000 | Doanh thu để được 1 điểm | Tích điểm |
 | `POS_GIA_TRI_DIEM` | Không | 1000 | Giá trị 1 điểm (VNĐ) | Tích điểm |
+| `POS_DIEM_DUNG_KHONG_PIN_TOI_DA` | Không | 50 | Dùng điểm POS vượt ngưỡng này yêu cầu PIN mức thường (khi `POS_PIN_BAT=true`) | Tích điểm |
+| `POS_DIEM_DIEU_CHINH_TOI_DA` | Không | 500 | Giới hạn \|điểm\| mỗi lần admin điều chỉnh thủ công | Tích điểm |
 | `POS_HAN_TRA_NGAY` | Không | 7 | Hạn trả hàng (ngày) | Trả hàng |
 | `POS_NGUONG_TRA_KHONG_DUYET` | Không | 500000 | Ngưỡng tự duyệt trả hàng (VNĐ) | Trả hàng |
 | `POS_ONLINE_QR_PHUT` | Không | 30 | Hạn giữ đơn QR online (phút) | Đặt hàng online |
@@ -743,6 +745,21 @@ Thanh toán sử dụng một transaction duy nhất:
   Google), bị đăng xuất khỏi session đang mở, không đặt/tra cứu/hủy đơn online;
   đơn guest trùng SĐT khách khóa vẫn tạo được nhưng nhân viên thấy cảnh báo;
   vẫn gửi được `/lien-he` (kênh kháng nghị). Trang chi tiết hiển thị lịch sử đơn.
+- **Sổ cái điểm tích lũy** (`diem_bien_dong`, chỉ thêm không sửa/xóa): mọi biến
+  động điểm (tích/dùng/hoàn/thu hồi/điều chỉnh/số dư đầu kỳ) ghi một dòng kèm
+  `so_du_sau` trong cùng transaction với biến động số dư, chống ghi trùng bằng
+  `su_kien` duy nhất. Khi bảng chưa migrate, hệ thống bỏ qua ghi sổ và chạy
+  như cũ. `diem_tichluy` không còn fillable — không sửa trực tiếp qua form
+  khách; chỉ đổi qua `POST /khachhang/{id}/dieu-chinh-diem` (chỉ admin, PIN
+  nghiêm trọng, lý do bắt buộc, giới hạn `POS_DIEM_DIEU_CHINH_TOI_DA`, không
+  cho số dư âm). Khách xem biến động của mình tại `/thong-tin-ca-nhan/diem`
+  (không cần xác thực lại; `ly_do` điều chỉnh chỉ hiện nhãn chung). Dùng điểm
+  POS vượt `POS_DIEM_DUNG_KHONG_PIN_TOI_DA` cần PIN mức thường khi
+  `POS_PIN_BAT=true`. Điểm **không hết hạn**, không điểm tối thiểu, đơn guest
+  không tích điểm; sổ chỉ chính xác từ thời điểm bật — lịch sử trước đó tra
+  qua hóa đơn/phiếu trả. Lệnh: `php artisan diem:doi-soat` (đối chiếu sổ ↔
+  `customers.diem_tichluy`, chỉ đọc) và `php artisan diem:khoi-tao-so`
+  (mặc định dry-run, `--apply` tạo dòng `so_du_dau_ky` cho số dư cũ, idempotent).
 
 ### Hóa đơn
 

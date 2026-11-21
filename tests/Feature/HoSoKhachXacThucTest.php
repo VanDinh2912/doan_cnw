@@ -22,17 +22,22 @@ class HoSoKhachXacThucTest extends TestCase
             'role' => 'khachhang',
         ], $userAttrs));
 
+        $khach = null;
         if ($khachAttrs === 'default') {
-            KhachHang::create([
+            $khach = KhachHang::create([
                 'user_id' => $user->id,
                 'ho_ten' => 'Nguyen Van An',
                 'so_dienthoai' => '0901234567',
                 'dia_chi' => '123 Le Loi, Phuong Ben Nghe, Quan 1, Tinh Nghe An',
-                'diem_tichluy' => 1500,
             ]);
+            $khach->diem_tichluy = 1500;
         } elseif (is_array($khachAttrs)) {
-            KhachHang::create(array_merge(['user_id' => $user->id], $khachAttrs));
+            $diem = $khachAttrs['diem_tichluy'] ?? 0;
+            unset($khachAttrs['diem_tichluy']);
+            $khach = KhachHang::create(array_merge(['user_id' => $user->id], $khachAttrs));
+            $khach->diem_tichluy = (int) $diem;
         }
+        $khach?->save();
 
         return $user->fresh();
     }

@@ -54,7 +54,9 @@ class DonHangHuyDaThanhToanTest extends TestCase
         Http::fake();
         config(['pos.telegram_bot_token' => 'tok', 'pos.telegram_chat_id' => 'chat']);
 
-        $kh = KhachHang::create(['ho_ten' => 'KH', 'so_dienthoai' => '0908888999', 'diem_tichluy' => 30]);
+        $kh = KhachHang::create(['ho_ten' => 'KH', 'so_dienthoai' => '0908888999']);
+        $kh->diem_tichluy = 30;
+        $kh->save();
         $don = $this->donDaThanhToan([
             'customer_id' => $kh->id, 'diem_tichluy_nhan' => 10, 'trang_thai_giao' => 'dang_giao',
         ]);
@@ -94,7 +96,9 @@ class DonHangHuyDaThanhToanTest extends TestCase
     {
         $this->seed();
         Http::fake();
-        $kh = KhachHang::create(['ho_ten' => 'KH2', 'so_dienthoai' => '0906666555', 'diem_tichluy' => 3]);
+        $kh = KhachHang::create(['ho_ten' => 'KH2', 'so_dienthoai' => '0906666555']);
+        $kh->diem_tichluy = 3;
+        $kh->save();
         $don = $this->donDaThanhToan(['customer_id' => $kh->id, 'diem_tichluy_nhan' => 10]);
 
         $this->actingAs($this->admin())->post(route('donhangonline.huydathanhtoan', $don), [

@@ -154,8 +154,9 @@ class SepayDoiSoatTest extends TestCase
         $khachHang = KhachHang::create([
             'ho_ten' => 'Khach Doi Soat',
             'so_dienthoai' => '0987000111',
-            'diem_tichluy' => 100,
         ]);
+        $khachHang->diem_tichluy = 100;
+        $khachHang->save();
         $donHang = $this->taoHoaDon('HD20261111-0001', 'cho_thanh_toan', 150000, $khachHang, 20);
 
         $this->fakeApi([

@@ -63,8 +63,9 @@ class AuthFlowTest extends TestCase
             'ho_ten' => 'Walk-in',
             'so_dienthoai' => '0987654321',
             'dia_chi' => null,
-            'diem_tichluy' => 50,
         ]);
+        $existing->diem_tichluy = 50;
+        $existing->save();
 
         $this->post('/dang-ky', [
             'name' => 'Nguyen Van B',

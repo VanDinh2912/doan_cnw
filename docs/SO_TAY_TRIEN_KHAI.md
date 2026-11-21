@@ -20,6 +20,21 @@ thứ tự tên file, nên **thứ tự áp thực tế** là:
 | 3 | `2026_11_15_000002_add_khoa_luc_and_bat_buoc_doi_mat_khau_to_users_table` | Khóa tài khoản + ép đổi mật khẩu lần đầu | `users.khoa_luc`, `users.bat_buoc_doi_mat_khau` | ✅ có guard | Thấp | `down()` có điều kiện |
 | 4 | `2026_11_16_000001_add_can_hoan_tien_to_invoices_table` | P3: cờ cần hoàn tiền thủ công + ghi chú nội bộ | `invoices.can_hoan_tien` bool, `invoices.ghi_chu_noi_bo` varchar(255) | ✅ có guard | Thấp | `down()` có điều kiện |
 | 5 | `2026_11_16_000002_add_tien_hoan_phi_giao_to_returns_table` | Quy tắc hoàn phí giao: tick admin một lần/đơn | `returns.tien_hoan_phi_giao` unsigned int default 0 | ✅ có guard | Thấp: chỉ thêm cột có default; thiếu cột → trả hàng chạy hành vi cũ, tick ship báo 422 | `down()` có điều kiện |
+| 6 | `2026_11_22_000001_create_diem_bien_dong_table` | Sổ cái điểm tích lũy | Bảng mới `diem_bien_dong` (customer_id, loai, diem, so_du_sau, invoice_id, return_id, user_id, ly_do, su_kien unique, created_at) | ✅ code guard `KiemTraSchema::coBang` — **chạy được khi chưa migrate** | Thấp: chỉ thêm bảng; code hiện tại tự bỏ qua ghi sổ nếu thiếu bảng | `down()` drop bảng |
+
+### Quy trình bật sổ cái điểm (sau khi duyệt migration)
+
+1. Sao lưu `doan_cnw` → `php artisan migrate:pretend` kiểm SQL →
+   `php artisan migrate --force` chỉ khi đã duyệt.
+2. Chạy `php artisan diem:doi-soat` (chỉ đọc) — sẽ báo lệch cho toàn bộ số
+   dư cũ vì sổ chưa có dòng đầu kỳ.
+3. Chạy `php artisan diem:khoi-tao-so` (dry-run) xem danh sách →
+   `php artisan diem:khoi-tao-so --apply` tạo dòng `so_du_dau_ky` cho từng
+   khách có điểm (idempotent, ghi 1 audit tổng kết).
+4. Chạy lại `diem:doi-soat` — kỳ vọng "khớp" cho mọi khách.
+5. Lưu ý: sổ chỉ chính xác **từ thời điểm bật**; biến động trước đó không
+   dựng lại được từ sổ (tham chiếu `invoices.diem_*` / `returns.diem_*`).
+   Code chịu được thiếu bảng: deploy code trước, migrate sau vẫn an toàn.
 
 ## 1b. Nhật ký áp migration
 

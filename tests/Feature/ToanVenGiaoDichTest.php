@@ -138,8 +138,10 @@ class ToanVenGiaoDichTest extends TestCase
     {
         $sanPham = SanPham::where('sku', 'CS-0001')->firstOrFail();
         $khach = KhachHang::create([
-            'ho_ten' => 'Khach Idempotent', 'so_dienthoai' => '0944100200', 'diem_tichluy' => 50,
+            'ho_ten' => 'Khach Idempotent', 'so_dienthoai' => '0944100200',
         ]);
+        $khach->diem_tichluy = 50;
+        $khach->save();
 
         $donHang = $this->taoDonChoThanhToan($sanPham, 3, 100000, $khach, 10);
         $donHang->created_at = now()->subMinutes(30);
@@ -191,8 +193,10 @@ class ToanVenGiaoDichTest extends TestCase
     {
         $sanPham = SanPham::where('sku', 'CS-0001')->firstOrFail();
         $khach = KhachHang::create([
-            'ho_ten' => 'Khach Race', 'so_dienthoai' => '0944100201', 'diem_tichluy' => 20,
+            'ho_ten' => 'Khach Race', 'so_dienthoai' => '0944100201',
         ]);
+        $khach->diem_tichluy = 20;
+        $khach->save();
 
         $donHang = $this->taoDonChoThanhToan($sanPham, 4, 100000, $khach, 0);
         $donHang->created_at = now()->subMinutes(40);
@@ -250,8 +254,10 @@ class ToanVenGiaoDichTest extends TestCase
     {
         $sanPham = SanPham::where('sku', 'CS-0001')->firstOrFail();
         $khach = KhachHang::create([
-            'ho_ten' => 'Khach Trung Webhook', 'so_dienthoai' => '0944100202', 'diem_tichluy' => 30,
+            'ho_ten' => 'Khach Trung Webhook', 'so_dienthoai' => '0944100202',
         ]);
+        $khach->diem_tichluy = 30;
+        $khach->save();
         $donHang = $this->taoDonChoThanhToan($sanPham, 1, 200000, $khach, 0);
         $tonDangGiu = (int) $sanPham->fresh()->soluong;
 

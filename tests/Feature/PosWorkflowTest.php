@@ -255,8 +255,9 @@ class PosWorkflowTest extends TestCase
         $customer = KhachHang::create([
             'ho_ten' => 'Khách tích điểm',
             'so_dienthoai' => '0900000001',
-            'diem_tichluy' => 2,
         ]);
+        $customer->diem_tichluy = 2;
+        $customer->save();
 
         $response = $this->actingAs($cashier)->withSession([
             'gio_hang' => [(string) $product->id => [
@@ -290,8 +291,9 @@ class PosWorkflowTest extends TestCase
         $customer = KhachHang::create([
             'ho_ten' => 'Khách ít điểm',
             'so_dienthoai' => '0900000002',
-            'diem_tichluy' => 1,
         ]);
+        $customer->diem_tichluy = 1;
+        $customer->save();
 
         $response = $this->actingAs($cashier)->withSession([
             'gio_hang' => [(string) $product->id => ['id' => $product->id, 'soluong' => 1]],
@@ -560,8 +562,9 @@ class PosWorkflowTest extends TestCase
         $customer = KhachHang::create([
             'ho_ten' => 'Khach Giam Gia',
             'so_dienthoai' => '0933100200',
-            'diem_tichluy' => 2,
         ]);
+        $customer->diem_tichluy = 2;
+        $customer->save();
 
         // tong_tien 2.000.000 - giảm 10% (200.000) - 100 điểm (100.000) = thực trả 1.700.000
         $invoice = DonHang::create([
@@ -654,8 +657,9 @@ class PosWorkflowTest extends TestCase
         $customer = KhachHang::create([
             'ho_ten' => 'Khach Tra Nhieu Lan',
             'so_dienthoai' => '0933100201',
-            'diem_tichluy' => 500,
         ]);
+        $customer->diem_tichluy = 500;
+        $customer->save();
 
         // 10 SP x 100.000 = 1.000.000; dùng 100 điểm (-100.000) => thực trả 900.000.
         $invoice = DonHang::create([
@@ -853,8 +857,9 @@ class PosWorkflowTest extends TestCase
         $customer = KhachHang::create([
             'ho_ten' => 'Khach Tra Hang Loi',
             'so_dienthoai' => '0933100202',
-            'diem_tichluy' => 100,
         ]);
+        $customer->diem_tichluy = 100;
+        $customer->save();
 
         // 2 SP x 500.000 = 1.000.000; dùng 50 điểm (-50.000) => thực trả 950.000.
         $invoice = DonHang::create([
@@ -912,8 +917,9 @@ class PosWorkflowTest extends TestCase
         $customer = KhachHang::create([
             'ho_ten' => 'Khach Lam Tron',
             'so_dienthoai' => '0933100203',
-            'diem_tichluy' => 100,
         ]);
+        $customer->diem_tichluy = 100;
+        $customer->save();
 
         // 3 dòng x 100.000 = 300.000; dùng 20 điểm (-20.000) => thực trả 280.000.
         $invoice = DonHang::create([

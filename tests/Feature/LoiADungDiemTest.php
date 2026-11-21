@@ -65,11 +65,14 @@ class LoiADungDiemTest extends TestCase
 
     private function khachHangVoiDiem(int $diem = 0): KhachHang
     {
-        return KhachHang::create([
+        $khach = KhachHang::create([
             'ho_ten' => 'Khách Test Điểm',
             'so_dienthoai' => '0988'.rand(100000, 999999),
-            'diem_tichluy' => $diem,
         ]);
+        $khach->diem_tichluy = $diem;
+        $khach->save();
+
+        return $khach;
     }
 
     // 1. Khách có 0 điểm nhập 500 ở tiền mặt bị từ chối 422 + tiếng Việt
@@ -222,7 +225,8 @@ class LoiADungDiemTest extends TestCase
         // Giả sử tổng tiền là 2 x gia_ban, ta nhập điểm quy đổi vượt quá tổng tiền
         $tongTien = (float) $this->product->gia_ban * 2;
         $diemVuot = (int) ceil(($tongTien + 10000) / config('pos.gia_tri_diem'));
-        $khach->update(['diem_tichluy' => $diemVuot + 10]);
+        $khach->diem_tichluy = $diemVuot + 10;
+        $khach->save();
 
         $res = $this->actingAs($this->cashier)
             ->withSession($this->sessionGioHang(2))

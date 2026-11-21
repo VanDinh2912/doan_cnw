@@ -37,8 +37,9 @@ class LienKetHoSoTheoSDTTest extends TestCase
             'ho_ten' => 'Khach Hang A',
             'so_dienthoai' => $this->sdtA,
             'dia_chi' => '123 Duong A, Quan 1',
-            'diem_tichluy' => 120,
         ]);
+        $this->hoSoA->diem_tichluy = 120;
+        $this->hoSoA->save();
 
         $staff = User::create([
             'name' => 'Thu ngan',

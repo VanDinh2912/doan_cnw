@@ -78,7 +78,9 @@ class TraHangDonOnlineTest extends TestCase
     public function test_tra_mot_phan_tinh_ty_le_va_thu_hoi_diem_khong_am(): void
     {
         $this->seed();
-        $kh = KhachHang::create(['ho_ten' => 'KH Trả', 'so_dienthoai' => '0901111000', 'diem_tichluy' => 5]);
+        $kh = KhachHang::create(['ho_ten' => 'KH Trả', 'so_dienthoai' => '0901111000']);
+        $kh->diem_tichluy = 5;
+        $kh->save();
         // diem_tichluy_nhan=10 nhưng số dư khách chỉ còn 5 → thu hồi kẹp ở 5
         $don = $this->donOnline([
             'customer_id' => $kh->id, 'diem_tichluy_nhan' => 10, 'phi_giao_hang' => 30000,

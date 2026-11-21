@@ -237,8 +237,9 @@ class ThanhToanChuyenKhoanTest extends TestCase
         $kh = KhachHang::create([
             'ho_ten'        => 'Nguyen Van Test',
             'so_dienthoai'  => '0988776655',
-            'diem_tichluy'  => 100,
         ]);
+        $kh->diem_tichluy = 100;
+        $kh->save();
 
         $gioHang = [
             $sp->id => [
@@ -306,8 +307,9 @@ class ThanhToanChuyenKhoanTest extends TestCase
         $kh = KhachHang::create([
             'ho_ten'       => 'Test Webhook Valid',
             'so_dienthoai' => '0911223344',
-            'diem_tichluy' => 50,
         ]);
+        $kh->diem_tichluy = 50;
+        $kh->save();
 
         $donHang = $this->taoHoaDonChoThanhToan(300000, $kh, 0, 30);
         $cleanMa = str_replace('-', '', $donHang->ma_hoadon);
@@ -487,8 +489,9 @@ class ThanhToanChuyenKhoanTest extends TestCase
         $kh = KhachHang::create([
             'ho_ten'       => 'Test Duplicate',
             'so_dienthoai' => '0922334455',
-            'diem_tichluy' => 10,
         ]);
+        $kh->diem_tichluy = 10;
+        $kh->save();
 
         $donHang = $this->taoHoaDonChoThanhToan(200000, $kh, 0, 20);
         $cleanMa = str_replace('-', '', $donHang->ma_hoadon);
@@ -615,8 +618,9 @@ class ThanhToanChuyenKhoanTest extends TestCase
         $kh = KhachHang::create([
             'ho_ten'       => 'Test Manual Confirm',
             'so_dienthoai' => '0933445566',
-            'diem_tichluy' => 20,
         ]);
+        $kh->diem_tichluy = 20;
+        $kh->save();
 
         $donHang = $this->taoHoaDonChoThanhToan(150000, $kh, 0, 15);
 
@@ -639,8 +643,9 @@ class ThanhToanChuyenKhoanTest extends TestCase
         $kh = KhachHang::create([
             'ho_ten'       => 'Test Already Confirmed',
             'so_dienthoai' => '0944556677',
-            'diem_tichluy' => 20,
         ]);
+        $kh->diem_tichluy = 20;
+        $kh->save();
 
         $donHang = $this->taoHoaDonChoThanhToan(150000, $kh, 0, 15);
 
@@ -674,8 +679,9 @@ class ThanhToanChuyenKhoanTest extends TestCase
         $kh = KhachHang::create([
             'ho_ten'       => 'Test Cancel',
             'so_dienthoai' => '0955667788',
-            'diem_tichluy' => 50,
         ]);
+        $kh->diem_tichluy = 50;
+        $kh->save();
 
         // Tạo hóa đơn chờ, trừ 1 tồn kho, dùng 30 điểm
         $donHang = $this->taoHoaDonChoThanhToan(100000, $kh, 30, 10);
@@ -733,8 +739,9 @@ class ThanhToanChuyenKhoanTest extends TestCase
         $kh = KhachHang::create([
             'ho_ten'       => 'Test Lazy Expiry',
             'so_dienthoai' => '0966778899',
-            'diem_tichluy' => 40,
         ]);
+        $kh->diem_tichluy = 40;
+        $kh->save();
 
         $donHang = $this->taoHoaDonChoThanhToan(100000, $kh, 20, 10);
         // Đặt thời gian tạo quá hạn (lùi 20 phút trước)
@@ -821,8 +828,9 @@ class ThanhToanChuyenKhoanTest extends TestCase
         $kh = KhachHang::create([
             'ho_ten'       => 'Test Webhook Da Huy',
             'so_dienthoai' => '0977112233',
-            'diem_tichluy' => 25,
         ]);
+        $kh->diem_tichluy = 25;
+        $kh->save();
 
         $donHang = $this->taoHoaDonChoThanhToan(200000, $kh, 0, 20);
         // Cho đơn quá hạn rồi chạy lệnh hủy để có trạng thái da_huy thật (kho đã hoàn).
@@ -890,8 +898,9 @@ class ThanhToanChuyenKhoanTest extends TestCase
         $kh = KhachHang::create([
             'ho_ten'       => 'Test Webhook Qua Han',
             'so_dienthoai' => '0966445577',
-            'diem_tichluy' => 10,
         ]);
+        $kh->diem_tichluy = 10;
+        $kh->save();
 
         $donHang = $this->taoHoaDonChoThanhToan(250000, $kh, 0, 25);
         // Quá hạn chờ 15 phút nhưng không ai poll/chạy lệnh hủy nên vẫn cho_thanh_toan.

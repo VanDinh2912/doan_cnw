@@ -169,12 +169,14 @@ class RouteKhoiTest extends TestCase
         // Khách hàng.
         $cacKhachHang = [];
         foreach (['Nguyễn Văn A', 'Trần Thị B', 'Lê Văn C'] as $i => $hoTen) {
-            $cacKhachHang[] = KhachHang::create([
+            $kh = KhachHang::create([
                 'ho_ten' => $hoTen,
                 'so_dienthoai' => '090000000'.($i + 1),
                 'dia_chi' => 'Địa chỉ '.($i + 1),
-                'diem_tichluy' => 10,
             ]);
+            $kh->diem_tichluy = 10;
+            $kh->save();
+            $cacKhachHang[] = $kh;
         }
         $this->khachHang = $cacKhachHang[0];
 

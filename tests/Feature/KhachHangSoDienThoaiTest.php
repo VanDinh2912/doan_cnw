@@ -25,12 +25,17 @@ class KhachHangSoDienThoaiTest extends TestCase
 
     private function khach(string $phone = '0912345678', array $extra = []): KhachHang
     {
-        return KhachHang::create(array_merge([
+        $diem = $extra['diem_tichluy'] ?? 0;
+        unset($extra['diem_tichluy']);
+        $khach = KhachHang::create(array_merge([
             'ho_ten' => 'Khach Mau',
             'so_dienthoai' => $phone,
             'dia_chi' => null,
-            'diem_tichluy' => 0,
         ], $extra));
+        $khach->diem_tichluy = (int) $diem;
+        $khach->save();
+
+        return $khach;
     }
 
     public static function sdtHopLeProvider(): array

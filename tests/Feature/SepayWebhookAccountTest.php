@@ -156,7 +156,9 @@ class SepayWebhookAccountTest extends TestCase
 
     public function test_xac_nhan_thu_cong_roi_webhook_den_ghi_doi_soat_khong_lap(): void
     {
-        $kh = KhachHang::create(['ho_ten' => 'KH Thu Cong', 'so_dienthoai' => '0900000002', 'diem_tichluy' => 10]);
+        $kh = KhachHang::create(['ho_ten' => 'KH Thu Cong', 'so_dienthoai' => '0900000002']);
+        $kh->diem_tichluy = 10;
+        $kh->save();
         $don = $this->taoDonChoThanhToan(13000, $kh);
         $don->update(['diem_tichluy_nhan' => 13]);
 
