@@ -5,7 +5,7 @@
 @section('content')
 <h1 class="h3 mb-3">Nhập kho</h1>
 <div class="card"><div class="card-body">
-    <form method="POST" action="{{ route('kho.postnhapkho') }}" data-can-pin="thuong">
+    <form method="POST" action="{{ route('kho.postnhapkho') }}" data-can-pin="nghiemtrong">
         @csrf
         <div class="mb-3"><label class="form-label" for="product_id">Sản phẩm</label>
             <select class="form-select" id="product_id" name="product_id" required><option value="">-- Chọn sản phẩm --</option>

@@ -292,7 +292,7 @@ Route::middleware(['auth', 'staff.only', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->
         Route::post('/nhaphang/donnhap/{donNhap}/trangthai', [\App\Http\Controllers\NhapHangController::class, 'capNhatTrangThai'])->name('nhaphang.donnhap.trangthai')->middleware('xac.nhan.pin:nghiemtrong');
         Route::get('/kho', [\App\Http\Controllers\KhoController::class, 'getDanhSach'])->name('kho.danhsach');
         Route::get('/kho/nhap', [\App\Http\Controllers\KhoController::class, 'getNhapKho'])->name('kho.nhapkho');
-        Route::post('/kho/nhap', [\App\Http\Controllers\KhoController::class, 'postNhapKho'])->name('kho.postnhapkho')->middleware('xac.nhan.pin:thuong');
+        Route::post('/kho/nhap', [\App\Http\Controllers\KhoController::class, 'postNhapKho'])->name('kho.postnhapkho')->middleware('xac.nhan.pin:nghiemtrong');
         Route::get('/kho/lichsu', [\App\Http\Controllers\KhoController::class, 'getLichSu'])->name('kho.lichsu');
         Route::get('/sanpham', [\App\Http\Controllers\SanPhamController::class, 'getDanhSach'])
             ->name('sanpham.danhsach');
@@ -305,7 +305,7 @@ Route::middleware(['auth', 'staff.only', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->
         Route::get('/sanpham/tem/{sanPham}', [\App\Http\Controllers\SanPhamController::class, 'getTem'])
             ->name('sanpham.tem');
         Route::put('/sanpham/sua/{sanPham}', [\App\Http\Controllers\SanPhamController::class, 'postSua'])
-            ->name('sanpham.postsua')->middleware('xac.nhan.pin:thuong');
+            ->name('sanpham.postsua')->middleware('xac.nhan.pin:nghiemtrong');
         Route::delete('/sanpham/xoa/{sanPham}', [\App\Http\Controllers\SanPhamController::class, 'getXoa'])
             ->name('sanpham.xoa')->middleware('xac.nhan.pin:nghiemtrong');
         // Export san pham ra Excel: admin + thu kho (nhom route da gioi han).
