@@ -69,14 +69,25 @@ class TinTucController extends Controller
             'noi_dung.max' => 'Bình luận không được vượt quá 1000 ký tự.',
         ]);
 
+        $noiDung = trim($validated['noi_dung']);
+        // Chong gui trung noi dung lien tiep boi cung user tren cung bai viet
+        $trung = BinhLuanBaiViet::where('post_id', $baiViet->id)
+            ->where('user_id', $request->user()->id)
+            ->where('noi_dung', $noiDung)
+            ->where('created_at', '>=', now()->subMinutes(10))
+            ->exists();
+        if ($trung) {
+            return back()->with('error', 'Bạn vừa gửi bình luận này rồi, vui lòng chờ một lát.');
+        }
+
         BinhLuanBaiViet::create([
             'post_id' => $baiViet->id,
             'user_id' => $request->user()->id,
-            'noi_dung' => $validated['noi_dung'],
-            'kiem_duyet' => false,
+            'noi_dung' => $noiDung,
+            'kiem_duyet' => true,
             'kich_hoat' => true,
         ]);
 
-        return back()->with('success', 'Bình luận của bạn đã được gửi và đang chờ kiểm duyệt.');
+        return back()->with('success', 'Bình luận của bạn đã được đăng.');
     }
 }

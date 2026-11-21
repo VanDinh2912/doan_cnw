@@ -129,7 +129,7 @@ class TinTucTest extends TestCase
         $this->assertDatabaseCount('news_comments', 0);
     }
 
-    public function test_khach_gui_binh_luan_cho_duyet(): void
+    public function test_khach_gui_binh_luan_hien_ngay(): void
     {
         $chuDe = $this->chuDe();
         $baiViet = $this->baiViet($chuDe);
@@ -138,14 +138,21 @@ class TinTucTest extends TestCase
         $this->actingAs($khach)
             ->post("/bai-viet/{$chuDe->slug}/{$baiViet->slug}/binh-luan", ['noi_dung' => 'Bài viết hay quá'])
             ->assertRedirect()
-            ->assertSessionHas('success', 'Bình luận của bạn đã được gửi và đang chờ kiểm duyệt.');
+            ->assertSessionHas('success', 'Bình luận của bạn đã được đăng.');
 
         $this->assertDatabaseHas('news_comments', [
             'post_id' => $baiViet->id,
             'user_id' => $khach->id,
             'noi_dung' => 'Bài viết hay quá',
-            'kiem_duyet' => false,
+            'kiem_duyet' => true,
+            'kich_hoat' => true,
         ]);
+
+        // Gui trung noi dung lien tiep bi chan
+        $this->actingAs($khach)
+            ->post("/bai-viet/{$chuDe->slug}/{$baiViet->slug}/binh-luan", ['noi_dung' => 'Bài viết hay quá'])
+            ->assertSessionHas('error');
+        $this->assertDatabaseCount('news_comments', 1);
     }
 
     public function test_binh_luan_vuot_1000_ky_tu_bi_tu_choi(): void

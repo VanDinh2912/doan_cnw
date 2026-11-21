@@ -71,7 +71,7 @@
                         <button type="submit" class="sf-icon-btn is-primary">
                             <i class="fa-solid fa-paper-plane"></i> Gửi bình luận
                         </button>
-                        <span style="font-size:var(--sf-text-xs);color:var(--sf-fg-subtle);">Bình luận sẽ hiển thị sau khi được kiểm duyệt.</span>
+                        <span style="font-size:var(--sf-text-xs);color:var(--sf-fg-subtle);">Bình luận của bạn sẽ hiển thị ngay sau khi đăng.</span>
                     </div>
                 </form>
             @else
