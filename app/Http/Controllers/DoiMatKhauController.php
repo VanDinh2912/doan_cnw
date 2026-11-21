@@ -59,6 +59,7 @@ class DoiMatKhauController extends Controller
             'bat_buoc_doi_mat_khau' => false, // Bỏ cờ bắt buộc đổi mật khẩu
         ]);
         \App\Services\PinService::xoaSessionPin();
+        \App\Support\HoSoXacThuc::xoa(request());
 
         // Ghi nhật ký (không ghi mật khẩu)
         NhatKyService::ghi(

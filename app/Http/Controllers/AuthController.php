@@ -109,6 +109,7 @@ class AuthController extends Controller
 
         $request->session()->regenerate();
         PinService::xoaSessionPin();
+        \App\Support\HoSoXacThuc::xoa($request);
         RateLimiter::clear($throttleKey);
         $this->ghiLastLogin($request->user()->id);
         NhatKyService::ghi($request, 'dang_nhap', 'user', $request->user()?->id, 'Đăng nhập thành công');
@@ -190,6 +191,7 @@ class AuthController extends Controller
 
         Auth::login($user);
         $request->session()->regenerate();
+        \App\Support\HoSoXacThuc::xoa($request);
         NhatKyService::ghi($request, 'dang_ky', 'user', $user->id, 'Đăng ký tài khoản khách hàng');
 
         return redirect()->route('storefront.home')

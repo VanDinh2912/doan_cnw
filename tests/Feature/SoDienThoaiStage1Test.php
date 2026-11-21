@@ -79,8 +79,13 @@ class SoDienThoaiStage1Test extends TestCase
     {
         $user = $this->khachHangUser();
 
-        $this->actingAs($user)
-            ->from(route('profile.show'))
+        $this->actingAs($user);
+        // Hồ sơ giờ yêu cầu xác thực lại trước khi cập nhật.
+        $this->post(route('profile.xacthuc'), [
+            'mat_khau' => '12345678',
+            'so_dien_thoai' => '0987654321',
+        ]);
+        $this->from(route('profile.show'))
             ->post(route('profile.update'), [
                 'ho_ten' => 'Khach Ho So',
                 'so_dienthoai' => $input,
@@ -96,8 +101,13 @@ class SoDienThoaiStage1Test extends TestCase
     {
         $user = $this->khachHangUser();
 
-        $this->actingAs($user)
-            ->from(route('profile.show'))
+        $this->actingAs($user);
+        // Hồ sơ giờ yêu cầu xác thực lại trước khi cập nhật.
+        $this->post(route('profile.xacthuc'), [
+            'mat_khau' => '12345678',
+            'so_dien_thoai' => '0987654321',
+        ]);
+        $this->from(route('profile.show'))
             ->post(route('profile.update'), [
                 'ho_ten' => 'Khach Ho So',
                 'so_dienthoai' => '   ',
@@ -123,8 +133,13 @@ class SoDienThoaiStage1Test extends TestCase
     {
         $user = $this->khachHangUser();
 
-        $this->actingAs($user)
-            ->from(route('profile.show'))
+        $this->actingAs($user);
+        // Hồ sơ giờ yêu cầu xác thực lại trước khi cập nhật.
+        $this->post(route('profile.xacthuc'), [
+            'mat_khau' => '12345678',
+            'so_dien_thoai' => '0987654321',
+        ]);
+        $this->from(route('profile.show'))
             ->post(route('profile.update'), [
                 'ho_ten' => 'Khach Ho So',
                 'so_dienthoai' => $input,
@@ -140,8 +155,13 @@ class SoDienThoaiStage1Test extends TestCase
         $this->legacyRaw('0912345678');
         $user = $this->khachHangUser();
 
-        $this->actingAs($user)
-            ->from(route('profile.show'))
+        $this->actingAs($user);
+        // Hồ sơ giờ yêu cầu xác thực lại trước khi cập nhật.
+        $this->post(route('profile.xacthuc'), [
+            'mat_khau' => '12345678',
+            'so_dien_thoai' => '0987654321',
+        ]);
+        $this->from(route('profile.show'))
             ->post(route('profile.update'), [
                 'ho_ten' => 'Khach Ho So',
                 'so_dienthoai' => '0912345678',
@@ -157,8 +177,12 @@ class SoDienThoaiStage1Test extends TestCase
         $this->legacyRaw('0912345678');
         $user = $this->khachHangUser();
 
-        $this->actingAs($user)
-            ->post(route('profile.update'), [
+        $this->actingAs($user);
+        $this->post(route('profile.xacthuc'), [
+            'mat_khau' => '12345678',
+            'so_dien_thoai' => '0987654321',
+        ]);
+        $this->post(route('profile.update'), [
                 'ho_ten' => 'Khach Ho So',
                 'so_dienthoai' => '+84912345678',
             ])
@@ -171,8 +195,13 @@ class SoDienThoaiStage1Test extends TestCase
     {
         $user = $this->khachHangUser('0912345678');
 
-        $this->actingAs($user)
-            ->from(route('profile.show'))
+        $this->actingAs($user);
+        // Hồ sơ giờ yêu cầu xác thực lại trước khi cập nhật.
+        $this->post(route('profile.xacthuc'), [
+            'mat_khau' => '12345678',
+            'so_dien_thoai' => '0912345678',
+        ]);
+        $this->from(route('profile.show'))
             ->post(route('profile.update'), [
                 'ho_ten' => 'Ten Moi',
                 'so_dienthoai' => '0912345678',
@@ -192,8 +221,13 @@ class SoDienThoaiStage1Test extends TestCase
             'role' => 'khachhang',
         ]);
 
-        $this->actingAs($user)
-            ->from(route('profile.show'))
+        $this->actingAs($user);
+        // Hồ sơ giờ yêu cầu xác thực lại trước khi cập nhật.
+        $this->post(route('profile.xacthuc'), [
+            'mat_khau' => '12345678',
+            'so_dien_thoai' => '0987654321',
+        ]);
+        $this->from(route('profile.show'))
             ->post(route('profile.update'), [
                 'ho_ten' => 'Khach Chua Ho So',
                 'so_dienthoai' => '+84912345678',
@@ -210,16 +244,26 @@ class SoDienThoaiStage1Test extends TestCase
     {
         $user = $this->khachHangUser();
 
-        $this->actingAs($user)
-            ->get(route('profile.show'))
+        $this->actingAs($user);
+        // Form SĐT chỉ hiển thị sau khi xác thực lại.
+        $this->post(route('profile.xacthuc'), [
+            'mat_khau' => '12345678',
+            'so_dien_thoai' => '0987654321',
+        ]);
+        $this->get(route('profile.show'))
             ->assertOk()
             ->assertSee('type="tel"', false)
             ->assertSee('inputmode="numeric"', false)
             ->assertSee('maxlength="20"', false)
             ->assertSee('pattern=', false);
 
-        $this->actingAs($user)
-            ->from(route('profile.show'))
+        $this->actingAs($user);
+        // Hồ sơ giờ yêu cầu xác thực lại trước khi cập nhật.
+        $this->post(route('profile.xacthuc'), [
+            'mat_khau' => '12345678',
+            'so_dien_thoai' => '0987654321',
+        ]);
+        $this->from(route('profile.show'))
             ->post(route('profile.update'), [
                 'ho_ten' => 'Khach Ho So',
                 'so_dienthoai' => 'abcdef',

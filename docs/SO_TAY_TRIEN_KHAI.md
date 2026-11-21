@@ -429,3 +429,37 @@ Giới hạn: PIN chỉ chặn thay đổi/xuất dữ liệu đã liệt kê, K
   (admin, PIN nghiêm trọng) — hàng hoàn kho về, điểm thu hồi theo luồng cũ.
 - Rủi ro: hàng bị giữ chỗ lâu chiếm tồn; cần quy trình "quá hạn không nhận
   → hủy + hoàn tiền" do quản lý quyết định, không tự động.
+
+## 11. Hồ sơ khách: che PII + xác thực lại (POS_HO_SO_CUA_SO_PHUT)
+
+- `/thong-tin-ca-nhan` mặc định hiển thị dữ liệu ĐÃ CHE ở server
+  (`App\Support\ChePII`): họ tên `N*** V***`, SĐT `090****567`,
+  email `ng***@domain`, địa chỉ `***, <tỉnh/thành cuối>`. Giá trị thật
+  KHÔNG nằm trong HTML; header storefront cũng che tên khi ở trang này
+  chưa xác thực.
+- Nút "Xác thực để xem và cập nhật" → `POST /thong-tin-ca-nhan/xac-thuc`
+  yêu cầu mật khẩu hiện tại + SĐT đang lưu trong hồ sơ (chuẩn hóa
+  `App\Support\SoDienThoai`: bỏ khoảng trắng/dấu chấm, +84→0).
+  `Hash::check` cho mật khẩu, `hash_equals` cho SĐT; lỗi luôn chung
+  "Thông tin xác thực không đúng". Hồ sơ chưa có SĐT → chỉ cần mật khẩu.
+- Cửa sổ xác thực: session `ho_so_khach_xac_thuc` = {user_id, luc},
+  `POS_HO_SO_CUA_SO_PHUT` phút (mặc định 10, kẹp 2–30). Xóa khi: đăng
+  xuất, đăng nhập (mọi kênh), đổi mật khẩu, và NGAY SAU khi lưu cập nhật
+  (mỗi lần xác thực chỉ cho 1 lần lưu). `POST profile.update` kiểm cửa
+  sổ ở server — POST trực tiếp khi chưa xác thực bị từ chối.
+- Chống đoán: `RateLimiter` khóa bước này 5 lần sai/15 phút theo
+  user+IP (không khóa đăng nhập/đơn hàng); đúng lúc khóa vẫn bị chặn;
+  cảnh báo Telegram (không PII) khi chạm ngưỡng.
+- Audit `activity_logs`: `ho_so_xac_thuc_thanh_cong/that_bai/bi_khoa`,
+  `cap_nhat_ho_so` (chỉ tên trường đổi, không giá trị).
+- Tài khoản Google-only (mật khẩu ngẫu nhiên, `email_verified_at` được
+  đặt — đăng ký thường không đặt vì chưa có SMTP): không qua được bước
+  xác thực, nhận thông báo "Tài khoản chưa có mật khẩu…". Xử lý: admin
+  đặt lại mật khẩu khách → khách đổi MK → xác thực bình thường.
+  users KHÔNG có cột provider — `email_verified_at` là dấu hiệu heuristic.
+- Form cập nhật nay có thêm `email` (users.email, unique, `sometimes`)
+  ngoài ho_ten/so_dienthoai/dia_chi như cũ.
+- Giới hạn đã biết: `/thong-tin-ca-nhan/don-hang` vẫn hiển thị SĐT/địa
+  chỉ giao đầy đủ (chỉ báo cáo, chưa che — chờ quyết định).
+- Chưa có: xác thực sở hữu email (cần SMTP thật, vd Gmail App Password);
+  đề xuất cờ `EMAIL_XAC_THUC_BAT` mặc định false cho giai đoạn sau.

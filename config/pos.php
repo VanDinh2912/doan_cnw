@@ -43,4 +43,6 @@ return [
     'giam_gia_khong_pin_toi_da' => (int) env('POS_GIAM_GIA_KHONG_PIN_TOI_DA', 10),
     'telegram_bot_token' => env('TELEGRAM_BOT_TOKEN', ''),
     'telegram_chat_id' => env('TELEGRAM_CHAT_ID', ''),
+    // Cửa sổ xác thực lại hồ sơ khách (phút), mặc định 10, giới hạn 2-30.
+    'ho_so_cua_so_phut' => (int) env('POS_HO_SO_CUA_SO_PHUT', 10),
 ];

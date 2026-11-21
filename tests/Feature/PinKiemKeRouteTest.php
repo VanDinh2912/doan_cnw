@@ -19,7 +19,7 @@ class PinKiemKeRouteTest extends TestCase
         'dat-hang.dat', 'don-hang.posttracuu', 'don-hang.huy', 'don-hang.poll',
         'storefront.cart.update', 'storefront.cart.clear',
         'giohang.capnhat', 'giohang.lammoi',
-        'lien-he.gui', 'tintuc.binhluan', 'profile.update',
+        'lien-he.gui', 'tintuc.binhluan', 'profile.update', 'profile.xacthuc',
         // POS bán hàng hằng ngày (không làm chậm thu ngân)
         'donhang.giahan', 'donhang.huycho', 'donhang.taoqr', 'donhang.thanhtoan',
         'hold.giu', 'hold.xoa', 'khachhang.nhanh',

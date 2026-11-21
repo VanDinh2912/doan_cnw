@@ -88,6 +88,8 @@ Route::prefix('dat-hang')->name('dat-hang.')
 
 Route::middleware(['auth', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->group(function (): void {
     Route::get('/thong-tin-ca-nhan', [\App\Http\Controllers\ThongTinCaNhanController::class, 'getProfile'])->name('profile.show');
+    Route::post('/thong-tin-ca-nhan/xac-thuc', [\App\Http\Controllers\ThongTinCaNhanController::class, 'postXacThuc'])
+        ->middleware('throttle:20,1')->name('profile.xacthuc');
     Route::post('/thong-tin-ca-nhan', [\App\Http\Controllers\ThongTinCaNhanController::class, 'postProfile'])->name('profile.update');
     Route::get('/thong-tin-ca-nhan/don-hang', [\App\Http\Controllers\ThongTinCaNhanController::class, 'getOrders'])->name('profile.orders');
     Route::get('/thong-tin-ca-nhan/don-hang/{donHang}', [\App\Http\Controllers\ThongTinCaNhanController::class, 'getOrderDetail'])->name('profile.orders.show');

@@ -890,7 +890,7 @@ HH:MM:SS" giờ Việt Nam; lỗi mạng giữ số cũ kèm cảnh báo nhỏ. 
 | `/lien-he`, `/lien-he/cam-on`, `/tuyen-dung`, `/trang/{slug}` | Form liên hệ/góp ý/khiếu nại/ứng tuyển, trang cảm ơn, trang tĩnh | Công khai (POST throttle) |
 | `/dat-hang`, `/dat-hang/qr/{ma}`, `/dat-hang/thanh-cong/{ma}` | Đặt hàng online guest (khi cờ bật) | Công khai |
 | `/don-hang/tra-cuu`, `/don-hang/{ma_tra_cuu}` | Tra cứu/ Theo dõi đơn online | Công khai (bằng chứng session) |
-| `/thong-tin-ca-nhan` | Hồ sơ + lịch sử đơn của khách đăng nhập | Khách đăng nhập |
+| `/thong-tin-ca-nhan` | Hồ sơ (che PII, xác thực lại MK+SĐT mới xem/sửa) + lịch sử đơn | Khách đăng nhập |
 | `/auth/google`, `/auth/google/callback` | Đăng nhập Google OAuth | Công khai |
 | `/dangnhap` | Đăng nhập | Khách |
 | `/dang-ky` | Đăng ký tài khoản khách hàng | Khách |
