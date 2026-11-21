@@ -592,6 +592,82 @@ h3, .h3 { font-size: var(--text-xl); }
   font-weight: var(--weight-semibold);
 }
 
+/* Nhom menu thu gon (details/summary, khong thu vien) */
+.app-nav-group { display: flex; flex-direction: column; gap: 2px; }
+.app-nav-group-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--prim-space-2);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-fg-subtle);
+  padding: var(--prim-space-4) var(--prim-space-3) var(--prim-space-2);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.app-nav-group-toggle::-webkit-details-marker { display: none; }
+.app-nav-group-toggle:hover { color: var(--color-fg); }
+.app-nav-group-caret {
+  font-size: 10px;
+  transition: transform var(--motion-fast) var(--motion-ease);
+}
+.app-nav-group[open] > .app-nav-group-toggle .app-nav-group-caret { transform: rotate(180deg); }
+.app-nav-group-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: var(--prim-space-3);
+}
+.app-nav-group-body .app-nav-link { font-size: var(--text-sm); }
+
+/* Dropdown tai khoan tren topbar */
+.app-account { position: relative; }
+.app-account-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--prim-space-2);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--card-radius);
+  color: var(--color-fg);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.app-account-toggle:hover { background: var(--color-surface-alt); }
+.app-account-caret { font-size: 10px; color: var(--color-fg-subtle); }
+.app-account-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  min-width: 200px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--card-radius);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  padding: var(--prim-space-1, 4px);
+  z-index: 1050;
+  display: flex;
+  flex-direction: column;
+}
+.app-account-menu a {
+  display: flex;
+  align-items: center;
+  gap: var(--prim-space-2);
+  padding: 8px 10px;
+  border-radius: calc(var(--card-radius) - 4px);
+  color: var(--color-fg);
+  font-size: var(--text-sm);
+  text-decoration: none;
+}
+.app-account-menu a:hover { background: var(--color-surface-alt); }
+.app-account-menu hr { margin: 4px 2px; border-color: var(--color-border); opacity: 1; }
+
 .app-main {
   flex: 1 1 auto;
   min-width: 0;
