@@ -15,19 +15,18 @@ class PinFormKiemKeTest extends TestCase
     public function test_moi_form_toi_route_pin_deu_co_data_can_pin(): void
     {
         config(['pos.pin_bat' => true]);
-        // Bản đồ route name -> muc tu routes/web.php
-        $src = file_get_contents(base_path('routes/web.php'));
-        preg_match_all("/->name\(\x27([a-z0-9._]+)\x27\)->middleware\(\x27xac\.nhan\.pin:(\w+)\x27\)/", $src, $m, PREG_SET_ORDER);
+        // Resolve route name -> muc PIN qua RouteCollection (bat dung ca ten
+        // co prefix group nhu taikhoan.update — cach doc text routes/web.php
+        // khong bat duoc vi ->name('update') nam trong group ->name('taikhoan.')).
         $map = [];
-        foreach ($m as $r) {
-            $map[$r[1]] = $r[2];
+        foreach (Route::getRoutes() as $route) {
+            foreach ($route->gatherMiddleware() as $m) {
+                if (preg_match('/^xac\.nhan\.pin:(\w+)$/', (string) $m, $mm)) {
+                    $map[(string) $route->getName()] = $mm[1];
+                }
+            }
         }
-        // route dat middleware truoc name (vd taikhoan.datlaipin)
-        preg_match_all("/middleware\(\[?'xac\.nhan\.pin:(\w+)'?\]?\)?[^\n]*->name\(\x27([a-z0-9._]+)\x27\)/", $src, $m2, PREG_SET_ORDER);
-        foreach ($m2 as $r) {
-            $map[$r[2]] = $r[1];
-        }
-        $this->assertNotEmpty($map, 'Không đọc được route PIN từ web.php');
+        $this->assertNotEmpty($map, 'Không tìm thấy route PIN nào');
 
         $thieu = [];
         $tong = 0;
@@ -37,14 +36,23 @@ class PinFormKiemKeTest extends TestCase
                 continue;
             }
             $c = file_get_contents($f->getPathname());
-            foreach ($map as $name => $muc) {
-                if (! preg_match_all("/<form\\b[^>]*route\\(\\s*[\x27\"]".preg_quote($name, '/')."[\x27\"][^>]*>/s", $c, $ms)) {
+            // Ten route co the co prefix group -> lay phan sau dau . cuoi? Khong:
+            // quet moi route('...') trong the <form> roi tra cuu map.
+            if (! preg_match_all('/<form\b[^>]*>/s', $c, $formTags)) {
+                continue;
+            }
+            foreach ($formTags[0] as $tag) {
+                if (! preg_match_all("/route\\(\\s*[\x27\"]([a-zA-Z0-9._-]+)[\x27\"]/", $tag, $rm)) {
                     continue;
                 }
-                foreach ($ms[0] as $tag) {
+                foreach ($rm[1] as $routeName) {
+                    if (! isset($map[$routeName])) {
+                        continue;
+                    }
+                    $muc = $map[$routeName];
                     $tong++;
                     if (! preg_match('/data-can-pin="(\w+)"/', $tag, $dm) || $dm[1] !== $muc) {
-                        $thieu[] = $f->getFilename().' :: '.$name.' (can '.$muc.')';
+                        $thieu[] = $f->getFilename().' :: '.$routeName.' (can '.$muc.')';
                     }
                 }
             }

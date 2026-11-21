@@ -110,6 +110,48 @@ class PinXinCapTest extends TestCase
             ->assertSee('data-can-pin="nghiemtrong"', false);
     }
 
+    public function test_trang_sua_tai_khoan_pick_dung_vai_tro_hien_tai(): void
+    {
+        // nv la thungan -> option "thungan" phai co thuoc tinh selected
+        $this->actingAs($this->admin)
+            ->get("/taikhoan/sua/{$this->nv->id}")
+            ->assertOk()
+            ->assertSee('<option value="thungan" selected>', false);
+    }
+
+    public function test_pin_tam_bi_ep_doi_mot_lan_roi_vo_hieu(): void
+    {
+        // pin_bat=false de goi thang route cap (middleware xac.nhan.pin da co test rieng)
+        config(['pos.pin_bat' => false]);
+        PinService::datPin($this->admin, '135790');
+
+        // Admin cap PIN tam cho nv
+        $this->actingAs($this->admin)
+            ->post("/taikhoan/dat-lai-pin/{$this->nv->id}", ['ly_do' => 'test tam'])
+            ->assertOk();
+        $pinTam = decrypt(Cache::get(\App\Http\Controllers\PinController::KHOA_PIN_TAM().$this->nv->id));
+        $this->assertTrue((bool) $this->nv->fresh()->bat_buoc_doi_pin);
+
+        // NV dang nhap -> moi trang bi ep ve /doi-pin (ke ca tong quan)
+        $this->actingAs($this->nv->fresh())->get('/tongquan')->assertRedirect(route('pin.doi'));
+        $this->actingAs($this->nv->fresh())->get('/doi-pin')->assertOk();
+
+        // Dung PIN tam 1 lan de dat PIN moi
+        $this->actingAs($this->nv->fresh())->post('/doi-pin', [
+            'pin_cu' => $pinTam,
+            'pin_moi' => '579135',
+            'pin_moi_confirmation' => '579135',
+        ])->assertRedirect(route('pin.doi'));
+
+        $nv = $this->nv->fresh();
+        $this->assertFalse((bool) $nv->bat_buoc_doi_pin);
+        // PIN tam da chet: kiem tra truc tiep phai SAI
+        $kq = PinService::kiemTra($nv, $pinTam, PinService::MUC_THUONG, 'POST /x', request());
+        $this->assertFalse($kq['ok']);
+        // Vao lai trang binh thuong
+        $this->actingAs($this->nv->fresh())->get('/tongquan')->assertOk();
+    }
+
     public function test_nv_khac_khong_xem_duoc_pin_tam(): void
     {
         config(['pos.pin_bat' => false]);

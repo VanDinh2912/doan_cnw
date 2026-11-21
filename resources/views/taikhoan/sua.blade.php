@@ -4,7 +4,7 @@
 
 @section('content')
 <h1 class="h3 mb-3">Sửa tài khoản nhân viên</h1>
-<form class="card card-body" method="POST" action="{{ route('taikhoan.update', $user) }}">
+<form class="card card-body" method="POST" action="{{ route('taikhoan.update', $user) }}" data-can-pin="nghiemtrong">
     @csrf
     @method('PUT')
     <div class="mb-3">
@@ -21,9 +21,9 @@
         <label class="form-label" for="role">Vai trò</label>
         <select class="form-select @error('role') is-invalid @enderror" id="role" name="role" required>
             <option value="">-- Chọn vai trò --</option>
-            <option value="admin" @selected(old('role', $user->role) === 'admin')">Admin</option>
-            <option value="thungan" @selected(old('role', $user->role) === 'thungan')">Thu ngân</option>
-            <option value="thukho" @selected(old('role', $user->role) === 'thukho')">Thủ kho</option>
+            <option value="admin" @selected(old('role', $user->role) === 'admin')>Admin</option>
+            <option value="thungan" @selected(old('role', $user->role) === 'thungan')>Thu ngân</option>
+            <option value="thukho" @selected(old('role', $user->role) === 'thukho')>Thủ kho</option>
         </select>
         @error('role') <div class="invalid-feedback">{{ $message }}</div> @enderror
     </div>

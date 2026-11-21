@@ -4,7 +4,7 @@
 
 @section('content')
 <h1 class="h3 mb-3">Thêm tài khoản nhân viên</h1>
-<form class="card card-body" method="POST" action="{{ route('taikhoan.store') }}">
+<form class="card card-body" method="POST" action="{{ route('taikhoan.store') }}" data-can-pin="nghiemtrong">
     @csrf
     <div class="mb-3">
         <label class="form-label" for="name">Họ tên</label>

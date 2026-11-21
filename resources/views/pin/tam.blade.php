@@ -19,7 +19,8 @@
         <div class="pin">{{ $pinTam }}</div>
         <div class="warn">
             <strong>Chỉ hiển thị MỘT LẦN.</strong> Tải lại trang sẽ tạo PIN mới và PIN này mất hiệu lực.
-            Nhân viên bắt buộc đổi PIN ở lần sử dụng đầu tiên tại <code>/doi-pin</code>.
+            PIN tạm chỉ dùng được <strong>một lần</strong> để đặt PIN mới tại <code>/doi-pin</code> —
+            sau đó tự vô hiệu, nhân viên không dùng PIN tạm cho thao tác bán hàng.
         </div>
         <p style="margin-top:1rem"><a href="{{ $urlLai ?? route('taikhoan.danhsach') }}">{{ $nhanLai ?? 'Quay lại danh sách tài khoản' }}</a></p>
     </div>
