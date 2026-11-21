@@ -309,6 +309,22 @@ class DiemBienDongTest extends TestCase
             (int) DiemBienDong::where('customer_id', $kh->id)->sum('diem'));
     }
 
+    public function test_dieu_chinh_diem_khi_thieu_bang_bi_tu_choi_khong_doi_diem(): void
+    {
+        $kh = $this->khach(100);
+        Schema::drop('diem_bien_dong');
+        KiemTraSchema::datLai();
+        $this->assertFalse(DiemService::sanSang());
+
+        $this->actingAs($this->admin)->post(route('khachhang.dieuchinhdiem', $kh), [
+            'so_diem' => 10, 'ly_do' => 'Thuong diem khi chua co so',
+        ])->assertRedirect()->assertSessionHas('error');
+
+        // Số dư không đổi, không có dòng sổ nào (bảng đã drop nên không kiểm được,
+        // nhưng điểm phải giữ nguyên).
+        $this->assertSame(100, (int) $kh->fresh()->diem_tichluy);
+    }
+
     public function test_route_dieu_chinh_diem_co_middleware_pin_nghiem_trong(): void
     {
         $route = \Illuminate\Support\Facades\Route::getRoutes()->getByName('khachhang.dieuchinhdiem');

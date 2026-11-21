@@ -84,6 +84,13 @@ class KhachHangController extends Controller
             'ly_do.max' => 'Lý do tối đa 255 ký tự.',
         ]);
 
+        // Chưa migrate bảng sổ thì từ chối điều chỉnh — không đổi điểm
+        // khi không ghi được sổ (tránh số dư lệch sổ cái).
+        if (! \App\Services\DiemService::sanSang()) {
+            return back()->withInput()->with('error',
+                'Chưa bật sổ điểm, cần cập nhật CSDL trước khi điều chỉnh điểm.');
+        }
+
         $soDiem = (int) $data['so_diem'];
         $toiDa = max(1, (int) config('pos.diem_dieu_chinh_toi_da', 500));
         if ($soDiem === 0) {

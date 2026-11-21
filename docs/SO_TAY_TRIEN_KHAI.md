@@ -24,17 +24,36 @@ thứ tự tên file, nên **thứ tự áp thực tế** là:
 
 ### Quy trình bật sổ cái điểm (sau khi duyệt migration)
 
-1. Sao lưu `doan_cnw` → `php artisan migrate:pretend` kiểm SQL →
-   `php artisan migrate --force` chỉ khi đã duyệt.
-2. Chạy `php artisan diem:doi-soat` (chỉ đọc) — sẽ báo lệch cho toàn bộ số
-   dư cũ vì sổ chưa có dòng đầu kỳ.
-3. Chạy `php artisan diem:khoi-tao-so` (dry-run) xem danh sách →
-   `php artisan diem:khoi-tao-so --apply` tạo dòng `so_du_dau_ky` cho từng
-   khách có điểm (idempotent, ghi 1 audit tổng kết).
-4. Chạy lại `diem:doi-soat` — kỳ vọng "khớp" cho mọi khách.
-5. Lưu ý: sổ chỉ chính xác **từ thời điểm bật**; biến động trước đó không
-   dựng lại được từ sổ (tham chiếu `invoices.diem_*` / `returns.diem_*`).
-   Code chịu được thiếu bảng: deploy code trước, migrate sau vẫn an toàn.
+Trạng thái `doan_cnw` kiểm chứng 2026-11-22 (chỉ SELECT): **chỉ còn đúng 1
+migration pending** — `2026_11_22_000001_create_diem_bien_dong_table`.
+PIN (`2026_11_20_000002`, batch 13) và nhận hàng (`2026_11_21_000001`,
+batch 13) **đã Ran** — bằng chứng: `migrations` batch 13 chứa cả hai;
+`information_schema.TABLES` cho `users`/`invoices` cùng `CREATE_TIME`
+2026-11-21 15:49:39 (ALTER cùng lượt); backup `doan_cnw-20261121-150004.sql`
+(22:00 cùng ngày) đã chứa `pin_hash`/`nhan_hang_luc`. Ai chạy chưa kết luận
+được — xem ghi chú rủi ro bên dưới.
+
+Khi được lệnh "áp migration":
+
+1. Sao lưu mới `doan_cnw` vào `storage/app/backups/`.
+2. `php artisan migrate:pretend` — kiểm SQL chỉ tạo `diem_bien_dong`.
+3. `php artisan down` → `php artisan migrate --force` → `php artisan up`.
+4. Kiểm chứng: `Schema::hasTable('diem_bien_dong')`, `migrations` +1 bản ghi
+   (tổng 53), số dòng bảng cũ không đổi, `POS_PIN_BAT` vẫn `false`.
+5. `php artisan diem:doi-soat` (chỉ đọc) — báo lệch toàn bộ số dư cũ.
+6. `php artisan diem:khoi-tao-so` (dry-run) — **gửi kết quả cho chủ dự án
+   xem**; chỉ `--apply` khi có lệnh duyệt rõ ràng.
+7. Chạy lại `diem:doi-soat` — kỳ vọng "khớp" mọi khách.
+
+Lưu ý: sổ chỉ chính xác **từ thời điểm bật**; biến động trước đó không
+dựng lại được từ sổ (tham chiếu `invoices.diem_*` / `returns.diem_*`).
+Code chịu được thiếu bảng: bán hàng/hủy/trả vẫn chạy khi chưa migrate;
+riêng **điều chỉnh điểm bị từ chối** (không đổi số dư khi không ghi được sổ).
+
+**Rollback (chỉ là phương án, không tự chạy):** `php artisan migrate:rollback`
+sẽ drop `diem_bien_dong` — an toàn vì `DiemService` guard tự bỏ qua khi
+thiếu bảng; số dư `customers.diem_tichluy` không bị đụng. Sau rollback,
+điều chỉnh điểm bị chặn cho tới khi migrate lại.
 
 ## 1b. Nhật ký áp migration
 
