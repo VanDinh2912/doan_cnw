@@ -161,6 +161,31 @@
 </div>
 
 <script src="{{ asset('js/pin.js') }}" defer></script>
+<script>
+// Khoi phuc vi tri cuon sidebar sau dieu huong (sessionStorage, bo qua neu loi)
+(function () {
+    try {
+        var KEY = 'app_sidebar_scroll';
+        var sb = document.querySelector('.app-sidebar');
+        if (!sb) { return; }
+        document.querySelectorAll('.app-nav a').forEach(function (a) {
+            a.addEventListener('click', function () {
+                try { sessionStorage.setItem(KEY, String(sb.scrollTop)); } catch (e) {}
+            });
+        });
+        var saved = null;
+        try { saved = sessionStorage.getItem(KEY); } catch (e) {}
+        if (saved !== null) {
+            sb.scrollTop = parseInt(saved, 10) || 0;
+            try { sessionStorage.removeItem(KEY); } catch (e) {}
+        }
+        var active = sb.querySelector('.app-nav-link.active');
+        if (active && (active.offsetTop < sb.scrollTop || active.offsetTop > sb.scrollTop + sb.clientHeight)) {
+            active.scrollIntoView({ block: 'nearest' });
+        }
+    } catch (e) { /* bo qua */ }
+})();
+</script>
 @stack('scripts')
 @if (in_array(auth()->user()->role ?? '', ['admin', 'thungan', 'thukho'], true))
 <script>
