@@ -16,6 +16,14 @@
             @if ($don->hinh_thuc_nhan)
                 <p>Hình thức nhận: {{ $don->hinh_thuc_nhan_tieng_viet }}</p>
             @endif
+            @if ($don->hinh_thuc_nhan === 'tai_cua_hang' && $don->trang_thai === 'da_thanh_toan')
+                @if ($don->daNhanHang())
+                    <p>Nhận hàng: <b id="trang-thai-nhan">Đã nhận hàng</b>@if ($don->nhan_hang_luc) lúc {{ $don->nhan_hang_luc->format('d/m/Y H:i') }}@endif</p>
+                @else
+                    <p>Nhận hàng: <b id="trang-thai-nhan">Chờ bạn đến nhận hàng — vui lòng mang mã đơn <code>{{ $don->ma_tra_cuu }}</code></b></p>
+                @endif
+            @endif
+
             @if ($don->hinh_thuc_nhan === 'giao_tan_noi')
                 <p>Trạng thái giao: <b id="trang-thai-giao">{{ $don->trang_thai_giao_tieng_viet }}</b></p>
                 <div style="margin-top:8px;padding:12px;background:var(--sf-bg);border-radius:8px;">
@@ -44,11 +52,13 @@
         </div>
     </div>
 
-    @if ($don->trang_thai === 'cho_thanh_toan')
+    @if ($don->trang_thai === 'cho_thanh_toan'
+        || ($don->hinh_thuc_nhan === 'tai_cua_hang' && $don->trang_thai === 'da_thanh_toan' && ! $don->daNhanHang()))
         <script>
             (function () {
                 var url = @json(route('don-hang.poll', $don->ma_tra_cuu));
                 var token = document.querySelector('meta[name="csrf-token"]').content;
+                var dangCho = {{ $don->trang_thai === 'cho_thanh_toan' ? 'true' : 'false' }};
                 var trangThaiMap = {
                     'cho_thanh_toan': 'Chờ thanh toán',
                     'da_thanh_toan': 'Đã thanh toán',
@@ -73,7 +83,12 @@
                             if (elGiao && d.trang_thai_giao) {
                                 elGiao.textContent = trangThaiGiaoMap[d.trang_thai_giao] || d.trang_thai_giao.replace(/_/g, ' ');
                             }
-                            if (d.trang_thai && d.trang_thai !== 'cho_thanh_toan') { location.reload(); }
+                            var elNhan = document.getElementById('trang-thai-nhan');
+                            if (elNhan && d.da_nhan) {
+                                elNhan.textContent = 'Đã nhận hàng';
+                            }
+                            if (dangCho && d.trang_thai && d.trang_thai !== 'cho_thanh_toan') { location.reload(); }
+                            if (d.da_nhan) { location.reload(); }
                         })
                         .catch(function () {});
                 }, 10000);

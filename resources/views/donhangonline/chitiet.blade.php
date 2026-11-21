@@ -20,6 +20,19 @@
                     <tr><td class="text-muted">Địa chỉ giao</td><td>{{ $don->dia_chi_giao }}</td></tr>
                     <tr><td class="text-muted">Phí giao hàng</td><td>{{ number_format((float) $don->phi_giao_hang, 0, ',', '.') }} đ</td></tr>
                 @endif
+                @if ($don->hinh_thuc_nhan === 'tai_cua_hang')
+                    <tr><td class="text-muted">Trạng thái nhận hàng</td><td>
+                        @if ($don->daNhanHang())
+                            <b>Đã nhận hàng</b>@if ($don->nhan_hang_luc) lúc {{ $don->nhan_hang_luc->format('d/m/Y H:i') }}@endif
+                            @if ($don->nhanHangBoi) bởi {{ $don->nhanHangBoi->name }}@endif
+                        @else
+                            <b>Chờ khách đến nhận</b>
+                        @endif
+                    </td></tr>
+                    @if ($don->daNhanHang() && $don->ghi_chu_nhan)
+                        <tr><td class="text-muted">Ghi chú nhận</td><td>{{ $don->ghi_chu_nhan }}</td></tr>
+                    @endif
+                @endif
                 <tr><td class="text-muted">Hạn giữ</td><td>{{ $don->han_giu?->format('d/m/Y H:i') ?? '—' }}</td></tr>
                 <tr><td class="text-muted">Ngày tạo</td><td>{{ $don->created_at->format('d/m/Y H:i') }}</td></tr>
                 @if ($don->thoi_gian_thanh_toan)<tr><td class="text-muted">Thanh toán lúc</td><td>{{ $don->thoi_gian_thanh_toan->format('d/m/Y H:i') }}</td></tr>@endif
@@ -113,7 +126,29 @@
 </div>
 @endif
 
-@if ($don->trang_thai === 'da_thanh_toan' && auth()->user()->role === 'admin')
+@if ($don->hinh_thuc_nhan === 'tai_cua_hang' && $don->trang_thai === 'da_thanh_toan' && ! $don->daNhanHang()
+    && in_array(auth()->user()->role, ['admin', 'thungan'], true))
+<div class="card mt-3">
+    <div class="card-header fw-semibold">Xác nhận khách đã nhận hàng</div>
+    <div class="card-body">
+        @if (! ($coCotNhanHang ?? false))
+            <p class="text-muted mb-0">Tính năng nhận hàng chưa sẵn sàng — cần áp migration cột nhận hàng trên CSDL.</p>
+        @else
+            <p class="text-muted">Đối chiếu mã đơn <code>{{ $don->ma_tra_cuu }}</code>, người nhận: <b>{{ $don->ten_khach_dat }}</b> — {{ $don->so_dienthoai_dat }} trước khi xác nhận.</p>
+            <form method="POST" action="{{ route('donhangonline.nhanhang', $don) }}" class="d-flex gap-2 flex-wrap" data-can-pin="thuong">
+                @csrf
+                <input type="text" name="ghi_chu_nhan" class="form-control" style="max-width:320px;" placeholder="Ghi chú (vd: người nhận hộ)" maxlength="255">
+                <button class="btn btn-success text-nowrap" type="submit"
+                    onclick="return confirm('Xác nhận khách {{ $don->ten_khach_dat }} đã nhận hàng đơn {{ $don->ma_hoadon }}?');">
+                    Xác nhận khách đã nhận hàng
+                </button>
+            </form>
+        @endif
+    </div>
+</div>
+@endif
+
+@if ($don->trang_thai === 'da_thanh_toan' && ! $don->daNhanHang() && auth()->user()->role === 'admin')
 <div class="card mt-3 border-danger">
     <div class="card-header fw-semibold text-danger">Hủy đơn đã thanh toán (chỉ admin)</div>
     <div class="card-body">

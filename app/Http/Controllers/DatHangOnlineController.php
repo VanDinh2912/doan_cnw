@@ -436,6 +436,7 @@ class DatHangOnlineController extends Controller
         return response()->json([
             'trang_thai' => $don->trang_thai,
             'trang_thai_giao' => $don->trang_thai_giao,
+            'da_nhan' => $don->daNhanHang(),
         ]);
     }
 

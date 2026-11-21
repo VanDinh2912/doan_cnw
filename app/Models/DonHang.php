@@ -24,6 +24,7 @@ class DonHang extends Model
         'kenh', 'ma_tra_cuu', 'ten_khach_dat', 'so_dienthoai_dat', 'ghi_chu_khach', 'han_giu', 'email_dat',
         'hinh_thuc_nhan', 'ten_nguoi_nhan', 'sdt_nguoi_nhan', 'dia_chi_giao', 'phi_giao_hang', 'trang_thai_giao',
         'can_hoan_tien', 'ghi_chu_noi_bo',
+        'nhan_hang_luc', 'nhan_hang_boi', 'ghi_chu_nhan',
     ];
 
     protected function casts(): array
@@ -31,6 +32,7 @@ class DonHang extends Model
         return [
             'thoi_gian_thanh_toan' => 'datetime',
             'han_giu' => 'datetime',
+            'nhan_hang_luc' => 'datetime',
         ];
     }
 
@@ -61,6 +63,7 @@ class DonHang extends Model
             'dang_giao' => 'Đang giao',
             'da_giao' => 'Đã giao',
             'da_huy_giao' => 'Đã hủy giao',
+            'da_nhan' => 'Đã nhận hàng',
             default => '—',
         };
     }
@@ -73,6 +76,17 @@ class DonHang extends Model
     public function khachHang(): BelongsTo
     {
         return $this->belongsTo(KhachHang::class, 'customer_id');
+    }
+
+    public function nhanHangBoi(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'nhan_hang_boi');
+    }
+
+    /** Đơn pickup đã được bàn giao cho khách chưa (an toàn khi chưa có cột). */
+    public function daNhanHang(): bool
+    {
+        return $this->nhan_hang_luc !== null || $this->trang_thai_giao === 'da_nhan';
     }
 
     public function chiTietDonHangs(): HasMany

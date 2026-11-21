@@ -32,7 +32,7 @@
             <label class="form-label">Trạng thái giao</label>
             <select class="form-select" name="trang_thai_giao">
                 <option value="">Tất cả</option>
-                @foreach (['cho_xac_nhan' => 'Chờ xác nhận', 'da_xac_nhan' => 'Đã xác nhận', 'dang_giao' => 'Đang giao', 'da_giao' => 'Đã giao', 'da_huy_giao' => 'Đã hủy giao'] as $gt => $nhan)
+                @foreach (['cho_xac_nhan' => 'Chờ xác nhận', 'da_xac_nhan' => 'Đã xác nhận', 'dang_giao' => 'Đang giao', 'da_giao' => 'Đã giao', 'da_huy_giao' => 'Đã hủy giao', 'da_nhan' => 'Đã nhận hàng (pickup)'] as $gt => $nhan)
                     <option value="{{ $gt }}" @selected(($filters['trang_thai_giao'] ?? '') === $gt)>{{ $nhan }}</option>
                 @endforeach
             </select>

@@ -403,3 +403,29 @@ Trình tự an toàn (cờ mặc định TẮT — migration không đổi hành
 Giới hạn: PIN chỉ chặn thay đổi/xuất dữ liệu đã liệt kê, KHÔNG chặn xem
  VD `/khachhang/timkiem?sdt=` có thể bị quét — rủi ro còn lại, đề xuất
  throttle riêng (chưa làm). PIN tĩnh không chống keylogger; nâng cấp TOTP.
+
+## 10. Nhận hàng pickup online (cột nhan_hang_*)
+
+- Migration `2026_11_21_000001_add_nhan_hang_to_invoices_table` (additive,
+  nullable): `nhan_hang_luc`, `nhan_hang_boi` (bigint, có index — KHÔNG FK
+  vì sqlite dựng lại bảng sẽ mất CHECK enum), `ghi_chu_nhan`.
+- Code guard `KiemTraSchema::coCot('invoices','nhan_hang_luc')`: DB chưa
+  migrate thì nút "Xác nhận khách đã nhận hàng" ẩn kèm ghi chú, mọi màn
+  hình vẫn chạy bình thường.
+- Route `POST /donhang-online/{donHang}/nhan-hang` (name
+  `donhangonline.nhanhang`): role admin+thungan, PIN mức THUONG, transaction
+  + lockForUpdate, chống nhận 2 lần. Ghi `trang_thai_giao='da_nhan'`.
+  KHÔNG trừ kho/stock_movements (tồn đã trừ lúc tạo đơn).
+- Sau `da_nhan`: chặn `huydathanhtoan` + `dahoantien` (dùng luồng TRẢ HÀNG);
+  khách không tự hủy/hoàn được (chỉ đơn `cho_thanh_toan` mới hủy được).
+- Áp prod: CHỈ khi có lệnh riêng — backup → pretend → dev → test → prod.
+
+### Đơn đã thanh toán nhưng khách không đến nhận (đề xuất vận hành, chưa làm)
+
+- Hạn nhận: dùng `han_giu` hiện có (pickup online 4h, QR 30p) — cân nhắc
+  hiển thị "nhận trước {han_giu}" trên trang trạng thái khách.
+- Nhắc: thủ công gọi/SMS theo `so_dienthoai_dat`; chưa có job tự động.
+- Hoàn tiền: thủ công qua `/donhang-online-can-hoan-tien` sau khi hủy đơn
+  (admin, PIN nghiêm trọng) — hàng hoàn kho về, điểm thu hồi theo luồng cũ.
+- Rủi ro: hàng bị giữ chỗ lâu chiếm tồn; cần quy trình "quá hạn không nhận
+  → hủy + hoàn tiền" do quản lý quyết định, không tự động.

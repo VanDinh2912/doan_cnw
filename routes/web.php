@@ -208,6 +208,10 @@ Route::middleware(['auth', 'staff.only', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->
             ->name('donhangonline.chitiet');
         Route::post('/donhang-online/{donHang}/trangthai', [\App\Http\Controllers\DonHangOnlineController::class, 'postChuyenTrangThai'])
             ->name('donhangonline.trangthai')->middleware('xac.nhan.pin:thuong');
+        // Xác nhận khách đã nhận hàng (pickup) — admin + thu ngân, PIN mức thường
+        Route::post('/donhang-online/{donHang}/nhan-hang', [\App\Http\Controllers\DonHangOnlineController::class, 'postNhanHang'])
+            ->middleware('role:admin,thungan')
+            ->name('donhangonline.nhanhang')->middleware('xac.nhan.pin:thuong');
         // HM4: hủy đơn đã thanh toán + hoàn tiền thủ công — chỉ admin
         Route::post('/donhang-online/{donHang}/huy-da-thanh-toan', [\App\Http\Controllers\DonHangOnlineController::class, 'postHuyDonDaThanhToan'])
             ->middleware('role:admin')

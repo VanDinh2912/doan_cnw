@@ -120,7 +120,7 @@ class DonHangOnlineController extends Controller
     public function getChiTiet(DonHang $donHang): View|\Illuminate\Http\Response
     {
         abort_unless($donHang->kenh === 'online', 404);
-        $donHang->load(['chiTietDonHangs.sanPham', 'khachHang']);
+        $donHang->load(['chiTietDonHangs.sanPham', 'khachHang', 'nhanHangBoi']);
 
         $lichSu = KiemTraSchema::coBang('activity_logs')
             ? NhatKyHoatDong::where('doi_tuong', 'don_hang')
@@ -136,6 +136,7 @@ class DonHangOnlineController extends Controller
                 'lichSu' => $lichSu,
                 'trangThaiKe' => self::CHUYEN_TRANG_THAI[$donHang->trang_thai_giao] ?? null,
                 'sdtTrungKhachKhoa' => $this->sdtTrungKhachKhoa($donHang->so_dienthoai_dat),
+                'coCotNhanHang' => KiemTraSchema::coCot('invoices', 'nhan_hang_luc'),
             ])
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate');
     }
@@ -199,6 +200,70 @@ class DonHangOnlineController extends Controller
     }
 
     /**
+     * Xác nhận khách đã đến nhận hàng (đơn pickup online đã thanh toán).
+     * Ghi nhan_hang_luc/nhan_hang_boi/ghi_chu_nhan + trang_thai_giao=da_nhan.
+     * KHÔNG trừ kho lần nữa (tồn đã trừ khi tạo/xác nhận đơn).
+     */
+    public function postNhanHang(Request $request, DonHang $donHang): RedirectResponse
+    {
+        $validated = $request->validate([
+            'ghi_chu_nhan' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        if (! KiemTraSchema::coCot('invoices', 'nhan_hang_luc')) {
+            return back()->with('error', 'Cần áp migration cột nhận hàng trước khi xác nhận.');
+        }
+        if ($donHang->kenh !== 'online' || $donHang->hinh_thuc_nhan !== 'tai_cua_hang') {
+            return back()->with('error', 'Chỉ đơn online nhận tại cửa hàng mới dùng chức năng này.');
+        }
+
+        $nhanVien = $request->user();
+        $ghiChu = isset($validated['ghi_chu_nhan']) ? trim((string) $validated['ghi_chu_nhan']) : null;
+
+        $ketQua = DB::transaction(function () use ($donHang, $nhanVien, $ghiChu): string {
+            $don = DonHang::whereKey($donHang->id)->lockForUpdate()->firstOrFail();
+
+            if ($don->trang_thai === 'da_huy') {
+                return 'err:da_huy';
+            }
+            if ($don->trang_thai !== 'da_thanh_toan') {
+                return 'err:chua_thanh_toan';
+            }
+            if ($don->daNhanHang()) {
+                return 'err:da_nhan';
+            }
+
+            $update = [
+                'nhan_hang_luc' => now(),
+                'nhan_hang_boi' => $nhanVien->id,
+                'ghi_chu_nhan' => $ghiChu,
+            ];
+            if (KiemTraSchema::coCot('invoices', 'trang_thai_giao')) {
+                $update['trang_thai_giao'] = 'da_nhan';
+            }
+            $don->update($update);
+
+            return 'ok';
+        });
+
+        return match ($ketQua) {
+            'ok' => tap(
+                back()->with('success', 'Đã xác nhận khách nhận hàng đơn '.$donHang->ma_hoadon.'.'),
+                fn () => NhatKyService::ghi(
+                    $request, 'nhan_hang', 'don_hang', $donHang->id,
+                    'Khách nhận hàng đơn '.$donHang->ma_hoadon.($ghiChu ? ' — '.$ghiChu : ''),
+                    null,
+                    ['nhan_hang_luc' => now()->toDateTimeString()],
+                    'web'
+                )
+            ),
+            'err:da_huy' => back()->with('error', 'Đơn đã hủy, không thể xác nhận nhận hàng.'),
+            'err:da_nhan' => back()->with('error', 'Đơn này đã được bàn giao cho khách trước đó.'),
+            default => back()->with('error', 'Đơn chưa thanh toán, không thể xác nhận nhận hàng.'),
+        };
+    }
+
+    /**
      * Badge menu: số đơn cần xử lý = giao tận nơi chờ xác nhận
      * + pickup online còn chờ thanh toán chưa quá hạn.
      */
@@ -240,6 +305,9 @@ class DonHangOnlineController extends Controller
 
         if ($donHang->kenh !== 'online') {
             return back()->with('error', 'Chỉ hủy đơn online tại màn hình này.');
+        }
+        if ($donHang->daNhanHang()) {
+            return back()->with('error', 'Hàng đã bàn giao cho khách — không hủy được, hãy dùng luồng trả hàng.');
         }
 
         $lyDo = trim($validated['ly_do']);
@@ -295,6 +363,9 @@ class DonHangOnlineController extends Controller
         }
         if (! $donHang->can_hoan_tien) {
             return back()->with('error', 'Đơn này không nằm trong danh sách cần hoàn tiền.');
+        }
+        if ($donHang->daNhanHang()) {
+            return back()->with('error', 'Hàng đã bàn giao cho khách — không đánh dấu hoàn tiền ở đây, hãy dùng luồng trả hàng.');
         }
 
         $ghiChu = trim($validated['ghi_chu']);
