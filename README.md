@@ -597,7 +597,8 @@ Các email trên trùng với tài khoản được tạo trong `database/seeder
   idempotent, không đụng `updated_at`).
 - Nhãn tình trạng tồn trên storefront: `SanPham::tinhTrangTon()` → Còn hàng /
   Sắp hết (`0 < soluong <= soluong_toithieu` và `soluong <= 5`) / Hết hàng.
-- **Tin tức**: chủ đề + bài viết CKEditor5 + bình luận kiểm duyệt tại
+- **Tin tức**: chủ đề + bài viết CKEditor5 + bình luận hiển thị ngay khi
+  gửi (admin chỉ ẩn/hiện/xóa) tại
   `/bai-viet` (storefront) và `/tin-tuc/*` (admin, chỉ admin). HTML bài viết
   lọc XSS bằng HTMLPurifier.
 - **Liên hệ / tuyển dụng / trang tĩnh**: form `/lien-he` công khai
@@ -885,7 +886,7 @@ HH:MM:SS" giờ Việt Nam; lỗi mạng giữ số cũ kèm cảnh báo nhỏ. 
 |---|---|---|
 | `/` | Trang chủ storefront | Công khai |
 | `/danh-muc/{loai}`, `/san-pham/{id}`, `/tim-kiem`, `/gio-hang` | Storefront: danh mục, sản phẩm (kèm lọc hãng), tìm kiếm, giỏ hàng | Công khai |
-| `/bai-viet`, `/bai-viet/{chude}/{bv}` | Tin tức: danh sách, theo chủ đề, chi tiết (bình luận kiểm duyệt) | Công khai |
+| `/bai-viet`, `/bai-viet/{chude}/{bv}` | Tin tức: danh sách, theo chủ đề, chi tiết (bình luận hiển thị ngay) | Công khai |
 | `/lien-he`, `/lien-he/cam-on`, `/tuyen-dung`, `/trang/{slug}` | Form liên hệ/góp ý/khiếu nại/ứng tuyển, trang cảm ơn, trang tĩnh | Công khai (POST throttle) |
 | `/dat-hang`, `/dat-hang/qr/{ma}`, `/dat-hang/thanh-cong/{ma}` | Đặt hàng online guest (khi cờ bật) | Công khai |
 | `/don-hang/tra-cuu`, `/don-hang/{ma_tra_cuu}` | Tra cứu/ Theo dõi đơn online | Công khai (bằng chứng session) |
@@ -1227,7 +1228,7 @@ tương đương).
   password/Google, chặn đặt/tra cứu/hủy đơn online, session đang mở bị đăng
   xuất, đơn guest trùng SĐT khóa có cảnh báo, audit log, chỉ admin.
 - `TinTucTest` (27): chủ đề/bài viết/bình luận — CRUD admin, CKEditor +
-  HTMLPurifier chống XSS, bình luận chờ duyệt, đếm lượt xem, phân quyền,
+  HTMLPurifier chống XSS, bình luận hiện ngay + admin ẩn/xóa, đếm lượt xem, phân quyền,
   storefront 200/404.
 
 Lưu ý khi chạy test:
@@ -1540,7 +1541,7 @@ Sau khi kiểm thử, tạo Pull Request để merge vào `main`.
 - Trang lỗi 403/404/419/500 tiếng Việt và POS xử lý lỗi AJAX/mất kết nối mà không làm mất giỏ hàng.
 - Bộ dữ liệu thay thế gồm 12 loại hàng, 300 sản phẩm, 81 nhà cung cấp, 100
   khách hàng và một hóa đơn nhập 300 dòng.
-- **Tin tức** (chủ đề/bài viết CKEditor5/bình luận kiểm duyệt), **Google OAuth**,
+- **Tin tức** (chủ đề/bài viết CKEditor5/bình luận hiển thị ngay, admin kiểm soát), **Google OAuth**,
   **đặt hàng online** đầy đủ P0–P3 (QR/pickup/giao tận nơi, email xác nhận,
   mặc định tắt bằng cờ), **khóa/mở khóa hồ sơ khách hàng**, **liên hệ/
   tuyển dụng/trang tĩnh**, **hãng sản xuất** (brands + lọc storefront +

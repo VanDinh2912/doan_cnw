@@ -6,14 +6,14 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h3 mb-0">Bình luận bài viết</h1>
     @if ($soChoDuyet > 0)
-        <span class="badge bg-warning text-dark">{{ $soChoDuyet }} bình luận chờ duyệt</span>
+        <span class="badge bg-warning text-dark">{{ $soChoDuyet }} bình luận chưa hiển thị</span>
     @endif
 </div>
 
 <ul class="nav nav-pills mb-3">
     <li class="nav-item"><a class="nav-link {{ $loc === '' ? 'active' : '' }}" href="{{ route('binhluan.danhsach') }}">Tất cả</a></li>
-    <li class="nav-item"><a class="nav-link {{ $loc === 'cho_duyet' ? 'active' : '' }}" href="{{ route('binhluan.danhsach', ['loc' => 'cho_duyet']) }}">Chờ duyệt</a></li>
-    <li class="nav-item"><a class="nav-link {{ $loc === 'da_duyet' ? 'active' : '' }}" href="{{ route('binhluan.danhsach', ['loc' => 'da_duyet']) }}">Đã duyệt</a></li>
+    <li class="nav-item"><a class="nav-link {{ $loc === 'cho_duyet' ? 'active' : '' }}" href="{{ route('binhluan.danhsach', ['loc' => 'cho_duyet']) }}">Chưa hiển thị</a></li>
+    <li class="nav-item"><a class="nav-link {{ $loc === 'da_duyet' ? 'active' : '' }}" href="{{ route('binhluan.danhsach', ['loc' => 'da_duyet']) }}">Đang hiển thị</a></li>
     <li class="nav-item"><a class="nav-link {{ $loc === 'da_an' ? 'active' : '' }}" href="{{ route('binhluan.danhsach', ['loc' => 'da_an']) }}">Đã ẩn</a></li>
 </ul>
 
@@ -38,7 +38,7 @@
                     </td>
                     <td>
                         @if (! $binhLuan->kiem_duyet)
-                            <span class="badge bg-warning text-dark">Chờ duyệt</span>
+                            <span class="badge bg-warning text-dark">Chưa hiển thị</span>
                         @elseif ($binhLuan->kich_hoat)
                             <span class="badge bg-success">Đang hiện</span>
                         @else
@@ -50,7 +50,7 @@
                         @if (! $binhLuan->kiem_duyet)
                             <form class="d-inline" method="POST" action="{{ route('binhluan.duyet', $binhLuan) }}" data-can-pin="thuong">
                                 @csrf
-                                <button class="btn btn-sm btn-outline-success" type="submit">Duyệt</button>
+                                <button class="btn btn-sm btn-outline-success" type="submit">Cho hiển thị</button>
                             </form>
                         @endif
                         <form class="d-inline" method="POST" action="{{ route('binhluan.an', $binhLuan) }}" data-can-pin="thuong">

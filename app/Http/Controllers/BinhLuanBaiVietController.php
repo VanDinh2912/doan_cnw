@@ -33,7 +33,7 @@ class BinhLuanBaiVietController extends Controller
     {
         $binhLuan->update(['kiem_duyet' => true, 'kich_hoat' => true]);
 
-        return back()->with('success', 'Đã duyệt bình luận.');
+        return back()->with('success', 'Đã cho hiển thị bình luận.');
     }
 
     public function postAn(BinhLuanBaiViet $binhLuan): RedirectResponse
