@@ -139,6 +139,26 @@ class PinHaTangTest extends TestCase
         $this->assertFalse(PinService::daXacNhanThuong($u->fresh()));
     }
 
+    public function test_dang_xuat_va_doi_mat_khau_xoa_cua_so_pin(): void
+    {
+        $u = $this->nv();
+        PinService::datPin($u, '483920');
+        $this->actingAs($u);
+        PinService::kiemTra($u->fresh(), '483920', 'thuong', 'POST /x', $this->req());
+        $this->assertTrue(PinService::daXacNhanThuong($u->fresh()));
+
+        // Đổi mật khẩu / đổi PIN đều gọi xoaSessionPin -> phải hỏi lại
+        PinService::xoaSessionPin();
+        $this->assertFalse(PinService::daXacNhanThuong($u->fresh()));
+
+        // Đăng nhập lại + xác nhận, rồi đăng xuất -> session invalidate -> mất cửa sổ
+        PinService::kiemTra($u->fresh(), '483920', 'thuong', 'POST /x', $this->req());
+        $this->assertTrue(PinService::daXacNhanThuong($u->fresh()));
+        $this->get('/dangxuat');
+        $this->assertNull(session('pin_ok_thuong'));
+        $this->assertFalse(PinService::daXacNhanThuong($u->fresh()));
+    }
+
     public function test_nghiem_trong_cap_ma_mot_lan_dung_mot_lan(): void
     {
         $u = $this->nv();
