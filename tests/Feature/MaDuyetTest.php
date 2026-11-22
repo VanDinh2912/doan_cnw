@@ -29,7 +29,7 @@ class MaDuyetTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        config(['pos.pin_bat' => true]);
+        config(['pos.pin_bat' => true, 'pos.ma_duyet_bat' => true]);
     }
 
     private function nv(string $role = 'thungan', string $pin = '246813'): User

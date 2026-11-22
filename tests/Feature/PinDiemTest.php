@@ -65,7 +65,7 @@ class PinDiemTest extends TestCase
     public function test_duoi_nguong_khong_hoi_pin(): void
     {
         $this->seed();
-        config(['pos.pin_bat' => true, 'pos.diem_dung_khong_pin_toi_da' => 50, 'pos.gia_tri_diem' => 100]);
+        config(['pos.pin_bat' => true, 'pos.ma_duyet_bat' => true, 'pos.diem_dung_khong_pin_toi_da' => 50, 'pos.gia_tri_diem' => 100]);
         $u = $this->nv();
         $kh = $this->khach(100);
         $sp = SanPham::where('sku', 'CS-0001')->firstOrFail();
@@ -78,7 +78,7 @@ class PinDiemTest extends TestCase
     public function test_vuot_nguong_chua_pin_bi_423(): void
     {
         $this->seed();
-        config(['pos.pin_bat' => true, 'pos.diem_dung_khong_pin_toi_da' => 50, 'pos.gia_tri_diem' => 100]);
+        config(['pos.pin_bat' => true, 'pos.ma_duyet_bat' => true, 'pos.diem_dung_khong_pin_toi_da' => 50, 'pos.gia_tri_diem' => 100]);
         $u = $this->nv();
         $kh = $this->khach(100);
         $sp = SanPham::where('sku', 'CS-0001')->firstOrFail();
@@ -93,7 +93,7 @@ class PinDiemTest extends TestCase
     public function test_vuot_nguong_dung_pin_qua_va_khong_tai_dung(): void
     {
         $this->seed();
-        config(['pos.pin_bat' => true, 'pos.diem_dung_khong_pin_toi_da' => 50, 'pos.gia_tri_diem' => 100]);
+        config(['pos.pin_bat' => true, 'pos.ma_duyet_bat' => true, 'pos.diem_dung_khong_pin_toi_da' => 50, 'pos.gia_tri_diem' => 100]);
         $u = $this->nv();
         $kh = $this->khach(100);
         $sp = SanPham::where('sku', 'CS-0001')->firstOrFail();
@@ -131,7 +131,7 @@ class PinDiemTest extends TestCase
     public function test_qr_vuot_nguong_chua_pin_bi_423(): void
     {
         $this->seed();
-        config(['pos.pin_bat' => true, 'pos.diem_dung_khong_pin_toi_da' => 50, 'pos.gia_tri_diem' => 100]);
+        config(['pos.pin_bat' => true, 'pos.ma_duyet_bat' => true, 'pos.diem_dung_khong_pin_toi_da' => 50, 'pos.gia_tri_diem' => 100]);
         $u = $this->nv();
         $kh = $this->khach(100);
         $sp = SanPham::where('sku', 'CS-0001')->firstOrFail();

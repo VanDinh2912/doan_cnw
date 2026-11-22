@@ -40,14 +40,14 @@ class PinGiamGiaTest extends TestCase
 
     public function test_duoi_nguong_khong_hoi_pin(): void
     {
-        config(['pos.pin_bat' => true, 'pos.giam_gia_khong_pin_toi_da' => 10]);
+        config(['pos.pin_bat' => true, 'pos.ma_duyet_bat' => true, 'pos.giam_gia_khong_pin_toi_da' => 10]);
         $this->actingAs($this->nv());
         $this->postThanhToan(10)->assertStatus(302);
     }
 
     public function test_vuot_nguong_chua_pin_bi_423(): void
     {
-        config(['pos.pin_bat' => true, 'pos.giam_gia_khong_pin_toi_da' => 10]);
+        config(['pos.pin_bat' => true, 'pos.ma_duyet_bat' => true, 'pos.giam_gia_khong_pin_toi_da' => 10]);
         $this->actingAs($this->nv());
         // Vượt ngưỡng = M2: nhân viên cần mã duyệt, không còn chỉ cần PIN.
         $this->postThanhToan(50)->assertStatus(423)->assertJsonPath('ma', 'CAN_MA_DUYET');
@@ -55,7 +55,7 @@ class PinGiamGiaTest extends TestCase
 
     public function test_vuot_nguong_sai_pin_van_bi_chan(): void
     {
-        config(['pos.pin_bat' => true, 'pos.giam_gia_khong_pin_toi_da' => 10]);
+        config(['pos.pin_bat' => true, 'pos.ma_duyet_bat' => true, 'pos.giam_gia_khong_pin_toi_da' => 10]);
         $u = $this->nv();
         $this->actingAs($u);
         $this->postJson('/xac-nhan-pin/kiem-tra', ['pin' => '000001', 'muc' => 'thuong', 'hanh_dong' => 'POST /x'])->assertStatus(422);
@@ -64,7 +64,7 @@ class PinGiamGiaTest extends TestCase
 
     public function test_vuot_nguong_dung_ma_duyet_qua_duoc_guard(): void
     {
-        config(['pos.pin_bat' => true, 'pos.giam_gia_khong_pin_toi_da' => 10]);
+        config(['pos.pin_bat' => true, 'pos.ma_duyet_bat' => true, 'pos.giam_gia_khong_pin_toi_da' => 10]);
         $u = $this->nv();
         $this->actingAs($u);
         // PIN đúng KHÔNG còn đủ cho thao tác M2 — vẫn bị chặn.
@@ -89,7 +89,7 @@ class PinGiamGiaTest extends TestCase
     public function test_vuot_nguong_thanh_toan_dung_mot_lan(): void
     {
         $this->seed();
-        config(['pos.pin_bat' => true, 'pos.giam_gia_khong_pin_toi_da' => 10]);
+        config(['pos.pin_bat' => true, 'pos.ma_duyet_bat' => true, 'pos.giam_gia_khong_pin_toi_da' => 10]);
         $u = User::where('role', 'thungan')->firstOrFail();
         PinService::datPin($u, '135792');
         $sp = SanPham::where('sku', 'CS-0001')->firstOrFail();
