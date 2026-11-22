@@ -130,4 +130,31 @@ class DieuHuongQuanTriTest extends TestCase
         $response->assertRedirect();
         $this->assertStringContainsString('dangnhap', (string) $response->headers->get('Location'));
     }
+
+    public function test_middleware_can_dong_khi_redirect_ve_trang_chu(): void
+    {
+        \Illuminate\Support\Facades\Log::spy();
+        $mw = new \App\Http\Middleware\CanhBaoVeStorefront();
+        $user = $this->staff('thungan');
+
+        // Redirect về '/' -> phải ghi warning, không PII.
+        $request = \Illuminate\Http\Request::create('/khach-hang', 'POST');
+        $request->setUserResolver(fn () => $user);
+        $mw->handle($request, fn () => redirect('/'));
+
+        \Illuminate\Support\Facades\Log::shouldHaveReceived('warning')
+            ->with('redirect_quan_tri_ve_storefront', \Mockery::on(
+                fn (array $ctx) => ($ctx['method'] ?? null) === 'POST'
+                    && ($ctx['user_id'] ?? null) === $user->id
+                    && ($ctx['role'] ?? null) === 'thungan'
+                    && ($ctx['co_referer'] ?? null) === false
+            ))->once();
+
+        // Redirect trong khu quản trị -> KHÔNG ghi.
+        $request2 = \Illuminate\Http\Request::create('/khach-hang', 'POST');
+        $request2->setUserResolver(fn () => $user);
+        $mw->handle($request2, fn () => redirect(route('tongquan')));
+
+        \Illuminate\Support\Facades\Log::shouldHaveReceived('warning')->once();
+    }
 }
