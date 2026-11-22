@@ -13,7 +13,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Illuminate\Validation\Rule;
 use Picqer\Barcode\BarcodeGeneratorSVG;
+use App\Services\MaDuyetService;
 use App\Services\NhatKyService;
+use App\Services\PinService;
 
 class SanPhamController extends Controller
 {
@@ -92,7 +94,29 @@ class SanPhamController extends Controller
         }
         $validated['trang_thai'] = $request->boolean('trang_thai');
 
-        $sanPham->update($validated);
+        // Đổi giá bán / trạng thái bán = thao tác M2 (mã duyệt cho NV,
+        // PIN nghiêm trọng cho admin); sửa thông thường chỉ cần M1.
+        $doiGia = (float) $validated['gia_ban'] !== (float) $sanPham->gia_ban;
+        $doiTrangThai = (int) $validated['trang_thai'] !== (int) $sanPham->trang_thai;
+        $canM2 = PinService::bat() && ($doiGia || $doiTrangThai);
+        $thamSo = $canM2 ? MaDuyetService::thamSoRequest($request, 'sanpham.postsua') : [];
+
+        $ketQua = DB::transaction(function () use ($request, $sanPham, $validated, $canM2, $thamSo) {
+            $kq = ['ok' => true, 'yc' => null, 'response' => null];
+            if ($canM2) {
+                $kq = MaDuyetService::xacNhanM2($request, 'sanpham.postsua', 'san_pham', $sanPham->id, $thamSo);
+                if (! $kq['ok']) {
+                    return $kq['response'];
+                }
+            }
+            $sanPham->update($validated);
+            MaDuyetService::ketThucXacNhan($kq, $request);
+
+            return null;
+        });
+        if ($ketQua !== null) {
+            return $ketQua;
+        }
         NhatKyService::ghi($request, 'sua', 'san_pham', $sanPham->id, 'Cập nhật sản phẩm '.$sanPham->sku);
 
         return redirect()->route('sanpham.danhsach')->with('success', 'Đã cập nhật sản phẩm.');

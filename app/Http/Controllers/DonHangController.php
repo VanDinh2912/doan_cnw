@@ -9,6 +9,7 @@ use App\Models\LoaiSanPham;
 use App\Models\KhachHang;
 use App\Models\SanPham;
 use App\Services\DiemService;
+use App\Services\MaDuyetService;
 use App\Services\NhatKyService;
 use App\Services\PinService;
 use App\Services\ThanhToanChuyenKhoanService;
@@ -74,21 +75,16 @@ class DonHangController extends Controller
             ]);
         }
 
-        // Dùng điểm lớn cần PIN mức thường (khi POS_PIN_BAT bật, mọi role)
+        // Vượt ngưỡng giảm giá/điểm = thao tác M2: NV cần mã duyệt (hoặc PIN
+        // thường khi POS_MA_DUYET_BAT=false), admin cần PIN nghiêm trọng.
+        // Xác thực + đốt mã nằm trong transaction tạo hóa đơn bên dưới.
         $diemSuDungQr = (int) ($validated['diem_su_dung'] ?? 0);
-        if (PinService::bat()
-            && $diemSuDungQr > (int) config('pos.diem_dung_khong_pin_toi_da', 50)
-            && ! PinService::daXacNhanThuong($request->user())) {
-            return response()->json([
-                'ma' => 'CAN_PIN', 'muc' => 'thuong',
-                'message' => 'Sử dụng điểm vượt ngưỡng cần xác nhận PIN.',
-            ], 423);
-        }
+        $canM2Qr = PinService::bat()
+            && ((float) ($validated['giam_gia_phantram'] ?? 0) > (float) config('pos.giam_gia_khong_pin_toi_da', 10)
+                || $diemSuDungQr > (int) config('pos.diem_dung_khong_pin_toi_da', 50));
+        $thamSoQr = $canM2Qr ? MaDuyetService::thamSoRequest($request, 'donhang.taoqr') : [];
 
         $gioHang = $request->session()->get('gio_hang', []);
-        if (empty($gioHang)) {
-            return response()->json(['error' => 'Giỏ hàng đang trống.'], 422);
-        }
 
         if (! $vietQr->enabled()) {
             $bankCode = trim((string) config('pos.bank_code'));
@@ -121,7 +117,25 @@ class DonHangController extends Controller
         }
 
         try {
-            $donHang = $service->taoHoaDonChoThanhToan($gioHang, $validated, $request->user());
+            $donHang = DB::transaction(function () use ($service, $gioHang, $validated, $request, $canM2Qr, $thamSoQr) {
+                $kqM2 = ['ok' => true, 'yc' => null, 'response' => null];
+                if ($canM2Qr) {
+                    $kqM2 = MaDuyetService::xacNhanM2($request, 'donhang.taoqr', null, null, $thamSoQr);
+                    if (! $kqM2['ok']) {
+                        return $kqM2['response'];
+                    }
+                }
+                if ($gioHang === []) {
+                    return response()->json(['error' => 'Giỏ hàng đang trống.'], 422);
+                }
+                $dh = $service->taoHoaDonChoThanhToan($gioHang, $validated, $request->user());
+                MaDuyetService::ketThucXacNhan($kqM2, $request);
+
+                return $dh;
+            });
+            if ($donHang instanceof \Symfony\Component\HttpFoundation\Response) {
+                return $donHang;
+            }
 
             // Xóa giỏ trong session sau khi đã chuyển thành hóa đơn cho_thanh_toan và giữ tồn kho
             $request->session()->forget('gio_hang');
@@ -324,44 +338,37 @@ class DonHangController extends Controller
             'customer_id.exists' => 'Khách hàng không tồn tại trong hệ thống.',
         ]);
 
-        // Giảm giá lớn cần PIN mức thường (khi POS_PIN_BAT bật, mọi role)
-        $giamGiaVuot = PinService::bat()
-            && (float) $validated['giam_gia_phantram'] > (float) config('pos.giam_gia_khong_pin_toi_da', 10);
-        if ($giamGiaVuot && ! PinService::daXacNhanThuong($request->user())) {
-            if ($request->expectsJson() || $request->ajax()) {
-                return response()->json(['ma' => 'CAN_PIN', 'muc' => 'thuong', 'message' => 'Giảm giá vượt ngưỡng cần xác nhận PIN.'], 423);
-            }
-            return redirect()->back()->withInput()
-                ->with('error', 'Giảm giá vượt ngưỡng cần xác nhận PIN — vui lòng bật JavaScript hoặc giảm giá không quá '.(float) config('pos.giam_gia_khong_pin_toi_da', 10).'%');
-        }
-
         if (! empty($validated['diem_su_dung']) && empty($validated['customer_id'])) {
             throw \Illuminate\Validation\ValidationException::withMessages([
                 'diem_su_dung' => ['Cần chọn khách hàng trước khi dùng điểm.'],
             ]);
         }
 
-        // Dùng điểm lớn cần PIN mức thường (khi POS_PIN_BAT bật, mọi role)
-        $diemSuDung = (int) ($validated['diem_su_dung'] ?? 0);
-        $diemVuot = PinService::bat()
-            && $diemSuDung > (int) config('pos.diem_dung_khong_pin_toi_da', 50);
-        if ($diemVuot && ! PinService::daXacNhanThuong($request->user())) {
-            if ($request->expectsJson() || $request->ajax()) {
-                return response()->json(['ma' => 'CAN_PIN', 'muc' => 'thuong', 'message' => 'Sử dụng điểm vượt ngưỡng cần xác nhận PIN.'], 423);
-            }
-            return redirect()->back()->withInput()
-                ->with('error', 'Sử dụng '.$diemSuDung.' điểm vượt ngưỡng cần xác nhận PIN — vui lòng bật JavaScript hoặc giảm số điểm không quá '.(int) config('pos.diem_dung_khong_pin_toi_da', 50));
-        }
+        // Vượt ngưỡng giảm giá/điểm = thao tác M2 — xác thực nguyên tử trong
+        // transaction tạo hóa đơn bên dưới (NV: mã duyệt / PIN thường khi
+        // hạ mức; admin: PIN nghiêm trọng mỗi lần).
+        $giamGiaVuot = (float) $validated['giam_gia_phantram'] > (float) config('pos.giam_gia_khong_pin_toi_da', 10);
+        $diemVuot = (int) ($validated['diem_su_dung'] ?? 0) > (int) config('pos.diem_dung_khong_pin_toi_da', 50);
+        $canM2 = PinService::bat() && ($giamGiaVuot || $diemVuot);
+        $thamSoM2 = $canM2 ? MaDuyetService::thamSoRequest($request, 'donhang.thanhtoan') : [];
 
         $gioHang = collect($request->session()->get('gio_hang', []))
             ->sortBy(fn (array $item, string|int $key): int => (int) ($item['id'] ?? $key))
             ->all();
-        if ($gioHang === []) {
-            return back()->with('error', 'Giỏ hàng đang trống.');
-        }
 
         try {
-            $donHang = DB::transaction(function () use ($validated, $gioHang, $request): DonHang {
+            $donHang = DB::transaction(function () use ($validated, $gioHang, $request, $canM2, $thamSoM2) {
+                if ($canM2) {
+                    $kqM2 = MaDuyetService::xacNhanM2($request, 'donhang.thanhtoan', null, null, $thamSoM2);
+                    if (! $kqM2['ok']) {
+                        return $kqM2['response'];
+                    }
+                } else {
+                    $kqM2 = ['ok' => true, 'yc' => null, 'response' => null];
+                }
+                if ($gioHang === []) {
+                    return back()->with('error', 'Giỏ hàng đang trống.');
+                }
                 $tongTien = 0;
                 $sanPhams = [];
 
@@ -469,18 +476,23 @@ class DonHangController extends Controller
                     }
                 }
 
+                MaDuyetService::ketThucXacNhan($kqM2, $request);
+
                 return $donHang;
             }, 2);
+            if ($donHang instanceof \Symfony\Component\HttpFoundation\Response) {
+                return $donHang;
+            }
 
             $request->session()->forget('gio_hang');
 
             if ($giamGiaVuot) {
                 NhatKyService::ghi($request, 'giam_gia_lon', 'don_hang', $donHang->id,
-                    "Giảm giá {$validated['giam_gia_phantram']}% đã qua PIN (hóa đơn {$donHang->ma_hoadon})");
+                    "Giảm giá {$validated['giam_gia_phantram']}% vượt ngưỡng đã qua xác thực M2 (hóa đơn {$donHang->ma_hoadon})");
             }
             if ($diemVuot) {
                 NhatKyService::ghi($request, 'dung_diem_lon', 'don_hang', $donHang->id,
-                    "Dùng {$diemSuDung} điểm đã qua PIN (hóa đơn {$donHang->ma_hoadon})");
+                    "Dùng ".(int) ($validated['diem_su_dung'] ?? 0)." điểm vượt ngưỡng đã qua xác thực M2 (hóa đơn {$donHang->ma_hoadon})");
             }
 
             return redirect()->route('donhang.inhoadon', $donHang)->with('success', 'Thanh toán thành công.');

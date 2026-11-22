@@ -9,10 +9,12 @@ use App\Models\User;
 use App\Services\PinService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Tests\Feature\Concerns\LayMaDuyet;
 use Tests\TestCase;
 
 class PinDiemTest extends TestCase
 {
+    use LayMaDuyet;
     use RefreshDatabase;
 
     private function nv(): User
@@ -82,7 +84,8 @@ class PinDiemTest extends TestCase
         $sp = SanPham::where('sku', 'CS-0001')->firstOrFail();
 
         $this->actingAs($u)->withSession($this->sessionGioHang($sp));
-        $this->postThanhToan($kh, 51)->assertStatus(423)->assertJsonPath('ma', 'CAN_PIN');
+        // Vượt ngưỡng điểm = M2: cần mã duyệt, không còn chỉ cần PIN.
+        $this->postThanhToan($kh, 51)->assertStatus(423)->assertJsonPath('ma', 'CAN_MA_DUYET');
         $this->assertDatabaseCount('invoices', 0);
         $this->assertSame(100, (int) $kh->fresh()->diem_tichluy);
     }
@@ -102,15 +105,26 @@ class PinDiemTest extends TestCase
         $this->postThanhToan($kh, 60)->assertStatus(423);
         $this->assertDatabaseCount('invoices', 0);
 
-        // PIN đúng -> qua guard, đúng 1 hóa đơn
+        // PIN đúng cũng KHÔNG đủ — M2 bắt buộc mã duyệt của quản lý
         $this->postJson('/xac-nhan-pin/kiem-tra', ['pin' => '246813', 'muc' => 'thuong', 'hanh_dong' => 'POST /donhang/thanhtoan'])->assertOk();
-        $this->postThanhToan($kh, 60)->assertStatus(302);
+        $this->postThanhToan($kh, 60)->assertStatus(423)->assertJsonPath('ma', 'CAN_MA_DUYET');
+        $this->assertDatabaseCount('invoices', 0);
+
+        // Mã duyệt đúng tham số (giảm 0%, 60 điểm, tổng giỏ 34000) -> qua guard
+        $ma = $this->capMaCho($u, 'donhang.thanhtoan', [
+            'giam_gia_phantram' => 0, 'diem_su_dung' => 60, 'tong_gio' => 34000,
+        ]);
+        $this->postJson('/donhang/thanhtoan', [
+            'giam_gia_phantram' => 0, 'tien_khach_dua' => 99999999,
+            'phuong_thuc' => 'tienmat', 'customer_id' => $kh->id, 'diem_su_dung' => 60,
+            '_ma_duyet' => $ma,
+        ])->assertStatus(302);
         $this->assertDatabaseCount('invoices', 1);
         $invoiceId = (int) DonHang::query()->value('id');
         $this->assertSame(60, (int) DonHang::findOrFail($invoiceId)->diem_su_dung);
 
-        // Gửi lại (double-click/webhook lặp) -> giỏ trống, không hóa đơn thứ hai
-        $this->postThanhToan($kh, 60)->assertStatus(302);
+        // Gửi lại không kèm mã -> vẫn bị chặn M2, không hóa đơn thứ hai
+        $this->postThanhToan($kh, 60)->assertStatus(423);
         $this->assertDatabaseCount('invoices', 1);
     }
 
@@ -125,7 +139,7 @@ class PinDiemTest extends TestCase
         $this->actingAs($u)->withSession($this->sessionGioHang($sp));
         $this->postJson('/donhang/taoqr', [
             'giam_gia_phantram' => 0, 'customer_id' => $kh->id, 'diem_su_dung' => 51,
-        ])->assertStatus(423)->assertJsonPath('ma', 'CAN_PIN');
+        ])->assertStatus(423)->assertJsonPath('ma', 'CAN_MA_DUYET');
         $this->assertDatabaseCount('invoices', 0);
     }
 }

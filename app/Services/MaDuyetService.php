@@ -9,6 +9,7 @@ use App\Support\KiemTraSchema;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Mã duyệt hai-người cho thao tác M2 (nguyên tắc: người làm ≠ người duyệt).
@@ -161,7 +162,7 @@ class MaDuyetService
         $raw = match ($tenRoute) {
             'sanpham.postsua' => [
                 'gia_ban_moi' => $request->input('gia_ban'),
-                'trang_thai_ban_moi' => $request->input('trang_thai_ban'),
+                'trang_thai_ban_moi' => $request->has('trang_thai') ? ($request->boolean('trang_thai') ? '1' : '0') : null,
             ],
             'donhang.thanhtoan', 'donhang.taoqr' => self::thamSoPos($request),
             default => [],
@@ -474,6 +475,66 @@ class MaDuyetService
     public static function conKhoa(User $user): bool
     {
         return RateLimiter::tooManyAttempts('ma_duyet_sai:'.$user->id, self::SAI_TOI_DA);
+    }
+
+    /**
+     * Xác thực leo thang M2 có điều kiện TRONG controller (route nền K/M1).
+     * PHẢI gọi bên trong DB::transaction của thao tác; khi trả 'yc' thì caller
+     * gọi danhDauDaDung() sau khi thao tác thành công trong cùng transaction.
+     *
+     * @return array{ok:bool, yc:?YeuCauDuyet, response:?\Symfony\Component\HttpFoundation\Response}
+     */
+    public static function xacNhanM2(Request $request, string $tenRoute, ?string $loai, ?int $id, array $thamSo): array
+    {
+        $user = $request->user();
+        if ($user && $user->role === 'admin') {
+            // Admin: M2 = PIN riêng mức nghiêm trọng mỗi lần.
+            if (PinService::kiemTraTokenNt($user, $request)) {
+                return ['ok' => true, 'yc' => null, 'response' => null];
+            }
+
+            return ['ok' => false, 'yc' => null, 'response' => self::chan($request, 'CAN_PIN', 'nghiemtrong', 'Cần xác nhận PIN để tiếp tục.')];
+        }
+        if (! self::bat()) {
+            // Hạ mức tạm (tắt mã duyệt / thiếu bảng): PIN thường như cũ.
+            if ($user && PinService::daXacNhanThuong($user)) {
+                return ['ok' => true, 'yc' => null, 'response' => null];
+            }
+
+            return ['ok' => false, 'yc' => null, 'response' => self::chan($request, 'CAN_PIN', 'thuong', 'Cần xác nhận PIN để tiếp tục.')];
+        }
+        if (self::conKhoa($user)) {
+            return ['ok' => false, 'yc' => null, 'response' => self::chan($request, 'CAN_MA_DUYET', '', 'Mã duyệt tạm khóa do nhập sai nhiều lần.')];
+        }
+        $ma = trim((string) $request->input('_ma_duyet', ''));
+        if ($ma === '') {
+            return ['ok' => false, 'yc' => null, 'response' => self::chan($request, 'CAN_MA_DUYET', '', 'Thao tác này cần quản lý duyệt.')];
+        }
+        $yc = self::xacNhanMa($user, $ma, $tenRoute, $loai, $id, $thamSo, $request);
+        if (! $yc) {
+            return ['ok' => false, 'yc' => null, 'response' => self::chan($request, 'CAN_MA_DUYET', '', 'Mã duyệt không đúng hoặc đã hết hạn.')];
+        }
+
+        return ['ok' => true, 'yc' => $yc, 'response' => null];
+    }
+
+    /** Đánh dấu mã đã dùng nếu kết quả xacNhanM2 có yc (gọi sau thao tác OK). */
+    public static function ketThucXacNhan(array $kq, Request $request): void
+    {
+        if (! empty($kq['yc'])) {
+            self::danhDauDaDung($kq['yc'], $request);
+        }
+    }
+
+    /** Response 423 (JSON) hoặc redirect-back kèm cờ để pin.js mở lại dialog. */
+    private static function chan(Request $request, string $ma, string $muc, string $msg): Response
+    {
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json(['ma' => $ma, 'muc' => $muc, 'message' => $msg], 423);
+        }
+        $flash = $ma === 'CAN_MA_DUYET' ? 'can_ma_duyet' : ($muc === 'nghiemtrong' ? 'can_pin_nt' : 'can_pin');
+
+        return redirect()->back()->withInput()->with($flash, $msg)->with('pin_resubmit', $request->path());
     }
 
     // ------------------------------------------------------------------

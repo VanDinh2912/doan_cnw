@@ -14,6 +14,8 @@ class YeuCauDuyet extends Model
 
     public $timestamps = false;
 
+    protected $table = 'yeu_cau_duyet';
+
     protected $fillable = [
         'nhan_vien_id', 'ten_route', 'method', 'doi_tuong_loai', 'doi_tuong_id',
         'mo_ta_thao_tac', 'tham_so_duyet', 'trang_thai', 'ma_hash', 'khoa_trung',

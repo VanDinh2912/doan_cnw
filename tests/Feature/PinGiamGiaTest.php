@@ -7,10 +7,12 @@ use App\Models\User;
 use App\Services\PinService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Tests\Feature\Concerns\LayMaDuyet;
 use Tests\TestCase;
 
 class PinGiamGiaTest extends TestCase
 {
+    use LayMaDuyet;
     use RefreshDatabase;
 
     private function nv(): User
@@ -47,7 +49,8 @@ class PinGiamGiaTest extends TestCase
     {
         config(['pos.pin_bat' => true, 'pos.giam_gia_khong_pin_toi_da' => 10]);
         $this->actingAs($this->nv());
-        $this->postThanhToan(50)->assertStatus(423)->assertJsonPath('ma', 'CAN_PIN');
+        // Vượt ngưỡng = M2: nhân viên cần mã duyệt, không còn chỉ cần PIN.
+        $this->postThanhToan(50)->assertStatus(423)->assertJsonPath('ma', 'CAN_MA_DUYET');
     }
 
     public function test_vuot_nguong_sai_pin_van_bi_chan(): void
@@ -59,12 +62,21 @@ class PinGiamGiaTest extends TestCase
         $this->postThanhToan(50)->assertStatus(423);
     }
 
-    public function test_vuot_nguong_dung_pin_qua_duoc_guard(): void
+    public function test_vuot_nguong_dung_ma_duyet_qua_duoc_guard(): void
     {
         config(['pos.pin_bat' => true, 'pos.giam_gia_khong_pin_toi_da' => 10]);
-        $this->actingAs($this->nv());
+        $u = $this->nv();
+        $this->actingAs($u);
+        // PIN đúng KHÔNG còn đủ cho thao tác M2 — vẫn bị chặn.
         $this->postJson('/xac-nhan-pin/kiem-tra', ['pin' => '246813', 'muc' => 'thuong', 'hanh_dong' => 'POST /x'])->assertOk();
-        $this->postThanhToan(50)->assertStatus(302); // qua guard, giỏ trống -> redirect
+        $this->postThanhToan(50)->assertStatus(423)->assertJsonPath('ma', 'CAN_MA_DUYET');
+
+        // Mã duyệt đúng tham số -> qua guard, giỏ trống -> redirect
+        $ma = $this->capMaCho($u, 'donhang.thanhtoan', ['giam_gia_phantram' => 50]);
+        $this->postJson('/donhang/thanhtoan', [
+            'giam_gia_phantram' => 50, 'tien_khach_dua' => 0,
+            'phuong_thuc' => 'tienmat', '_ma_duyet' => $ma,
+        ])->assertStatus(302);
     }
 
     public function test_audit_khi_giam_lon_duoc_phep(): void
@@ -91,8 +103,8 @@ class PinGiamGiaTest extends TestCase
 
         $payload = ['giam_gia_phantram' => 50, 'tien_khach_dua' => 99999999, 'phuong_thuc' => 'tienmat'];
 
-        // Chưa PIN -> 423, chưa có hóa đơn
-        $this->postJson('/donhang/thanhtoan', $payload)->assertStatus(423)->assertJsonPath('ma', 'CAN_PIN');
+        // Chưa mã duyệt -> 423 CAN_MA_DUYET, chưa có hóa đơn
+        $this->postJson('/donhang/thanhtoan', $payload)->assertStatus(423)->assertJsonPath('ma', 'CAN_MA_DUYET');
         $this->assertDatabaseCount('invoices', 0);
 
         // PIN sai -> vẫn 423
@@ -100,16 +112,21 @@ class PinGiamGiaTest extends TestCase
         $this->postJson('/donhang/thanhtoan', $payload)->assertStatus(423);
         $this->assertDatabaseCount('invoices', 0);
 
-        // PIN đúng -> đúng 1 hóa đơn, tồn trừ đúng 1 lần
+        // PIN đúng cũng KHÔNG đủ — M2 bắt buộc mã duyệt
         $this->postJson('/xac-nhan-pin/kiem-tra', ['pin' => '135792', 'muc' => 'thuong', 'hanh_dong' => 'POST /donhang/thanhtoan'])->assertOk();
-        $this->postJson('/donhang/thanhtoan', $payload)->assertStatus(302);
+        $this->postJson('/donhang/thanhtoan', $payload)->assertStatus(423)->assertJsonPath('ma', 'CAN_MA_DUYET');
+        $this->assertDatabaseCount('invoices', 0);
+
+        // Mã duyệt đúng -> đúng 1 hóa đơn, tồn trừ đúng 1 lần
+        $ma = $this->capMaCho($u, 'donhang.thanhtoan', ['giam_gia_phantram' => 50]);
+        $this->postJson('/donhang/thanhtoan', $payload + ['_ma_duyet' => $ma])->assertStatus(302);
         $this->assertDatabaseCount('invoices', 1);
         $invoiceId = (int) \App\Models\DonHang::query()->value('id');
         $this->assertSame($slTruoc - 2, (int) SanPham::findOrFail($sp->id)->soluong);
         $this->assertSame(1, \App\Models\BienDongKho::where('invoice_id', $invoiceId)->count());
 
-        // Gửi lại -> giỏ đã trống, không hóa đơn thứ hai
-        $this->postJson('/donhang/thanhtoan', $payload)->assertStatus(302);
+        // Gửi lại không kèm mã -> vẫn bị chặn M2, không hóa đơn thứ hai
+        $this->postJson('/donhang/thanhtoan', $payload)->assertStatus(423);
         $this->assertDatabaseCount('invoices', 1);
         $this->assertSame($slTruoc - 2, (int) SanPham::findOrFail($sp->id)->soluong);
         $this->assertSame(1, \App\Models\BienDongKho::where('invoice_id', $invoiceId)->count());

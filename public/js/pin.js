@@ -163,6 +163,46 @@
 
     var pendingHanhDong = '';
 
+    // 0) Non-JS: server redirect-back kèm cờ -> mở lại dialog rồi gửi lại form.
+    document.addEventListener('DOMContentLoaded', function () {
+        var flag = document.getElementById('pin-can-xin');
+        if (!flag) return;
+        var loai = flag.getAttribute('data-loai');
+        var actionPath = flag.getAttribute('data-action') || '';
+        var form = null;
+        document.querySelectorAll('form').forEach(function (f) {
+            if (!form) {
+                try {
+                    var p = new URL(f.getAttribute('action') || '', window.location.origin).pathname;
+                    if (p === actionPath || p.indexOf(actionPath) >= 0) { form = f; }
+                } catch (e) {}
+            }
+        });
+        if (!form) return;
+        if (loai === 'm2') {
+            var mu0 = methodUriFromForm(form);
+            openMaDuyetDialog({ method: mu0.method, uri: mu0.uri, fields: fieldsFromForm(form) }, function (ma) {
+                var inp = document.createElement('input');
+                inp.type = 'hidden'; inp.name = '_ma_duyet'; inp.value = ma;
+                form.appendChild(inp);
+                form.submit();
+            }, function () {});
+        } else {
+            var muc0 = loai === 'a' ? 'nghiemtrong' : 'thuong';
+            var mu1 = methodUriFromForm(form);
+            pendingHanhDong = mu1.method + ' ' + mu1.uri;
+            openPinDialog(muc0, function (token) {
+                if (token === null) return;
+                if (token !== true) {
+                    var inp = document.createElement('input');
+                    inp.type = 'hidden'; inp.name = '_pin_token'; inp.value = token;
+                    form.appendChild(inp);
+                }
+                form.submit();
+            }, function () {});
+        }
+    });
+
     // 1) Chặn submit form data-can-pin
     document.addEventListener('submit', function (e) {
         var form = e.target;

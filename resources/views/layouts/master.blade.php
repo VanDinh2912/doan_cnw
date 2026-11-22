@@ -282,6 +282,11 @@
     } catch (e) { /* bo qua */ }
 })();
 </script>
+@if (session('can_ma_duyet') || session('can_pin') || session('can_pin_nt'))
+<div id="pin-can-xin" style="display:none"
+     data-loai="{{ session('can_ma_duyet') ? 'm2' : (session('can_pin_nt') ? 'a' : 'm1') }}"
+     data-action="{{ session('pin_resubmit', '') }}"></div>
+@endif
 @stack('scripts')
 @if (in_array(auth()->user()->role ?? '', ['admin', 'thungan', 'thukho'], true))
 <script>
