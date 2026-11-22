@@ -45,6 +45,12 @@ return [
     'diem_dung_khong_pin_toi_da' => (int) env('POS_DIEM_DUNG_KHONG_PIN_TOI_DA', 50),
     // Giới hạn |số điểm| tối đa mỗi lần điều chỉnh thủ công bởi admin.
     'diem_dieu_chinh_toi_da' => (int) env('POS_DIEM_DIEU_CHINH_TOI_DA', 500),
+    // Mã duyệt hai-người cho thao tác M2 (nhân viên gửi yêu cầu, admin cấp mã).
+    // Chỉ có tác dụng khi pin_bat=true; false = M2 tạm hạ xuống PIN thường (M1)
+    // — mất nguyên tắc hai người, chỉ dùng khi admin vắng/triển khai dần.
+    'ma_duyet_bat' => env('POS_MA_DUYET_BAT', true) === true,
+    // Thời gian sống của mã duyệt sau khi admin cấp (phút), giới hạn 2-30.
+    'ma_duyet_het_han_phut' => (int) env('POS_MA_DUYET_HET_HAN_PHUT', 10),
     'telegram_bot_token' => env('TELEGRAM_BOT_TOKEN', ''),
     'telegram_chat_id' => env('TELEGRAM_CHAT_ID', ''),
     // Cửa sổ xác thực lại hồ sơ khách (phút), mặc định 10, giới hạn 2-30.
