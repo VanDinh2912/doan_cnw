@@ -33,11 +33,24 @@ batch 13) **đã Ran** — bằng chứng: `migrations` batch 13 chứa cả hai
 (22:00 cùng ngày) đã chứa `pin_hash`/`nhan_hang_luc`. Ai chạy chưa kết luận
 được — xem ghi chú rủi ro bên dưới.
 
-Khi được lệnh "áp migration":
+Khi được lệnh "áp migration" (guard `ChanThaoTacCsdlProd` chặn mọi
+`migrate`/`migrate:fresh|refresh|reset|rollback`/`db:wipe`/`db:seed` khi
+database đích là `doan_cnw`, trừ khi truyền cờ tạm `CHO_PHEP_MIGRATE_PROD=1`
+trong đúng tiến trình chạy — KHÔNG ghi vào `.env`):
 
 1. Sao lưu mới `doan_cnw` vào `storage/app/backups/`.
-2. `php artisan migrate:pretend` — kiểm SQL chỉ tạo `diem_bien_dong`.
-3. `php artisan down` → `php artisan migrate --force` → `php artisan up`.
+2. `php artisan migrate:pretend` — kiểm SQL chỉ tạo `diem_bien_dong`
+   (read-only, guard không chặn).
+3. PowerShell — đặt cờ chỉ cho một lệnh rồi gỡ ngay:
+   ```powershell
+   $env:CHO_PHEP_MIGRATE_PROD="1"
+   php artisan down
+   php artisan migrate --force
+   php artisan up
+   Remove-Item Env:CHO_PHEP_MIGRATE_PROD
+   ```
+   (cmd.exe: `set CHO_PHEP_MIGRATE_PROD=1` trước, `set CHO_PHEP_MIGRATE_PROD=` sau.)
+   `migrate:status`/`migrate --pretend` vẫn chạy bình thường không cần cờ.
 4. Kiểm chứng: `Schema::hasTable('diem_bien_dong')`, `migrations` +1 bản ghi
    (tổng 53), số dòng bảng cũ không đổi, `POS_PIN_BAT` vẫn `false`.
 5. `php artisan diem:doi-soat` (chỉ đọc) — báo lệch toàn bộ số dư cũ.
@@ -51,9 +64,14 @@ Code chịu được thiếu bảng: bán hàng/hủy/trả vẫn chạy khi ch�
 riêng **điều chỉnh điểm bị từ chối** (không đổi số dư khi không ghi được sổ).
 
 **Rollback (chỉ là phương án, không tự chạy):** `php artisan migrate:rollback`
-sẽ drop `diem_bien_dong` — an toàn vì `DiemService` guard tự bỏ qua khi
-thiếu bảng; số dư `customers.diem_tichluy` không bị đụng. Sau rollback,
-điều chỉnh điểm bị chặn cho tới khi migrate lại.
+(cần `CHO_PHEP_MIGRATE_PROD=1` như bước 3) sẽ drop `diem_bien_dong` — an toàn
+vì `DiemService` guard tự bỏ qua khi thiếu bảng; số dư
+`customers.diem_tichluy` không bị đụng. Sau rollback, điều chỉnh điểm bị
+chặn cho tới khi migrate lại.
+
+**Tồn đọng:** tách `.env` prod/dev (hiện một `.env` duy nhất, hai server dev
+phân biệt bằng env lúc launch — nguồn gốc sự cố migrate nhầm lên `doan_cnw`
+ngày 2026-11-21).
 
 ## 1b. Nhật ký áp migration
 

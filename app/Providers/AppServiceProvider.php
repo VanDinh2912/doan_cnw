@@ -31,5 +31,12 @@ class AppServiceProvider extends ServiceProvider
         if (! $this->app->isProduction()) {
             Model::preventLazyLoading();
         }
+
+        // Chặn migrate/db:wipe/db:seed khi database đích là prod (doan_cnw)
+        // trừ khi có cờ CHO_PHEP_MIGRATE_PROD=1 truyền tường minh.
+        $this->app['events']->listen(
+            \Illuminate\Console\Events\CommandStarting::class,
+            \App\Listeners\ChanThaoTacCsdlProdListener::class,
+        );
     }
 }
