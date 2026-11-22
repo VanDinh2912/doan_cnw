@@ -89,15 +89,17 @@ class PinRouteTest extends TestCase
         $this->postJson('/taikhoan', [])->assertStatus(423);
     }
 
-    public function test_doi_pin_dung_bo_dem_chung_khoa_sau_5_sai(): void
+    public function test_sai_pin_nhieu_lan_khoa_chung_moi_diem_kiem(): void
     {
+        // NV không còn tự đổi PIN — bộ đếm sai/khóa dùng chung kiểm qua endpoint kiem-tra.
         $this->actingAs($this->nv);
         for ($i = 0; $i < 5; $i++) {
-            $this->post('/doi-pin', ['pin_cu' => '000000', 'pin_moi' => '112233', 'pin_moi_confirmation' => '112233']);
+            $this->postJson('/xac-nhan-pin/kiem-tra', ['pin' => '000000', 'muc' => 'thuong', 'hanh_dong' => 'POST /x']);
         }
         $this->assertNotNull($this->nv->fresh()->pin_khoa_den);
-        // Đúng PIN cũ trong lúc khóa vẫn bị chặn
-        $this->post('/doi-pin', ['pin_cu' => '246813', 'pin_moi' => '112233', 'pin_moi_confirmation' => '112233']);
+        // Đúng PIN trong lúc khóa vẫn bị chặn
+        $kq = $this->postJson('/xac-nhan-pin/kiem-tra', ['pin' => '246813', 'muc' => 'thuong', 'hanh_dong' => 'POST /x'])->json();
+        $this->assertSame('KHOA', $kq['ma'] ?? null);
         $this->assertNotNull($this->nv->fresh()->pin_khoa_den);
     }
 

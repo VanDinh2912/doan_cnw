@@ -51,7 +51,7 @@ return [
     // Import: bước upload/preview không ghi DB
     'sanpham.import.upload' => 'K',
     // Hạ tầng PIN — chính cơ chế xác thực
-    'pin.kiemtra' => 'K', 'pin.xacnhan' => 'K', 'pin.doi.post' => 'K', 'pin.xincap.post' => 'K',
+    'pin.kiemtra' => 'K', 'pin.xacnhan' => 'K', 'pin.xincap.post' => 'K',
     // Tạo yêu cầu mã duyệt — bản thân nó là cơ chế M2, không cần PIN
     'duyet.gui' => 'K',
     'storage.local.upload' => 'K',

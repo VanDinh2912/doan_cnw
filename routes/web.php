@@ -118,9 +118,6 @@ Route::middleware(['auth', 'staff.only', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->
         ->middleware('throttle:20,1')->name('pin.kiemtra');
     Route::post('/xac-nhan-pin/xac-nhan', [\App\Http\Controllers\PinController::class, 'postXacNhan'])
         ->middleware('throttle:10,1')->name('pin.xacnhan');
-    Route::get('/doi-pin', [\App\Http\Controllers\PinController::class, 'getDoiPin'])->name('pin.doi');
-    Route::post('/doi-pin', [\App\Http\Controllers\PinController::class, 'postDoiPin'])
-        ->middleware('throttle:10,1')->name('pin.doi.post');
     // NV tu xin cap/dat lai PIN (ghi ly do, admin duyet qua /taikhoan)
     Route::get('/pin/xin-cap', [\App\Http\Controllers\PinController::class, 'getXinCap'])->name('pin.xincap');
     Route::post('/pin/xin-cap', [\App\Http\Controllers\PinController::class, 'postXinCap'])

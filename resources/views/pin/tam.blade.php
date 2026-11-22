@@ -27,8 +27,8 @@
             <div class="pin">{{ $pinTam }}</div>
             <div class="warn">
                 <strong>Chỉ hiển thị MỘT LẦN.</strong> Tải lại trang sẽ không xem lại được.
-                Đây là PIN xác nhận thao tác của bạn — dùng như PIN thường, có thể đổi bất cứ
-                lúc nào tại <code>/doi-pin</code> (cần PIN hiện tại).
+                Đây là PIN xác nhận thao tác của bạn — dùng như PIN thường. Cần đặt lại thì
+                gửi yêu cầu tại <a href="{{ route('pin.xincap') }}">Xin cấp PIN</a>.
             </div>
         @endif
         <p style="margin-top:1rem"><a href="{{ $urlLai ?? route('taikhoan.danhsach') }}">{{ $nhanLai ?? 'Quay lại danh sách tài khoản' }}</a></p>

@@ -25,7 +25,7 @@
             <div class="app-account-menu" id="appAccountMenu" hidden>
                 <a href="{{ route('profile.show') }}"><i class="fa-solid fa-id-card"></i> Thông tin cá nhân</a>
                 <a href="{{ route('doi-mat-khau') }}"><i class="fa-solid fa-key"></i> Đổi mật khẩu</a>
-                <a href="{{ route('pin.doi') }}"><i class="fa-solid fa-shield-halved"></i> Đổi PIN</a>
+                <a href="{{ route('pin.xincap') }}"><i class="fa-solid fa-shield-halved"></i> Xin cấp PIN</a>
                 <hr>
                 <a href="{{ route('auth.dangxuat') }}"><i class="fa-solid fa-right-from-bracket"></i> Đăng xuất</a>
             </div>

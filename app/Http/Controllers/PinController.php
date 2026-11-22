@@ -99,17 +99,6 @@ class PinController extends Controller
         return redirect($dich);
     }
 
-    /** GET /doi-pin — form đổi PIN (PIN cũ + PIN mới + xác nhận). */
-    public function getDoiPin(Request $request): View|RedirectResponse
-    {
-        $user = $request->user();
-        if (! $user->pin_hash) {
-            return redirect()->route('pin.xincap')->with('loi_pin', 'Tài khoản chưa có PIN — gửi yêu cầu để quản trị viên cấp.');
-        }
-
-        return view('pin.doi');
-    }
-
     /** GET /pin/xin-cap — NV gửi yêu cầu cấp/đặt lại PIN kèm lý do. */
     public function getXinCap(Request $request): View|RedirectResponse
     {
@@ -186,31 +175,6 @@ class PinController extends Controller
     public static function KHOA_PIN_TAM(): string
     {
         return 'pin_tam_user_';
-    }
-
-    /** POST /doi-pin — đổi PIN; chia sẻ bộ đếm sai/khóa với mọi điểm kiểm PIN. */
-    public function postDoiPin(Request $request): RedirectResponse
-    {
-        $validated = $request->validate([
-            'pin_cu' => ['required', 'string', 'max:12'],
-            'pin_moi' => ['required', 'string', 'max:12', 'confirmed'],
-        ]);
-        $user = $request->user();
-        abort_unless($user && in_array($user->role, ['admin', 'thungan', 'thukho'], true), 403);
-
-        // Tái dùng bộ đếm chung: sai PIN cũ tính vào pin_sai_lien_tiep
-        $kq = PinService::kiemTra($user, $validated['pin_cu'], PinService::MUC_THUONG, 'DOI /doi-pin', $request);
-        if (! $kq['ok']) {
-            return redirect()->back()->withInput()->with('loi_pin', $this->thongBao($kq));
-        }
-        try {
-            PinService::datPin($user, $validated['pin_moi']);
-        } catch (\InvalidArgumentException $e) {
-            return redirect()->back()->withInput()->with('loi_pin', $e->getMessage());
-        }
-        NhatKyService::ghi($request, 'pin_doi', 'user', $user->id, 'Đổi PIN', null, null, null, 'pin');
-
-        return redirect()->route('pin.doi')->with('thanh_cong', 'Đã đổi PIN thành công.');
     }
 
     /**

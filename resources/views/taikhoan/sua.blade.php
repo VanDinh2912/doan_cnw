@@ -61,7 +61,7 @@
             </p>
         @endif
         <form method="POST" action="{{ route('taikhoan.datlaipin', $user) }}" data-can-pin="a"
-              onsubmit="return confirm('Cấp PIN tạm mới? PIN hiện tại của nhân viên sẽ vô hiệu và họ bắt buộc đổi PIN.');">
+              onsubmit="return confirm('Cấp PIN tạm mới? PIN hiện tại của nhân viên sẽ vô hiệu, họ xem PIN mới một lần tại \"PIN tạm của tôi\".');">
             @csrf
             <div class="input-group" style="max-width: 34rem;">
                 <input type="text" name="ly_do" class="form-control" maxlength="255" required

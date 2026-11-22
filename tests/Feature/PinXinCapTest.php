@@ -28,10 +28,12 @@ class PinXinCapTest extends TestCase
         $this->nv = User::create(['name' => 'N', 'email' => 'n@t.local', 'password' => Hash::make('Mk@12345'), 'role' => 'thungan']);
     }
 
-    public function test_get_doi_pin_khi_chua_co_pin_chuyen_sang_xin_cap(): void
+    public function test_doi_pin_da_go_bo_phia_nhan_vien(): void
     {
+        // NV không còn tự đổi PIN — route /doi-pin đã gỡ, PIN do admin cấp qua /taikhoan.
         $this->actingAs($this->nv);
-        $this->get('/doi-pin')->assertRedirect(route('pin.xincap'));
+        $this->get('/doi-pin')->assertNotFound();
+        $this->post('/doi-pin', [])->assertNotFound();
     }
 
     public function test_xin_cap_bat_buoc_ly_do_va_ghi_nhat_ky(): void
