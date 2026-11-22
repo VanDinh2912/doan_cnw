@@ -34,10 +34,10 @@ trait LayMaDuyet
      * @param  array<string,mixed>  $thamSo  tham số ràng buộc (server chuẩn hóa,
      *         giống MaDuyetService::thamSoRequest của request thật)
      */
-    private function capMaCho(User $nv, string $route, array $thamSo, ?User $admin = null): string
+    private function capMaCho(User $nv, string $route, array $thamSo, ?User $admin = null, ?string $loai = null, ?int $id = null): string
     {
         $admin ??= $this->adminMau();
-        $kq = MaDuyetService::taoYeuCau($nv, $route, 'POST', null, null, $thamSo, $this->requestGia($nv));
+        $kq = MaDuyetService::taoYeuCau($nv, $route, 'POST', $loai, $id, $thamSo, $this->requestGia($nv));
         $this->assertNotNull($kq['yc'] ?? null, 'Tạo yêu cầu duyệt thất bại: '.($kq['loi'] ?? '?'));
 
         $cap = MaDuyetService::capMa($admin, $kq['yc']->id, $this->requestGia($admin));

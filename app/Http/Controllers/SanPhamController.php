@@ -76,7 +76,7 @@ class SanPhamController extends Controller
         ]);
     }
 
-    public function postSua(Request $request, SanPham $sanPham): RedirectResponse
+    public function postSua(Request $request, SanPham $sanPham): RedirectResponse|\Illuminate\Http\JsonResponse
     {
         $validated = $request->validate($this->rules($sanPham, $request->hasFile('hinh_anh')), $this->messages());
         $urlAnh = is_string($validated['hinh_anh_url'] ?? null) ? trim($validated['hinh_anh_url']) : '';

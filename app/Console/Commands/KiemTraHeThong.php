@@ -139,6 +139,21 @@ class KiemTraHeThong extends Command
         } else {
             $this->bao('INFO', 'PIN thao tác nhạy cảm', 'POS_PIN_BAT đang tắt');
         }
+
+        // Mã duyệt hai-người (M2): chỉ đánh giá khi PIN đang bật.
+        // Thiếu bảng + cả hai cờ bật = FAIL (M2 sẽ âm thầm hạ M1 — không chấp nhận).
+        if (config('pos.pin_bat')) {
+            $maDuyetBat = (bool) config('pos.ma_duyet_bat', true);
+            if (! $maDuyetBat) {
+                $this->bao('WARN', 'Mã duyệt hai-người',
+                    'POS_MA_DUYET_BAT đang tắt — mọi thao tác M2 tạm hạ xuống PIN thường, MẤT nguyên tắc hai người');
+            } elseif (! \App\Support\KiemTraSchema::coBang('yeu_cau_duyet')) {
+                $this->bao('FAIL', 'Mã duyệt hai-người',
+                    'POS_MA_DUYET_BAT đang bật nhưng thiếu bảng yeu_cau_duyet — cần chạy migrate trên DB này');
+            } else {
+                $this->bao('OK', 'Mã duyệt hai-người', 'POS_MA_DUYET_BAT đang bật, bảng yeu_cau_duyet đã có');
+            }
+        }
     }
 
     /**
