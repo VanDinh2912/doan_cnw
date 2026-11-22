@@ -25,7 +25,7 @@
 
         @auth
             <div class="alert alert-info" role="status">
-                Xin chào, <strong>{{ auth()->user()->name }}</strong>
+                Xin chào, <strong>{{ \App\Support\TenHienThi::khachDangNhap() }}</strong>
                 <span class="app-user-role">{{ auth()->user()->role }}</span>
             </div>
 

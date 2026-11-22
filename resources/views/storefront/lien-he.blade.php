@@ -67,20 +67,20 @@
 
             <div style="margin-bottom:12px;">
                 <label for="ho_ten" style="display:block;margin-bottom:4px;">Họ tên <span style="color:var(--sf-stock-out);">*</span></label>
-                <input id="ho_ten" name="ho_ten" type="text" value="{{ old('ho_ten', $prefill['ho_ten']) }}" required maxlength="100" style="{{ $inputStyle }}">
+                <input id="ho_ten" name="ho_ten" type="text" value="{{ old('ho_ten') }}" required maxlength="100" style="{{ $inputStyle }}">
                 @error('ho_ten')<div style="{{ $loiStyle }}">{{ $message }}</div>@enderror
             </div>
 
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;" class="sf-lien-he-grid">
                 <div style="margin-bottom:12px;">
                     <label for="so_dien_thoai" style="display:block;margin-bottom:4px;">Số điện thoại</label>
-                    <input id="so_dien_thoai" name="so_dien_thoai" type="tel" value="{{ old('so_dien_thoai', $prefill['so_dien_thoai']) }}" maxlength="30" placeholder="Ví dụ: 09xxxxxxxx"
+                    <input id="so_dien_thoai" name="so_dien_thoai" type="tel" value="{{ old('so_dien_thoai') }}" maxlength="30" placeholder="Ví dụ: 09xxxxxxxx"
                            style="{{ $inputStyle }}">
                     @error('so_dien_thoai')<div style="{{ $loiStyle }}">{{ $message }}</div>@enderror
                 </div>
                 <div style="margin-bottom:12px;">
                     <label for="email" style="display:block;margin-bottom:4px;">Email</label>
-                    <input id="email" name="email" type="email" value="{{ old('email', $prefill['email']) }}" maxlength="150"
+                    <input id="email" name="email" type="email" value="{{ old('email') }}" maxlength="150"
                            style="{{ $inputStyle }}">
                     @error('email')<div style="{{ $loiStyle }}">{{ $message }}</div>@enderror
                 </div>

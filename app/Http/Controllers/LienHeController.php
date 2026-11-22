@@ -14,9 +14,6 @@ class LienHeController extends Controller
 {
     public function getForm(Request $request): View
     {
-        $user = $request->user();
-        $khachHang = $user?->khachHang;
-
         $loai = $request->query('loai');
         $loai = is_string($loai) && in_array($loai, LienHe::LOAI, true) ? $loai : 'lien_he';
 
@@ -24,16 +21,13 @@ class LienHeController extends Controller
         $viTriOptions = (array) config('trang_tinh.tuyen_dung.vi_tri', []);
         $viTri = is_string($viTri) && array_key_exists($viTri, $viTriOptions) ? $viTri : null;
 
+        // Không điền sẵn họ tên/SĐT/email cho khách đăng nhập — họ phải nhập lại.
+        // user_id vẫn được gắn khi lưu (postGui), chỉ bỏ prefill hiển thị.
         return view('storefront.lien-he', [
             'loaiMacDinh' => $loai,
             'viTriMacDinh' => $viTri,
             'loaiOptions' => LienHe::LOAI,
             'viTriOptions' => $viTriOptions,
-            'prefill' => [
-                'ho_ten' => $khachHang?->ho_ten ?? $user?->name,
-                'so_dien_thoai' => $khachHang?->so_dienthoai,
-                'email' => $user?->email,
-            ],
         ]);
     }
 

@@ -110,7 +110,7 @@ class LienHeTest extends TestCase
         $this->assertDatabaseCount('lien_he', 5);
     }
 
-    public function test_khach_dang_nhap_duoc_gan_user_id_va_prefill(): void
+    public function test_khach_dang_nhap_khong_duoc_prefill_nhung_van_gan_user_id(): void
     {
         $user = User::factory()->create(['role' => 'khachhang', 'name' => 'Khách Test', 'email' => 'khach@test.vn']);
         KhachHang::create([
@@ -118,11 +118,12 @@ class LienHeTest extends TestCase
             'so_dienthoai' => '0987654321', 'diem_tichluy' => 0,
         ]);
 
+        // Không điền sẵn PII — khách phải nhập lại.
         $this->actingAs($user)->get(route('lien-he.form'))
             ->assertOk()
-            ->assertSee('value="Khách Test"', false)
-            ->assertSee('value="0987654321"', false)
-            ->assertSee('value="khach@test.vn"', false);
+            ->assertDontSee('value="Khách Test"', false)
+            ->assertDontSee('value="0987654321"', false)
+            ->assertDontSee('value="khach@test.vn"', false);
 
         $this->actingAs($user)->post(route('lien-he.gui'), $this->payload())
             ->assertRedirect(route('lien-he.cam-on'));

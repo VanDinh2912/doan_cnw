@@ -43,11 +43,7 @@
                 <a class="sf-icon-btn" href="{{ route('profile.show') }}" title="Thông tin cá nhân">
                     <i class="fa-solid fa-user"></i>
                     <span class="d-none d-md-inline">
-                        @if (request()->routeIs('profile.*') && ! \App\Support\HoSoXacThuc::conHieuLuc(request()))
-                            {{ \App\Support\ChePII::hoTen($user->name) }}
-                        @else
-                            {{ $user->name }}
-                        @endif
+                        {{ \App\Support\TenHienThi::khachDangNhap() }}
                     </span>
                 </a>
                 <a class="sf-icon-btn" href="{{ route('auth.dangxuat') }}" title="Đăng xuất">

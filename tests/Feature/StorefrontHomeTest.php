@@ -115,7 +115,9 @@ class StorefrontHomeTest extends TestCase
         $response = $this->actingAs($user)->get(route('storefront.home'));
 
         $response->assertStatus(200);
-        $response->assertSee('Nguyễn Khách Hàng');
+        // Tên luôn hiển thị dạng che trên storefront (A1) — không lộ tên thật.
+        $response->assertSee(\App\Support\ChePII::hoTen('Nguyễn Khách Hàng'), false);
+        $response->assertDontSee('Nguyễn Khách Hàng');
         $response->assertSee('Đăng xuất');
         $response->assertDontSee('Trang quản trị');
     }
@@ -132,7 +134,9 @@ class StorefrontHomeTest extends TestCase
         $response = $this->actingAs($admin)->get(route('storefront.home'));
 
         $response->assertStatus(200);
-        $response->assertSee('Admin Boss');
+        // Nhân viên cũng thấy tên đã che trên storefront.
+        $response->assertSee(\App\Support\ChePII::hoTen('Admin Boss'), false);
+        $response->assertDontSee('Admin Boss');
         $response->assertSee('Trang quản trị');
     }
 }
