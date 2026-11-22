@@ -20,6 +20,8 @@
     <php>
         <ini name="memory_limit" value="512M"/>
         <env name="APP_ENV" value="testing"/>
+        <env name="APP_DEBUG" value="false"/>
+        <env name="APP_URL" value="http://localhost"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="CACHE_STORE" value="array"/>
@@ -32,6 +34,18 @@
         <!-- Test mặc định bật cờ đặt hàng online để giữ hành vi P1/P2; test cờ riêng sẽ Config::set tắt. -->
         <env name="POS_DAT_HANG_ONLINE_BAT" value="true"/>
         <env name="POS_GIAO_TAN_NOI_BAT" value="true"/>
+        <!-- Ghim cờ vận hành: .env thật (POS_PIN_BAT=true, Telegram token thật...)
+             KHÔNG được rò vào test — tránh PIN chặn route và gọi API ngoài thật. -->
+        <env name="POS_PIN_BAT" value="false"/>
+        <env name="POS_MA_DUYET_BAT" value="false"/>
+        <env name="POS_CHI_CHO_WEBHOOK" value="false"/>
+        <env name="POS_ONLINE_TU_DONG_XAC_NHAN" value="false"/>
+        <env name="TELEGRAM_BOT_TOKEN" value=""/>
+        <env name="TELEGRAM_CHAT_ID" value=""/>
+        <env name="STORE_NAME" value="PhoneShop"/>
+        <env name="STORE_TITLE" value="Phụ kiện điện thoại chính hãng"/>
+        <env name="HOTLINE" value="1900 0000"/>
+        <env name="STORE_GIO_LAM_VIEC" value="8:00 – 22:00"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="EMAIL_KIEM_TRA_DNS" value="false"/>
     </php>
