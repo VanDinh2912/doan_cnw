@@ -74,6 +74,9 @@
             '<h5 style="margin:0 0 .4rem">Thao tác cần quản lý duyệt</h5>' +
             '<p style="font-size:.85rem;color:#666;margin:.25rem 0 .75rem">Gửi yêu cầu cho quản lý cấp mã, hoặc nhập mã đã được cấp.</p>' +
             '<div id="maYcTrangThai" style="font-size:.85rem;min-height:1.4em;margin-bottom:.5rem"></div>' +
+            '<label style="font-size:.8rem;color:#555;display:block;margin-bottom:.2rem">Lý do yêu cầu (bắt buộc)</label>' +
+            '<input id="maYcLyDo" type="text" maxlength="255" placeholder="VD: Khách trả hàng, cần xóa SP hỏng…" ' +
+            'style="width:100%;padding:.45rem .6rem;border:1px solid #ccc;border-radius:8px;font-size:.9rem;margin-bottom:.5rem">' +
             '<button id="maYcGui" class="btn btn-outline-primary btn-sm w-100 mb-2">Gửi yêu cầu cho quản lý</button>' +
             '<input id="maYcInput" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="off" placeholder="Mã duyệt 6 số" ' +
             'style="width:100%;text-align:center;font-size:1.3rem;letter-spacing:.35rem;padding:.5rem;border:1px solid #ccc;border-radius:8px">' +
@@ -85,17 +88,21 @@
         var st = dialog.querySelector('#maYcTrangThai');
         var err = dialog.querySelector('#maYcErr');
         var input = dialog.querySelector('#maYcInput');
+        var lyDoInput = dialog.querySelector('#maYcLyDo');
         var guiBtn = dialog.querySelector('#maYcGui');
         dialog.querySelector('#maYcCancel').onclick = function () { closeDialog(); if (onHuy) onHuy(); };
         dialog.querySelector('#maYcOk').onclick = dungMa;
         input.addEventListener('keydown', function (e) { if (e.key === 'Enter') dungMa(); });
         guiBtn.onclick = function () {
+            var lyDo = lyDoInput.value.trim();
+            if (!lyDo) { err.textContent = 'Nhập lý do yêu cầu.'; lyDoInput.focus(); return; }
             guiBtn.disabled = true;
             st.textContent = 'Đang gửi yêu cầu…';
             var fd = new FormData();
             fd.append('_token', csrf());
             fd.append('_route_method', ctx.method);
             fd.append('_route_uri', ctx.uri);
+            fd.append('ly_do', lyDo);
             (ctx.fields || []).forEach(function (kv) { fd.append(kv[0], kv[1]); });
             fetch(GUI_YEU_CAU, { method: 'POST', headers: { 'Accept': 'application/json' }, body: fd })
                 .then(function (r) { return r.json().then(function (j) { return { s: r.status, j: j }; }); })

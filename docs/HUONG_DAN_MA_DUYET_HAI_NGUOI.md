@@ -32,14 +32,16 @@ cấp mã (server chặn `nhan_vien_id = admin_cap_id`).
 1. Nhân viên gọi thao tác M2 (hoặc thao tác có điều kiện vượt ngưỡng:
    `sanpham.postsua` đổi `gia_ban`/`trang_thai`, `donhang.thanhtoan`/
    `taoqr` vượt ngưỡng giảm giá/điểm) → nhận `423 CAN_MA_DUYET`.
-2. Hộp thoại PIN (pin.js) hiện nút **"Gửi yêu cầu cho quản lý"** →
-   `POST /yeu-cau-duyet/gui`. Server tự sinh `mo_ta_thao_tac` từ route +
-   đối tượng thật (client không gửi mô tả), kiểm route thuộc whitelist
-   M2 + vai trò + đối tượng tồn tại, tối đa 5 yêu cầu chờ/NV, throttle
-   20 req/phút theo IP.
+2. Hộp thoại PIN (pin.js) có ô **"Lý do yêu cầu" (bắt buộc, tối đa 255
+   ký tự)** phía trên nút **"Gửi yêu cầu cho quản lý"** →
+   `POST /yeu-cau-duyet/gui`. Server từ chối `THIEU_LY_DO` nếu trống;
+   `ly_do` lưu cột `ly_do_yeu_cau` và hiển thị cho admin. Server tự sinh
+   `mo_ta_thao_tac` từ route + đối tượng thật (client không gửi mô tả),
+   kiểm route thuộc whitelist M2 + vai trò + đối tượng tồn tại, tối đa 5
+   yêu cầu chờ/NV, throttle 20 req/phút theo IP.
 3. Admin vào **Hệ thống → Yêu cầu duyệt** (`/yeu-cau-duyet`, badge đếm
-   `cho_cap`, poll nhẹ). Danh sách nổi bật: người yêu cầu, thao tác,
-   đối tượng, tham số ràng buộc, thời gian.
+   `cho_cap`, poll nhẹ). Danh sách nổi bật: người yêu cầu, **lý do**,
+   thao tác, đối tượng, tham số ràng buộc, thời gian.
 4. Admin bấm **Cấp mã** → bắt PIN nghiêm trọng (mức A) → mã 6 số hiện
    **một lần**, cỡ lớn, nút copy, header `no-store`; không flash,
    không log, không audit nội dung mã.

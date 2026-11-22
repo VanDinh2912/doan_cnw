@@ -52,13 +52,18 @@ class YeuCauDuyetController extends Controller
         abort_unless($user && in_array($user->role, ['thungan', 'thukho'], true), 403);
         abort_unless(MaDuyetService::bat(), 423, 'Tính năng mã duyệt chưa bật.');
 
+        $lyDo = trim((string) $request->input('ly_do', ''));
+        if ($lyDo === '' || mb_strlen($lyDo) > 255) {
+            return response()->json(['ma' => 'THIEU_LY_DO', 'message' => 'Phải nhập lý do yêu cầu (tối đa 255 ký tự).'], 422);
+        }
+
         $method = strtoupper((string) $request->input('_route_method', 'POST'));
         $uri = '/' . ltrim((string) $request->input('_route_uri', ''), '/');
         if (! in_array($method, ['POST', 'PUT', 'PATCH', 'DELETE'], true) || $uri === '/') {
             return response()->json(['ma' => 'ROUTE_KHONG_HOP_LE', 'message' => 'Thao tác không hợp lệ.'], 422);
         }
         // Field form gốc (trừ field nội bộ) — dùng để tính tham số ràng buộc.
-        $fields = $request->except(['_token', '_route_method', '_route_uri', '_ma_duyet', '_pin_token']);
+        $fields = $request->except(['_token', '_route_method', '_route_uri', '_ma_duyet', '_pin_token', 'ly_do']);
         $reqAo = Request::create($uri, $method, $fields);
         $reqAo->setLaravelSession($request->session());
 
@@ -72,7 +77,7 @@ class YeuCauDuyetController extends Controller
         $request->merge($fields); // thamSoRequest đọc input của request hiện tại
         $thamSo = MaDuyetService::thamSoRequest($request, $tenRoute);
 
-        $kq = MaDuyetService::taoYeuCau($user, $tenRoute, $method, $loai, $id, $thamSo, $request);
+        $kq = MaDuyetService::taoYeuCau($user, $tenRoute, $method, $loai, $id, $thamSo, $lyDo, $request);
         if ($kq['yc'] === null) {
             $status = $kq['ma'] === 'QUA_NHIEU_YEU_CAU' ? 429 : 422;
 

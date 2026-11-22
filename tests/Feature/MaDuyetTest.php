@@ -96,6 +96,42 @@ class MaDuyetTest extends TestCase
         $this->assertSame($kh->id, (int) $yc->doi_tuong_id);
     }
 
+    public function test_thieu_ly_do_bi_tu_choi(): void
+    {
+        $nv = $this->nv('thungan');
+        $kh = KhachHang::create(['ho_ten' => 'K', 'so_dienthoai' => '090'.random_int(1000000, 9999999)]);
+
+        $this->actingAs($nv)->postJson('/yeu-cau-duyet/gui', [
+            '_route_method' => 'DELETE', '_route_uri' => '/khachhang/xoa/'.$kh->id,
+        ])->assertStatus(422)->assertJsonPath('ma', 'THIEU_LY_DO');
+
+        $this->actingAs($nv)->postJson('/yeu-cau-duyet/gui', [
+            '_route_method' => 'DELETE', '_route_uri' => '/khachhang/xoa/'.$kh->id,
+            'ly_do' => '   ',
+        ])->assertStatus(422)->assertJsonPath('ma', 'THIEU_LY_DO');
+
+        $this->assertSame(0, YeuCauDuyet::count());
+    }
+
+    public function test_ly_do_luu_va_hien_thi_cho_admin(): void
+    {
+        $nv = $this->nv('thungan');
+        $kh = KhachHang::create(['ho_ten' => 'K', 'so_dienthoai' => '090'.random_int(1000000, 9999999)]);
+
+        $this->actingAs($nv)->postJson('/yeu-cau-duyet/gui', [
+            '_route_method' => 'DELETE', '_route_uri' => '/khachhang/xoa/'.$kh->id,
+            'ly_do' => 'Khách yêu cầu xóa hồ sơ',
+        ])->assertOk()->assertJsonPath('ma', 'OK');
+
+        $yc = YeuCauDuyet::sole();
+        $this->assertSame('Khách yêu cầu xóa hồ sơ', $yc->ly_do_yeu_cau);
+
+        $this->actingAs($this->admin())
+            ->get('/yeu-cau-duyet')
+            ->assertOk()
+            ->assertSee('Khách yêu cầu xóa hồ sơ');
+    }
+
     public function test_khoa_trung_chan_trung_lap(): void
     {
         $nv = $this->nv();
@@ -115,12 +151,14 @@ class MaDuyetTest extends TestCase
         // sanpham.xoa chỉ dành admin/thukho — thungan không được xin mã.
         $this->actingAs($nv)->postJson('/yeu-cau-duyet/gui', [
             '_route_method' => 'DELETE', '_route_uri' => '/sanpham/xoa/'.$sp->id,
+            'ly_do' => 'test',
         ])->assertStatus(422)->assertJsonPath('ma', 'KHONG_CO_QUYEN');
 
         // Route M1 (khong phai M2) khong nam trong whitelist -> tu choi.
         $kh = KhachHang::create(['ho_ten' => 'K', 'so_dienthoai' => '090'.random_int(1000000, 9999999)]);
         $this->actingAs($nv)->postJson('/yeu-cau-duyet/gui', [
             '_route_method' => 'PUT', '_route_uri' => '/khachhang/sua/'.$kh->id,
+            'ly_do' => 'test',
         ])->assertStatus(422)->assertJsonPath('ma', 'ROUTE_KHONG_HOP_LE');
 
         $this->assertSame(0, YeuCauDuyet::count());
@@ -130,6 +168,7 @@ class MaDuyetTest extends TestCase
     {
         $this->actingAs($this->admin())->postJson('/yeu-cau-duyet/gui', [
             '_route_method' => 'DELETE', '_route_uri' => '/khachhang/xoa/1',
+            'ly_do' => 'test',
         ])->assertForbidden();
     }
 
@@ -141,6 +180,7 @@ class MaDuyetTest extends TestCase
             $kh = KhachHang::create(['ho_ten' => "K{$i}", 'so_dienthoai' => '090'.random_int(1000000, 9999999)]);
             $this->actingAs($nv)->postJson('/yeu-cau-duyet/gui', [
                 '_route_method' => 'DELETE', '_route_uri' => '/khachhang/xoa/'.$kh->id,
+                'ly_do' => 'test',
             ])->assertOk();
         }
         $this->assertSame(5, YeuCauDuyet::where('trang_thai', YeuCauDuyet::TT_CHO_CAP)->count());
@@ -148,6 +188,7 @@ class MaDuyetTest extends TestCase
         $kh6 = KhachHang::create(['ho_ten' => 'K6', 'so_dienthoai' => '090'.random_int(1000000, 9999999)]);
         $this->actingAs($nv)->postJson('/yeu-cau-duyet/gui', [
             '_route_method' => 'DELETE', '_route_uri' => '/khachhang/xoa/'.$kh6->id,
+            'ly_do' => 'test',
         ])->assertStatus(429)->assertJsonPath('ma', 'QUA_NHIEU_YEU_CAU');
     }
 

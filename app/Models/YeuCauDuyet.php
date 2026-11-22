@@ -18,7 +18,7 @@ class YeuCauDuyet extends Model
 
     protected $fillable = [
         'nhan_vien_id', 'ten_route', 'method', 'doi_tuong_loai', 'doi_tuong_id',
-        'mo_ta_thao_tac', 'tham_so_duyet', 'trang_thai', 'ma_hash', 'khoa_trung',
+        'mo_ta_thao_tac', 'ly_do_yeu_cau', 'tham_so_duyet', 'trang_thai', 'ma_hash', 'khoa_trung',
         'admin_cap_id', 'cap_luc', 'het_han_luc', 'dung_luc', 'tu_choi_luc',
         'ly_do_tu_choi', 'created_at',
     ];

@@ -37,7 +37,7 @@ trait LayMaDuyet
     private function capMaCho(User $nv, string $route, array $thamSo, ?User $admin = null, ?string $loai = null, ?int $id = null): string
     {
         $admin ??= $this->adminMau();
-        $kq = MaDuyetService::taoYeuCau($nv, $route, 'POST', $loai, $id, $thamSo, $this->requestGia($nv));
+        $kq = MaDuyetService::taoYeuCau($nv, $route, 'POST', $loai, $id, $thamSo, 'test', $this->requestGia($nv));
         $this->assertNotNull($kq['yc'] ?? null, 'Tạo yêu cầu duyệt thất bại: '.($kq['loi'] ?? '?'));
 
         $cap = MaDuyetService::capMa($admin, $kq['yc']->id, $this->requestGia($admin));

@@ -220,8 +220,12 @@ class MaDuyetService
         ?string $doiTuongLoai,
         ?int $doiTuongId,
         array $thamSo,
+        string $lyDo,
         Request $request
     ): array {
+        if (trim($lyDo) === '') {
+            return ['yc' => null, 'loi' => 'Phải nhập lý do yêu cầu.', 'ma' => 'THIEU_LY_DO'];
+        }
         if (! self::bat()) {
             return ['yc' => null, 'loi' => 'Tính năng mã duyệt chưa bật.', 'ma' => 'CHUA_BAT'];
         }
@@ -244,7 +248,7 @@ class MaDuyetService
 
         $khoa = self::khoaTrong($user->id, $tenRoute, $doiTuongLoai, $doiTuongId, $thamSo);
 
-        return DB::transaction(function () use ($user, $tenRoute, $method, $doiTuongLoai, $doiTuongId, $thamSo, $khoa, $request) {
+        return DB::transaction(function () use ($user, $tenRoute, $method, $doiTuongLoai, $doiTuongId, $thamSo, $lyDo, $khoa, $request) {
             // Chống trùng: cùng thao tác còn chờ -> tái dùng.
             $co = YeuCauDuyet::where('khoa_trung', $khoa)
                 ->whereIn('trang_thai', [self::TT_CHO_CAP, self::TT_DA_CAP])
@@ -264,6 +268,7 @@ class MaDuyetService
                 'doi_tuong_loai' => $doiTuongLoai,
                 'doi_tuong_id' => $doiTuongId,
                 'mo_ta_thao_tac' => self::moTa($tenRoute, $doiTuongLoai, $doiTuongId, $thamSo),
+                'ly_do_yeu_cau' => mb_substr(trim($lyDo), 0, 255) ?: null,
                 'tham_so_duyet' => $thamSo ?: null,
                 'trang_thai' => self::TT_CHO_CAP,
                 'khoa_trung' => $khoa,

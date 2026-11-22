@@ -8,7 +8,7 @@
 
 <div class="card mb-3">
     <div class="card-body py-2 small text-muted">
-        Nhân viên gửi yêu cầu cho thao tác mức M2 (tiền/mất dữ liệu). Kiểm tra kỹ <strong>người yêu cầu, thao tác, đối tượng và tham số ràng buộc</strong> trước khi cấp mã. Mã hiện đúng một lần — đọc/ghi lại cho nhân viên.
+        Nhân viên gửi yêu cầu kèm <strong>lý do</strong> cho thao tác mức M2 (tiền/mất dữ liệu). Kiểm tra kỹ <strong>người yêu cầu, lý do, thao tác, đối tượng và tham số ràng buộc</strong> trước khi cấp mã. Mã hiện đúng một lần — đọc/ghi lại cho nhân viên.
     </div>
 </div>
 
@@ -27,7 +27,12 @@
                         <div class="fw-semibold">{{ $yc->nhanVien->name ?? '#'.$yc->nhan_vien_id }}</div>
                         <div class="small text-muted">{{ $yc->nhanVien->email ?? '' }}</div>
                     </td>
-                    <td>{{ $yc->mo_ta_thao_tac }}</td>
+                    <td>
+                        {{ $yc->mo_ta_thao_tac }}
+                        @if ($yc->ly_do_yeu_cau)
+                            <div class="small text-muted fst-italic">&ldquo;{{ $yc->ly_do_yeu_cau }}&rdquo;</div>
+                        @endif
+                    </td>
                     <td class="small">
                         @if ($yc->doi_tuong_loai) {{ $yc->doi_tuong_loai }} #{{ $yc->doi_tuong_id }} @else — @endif
                     </td>
