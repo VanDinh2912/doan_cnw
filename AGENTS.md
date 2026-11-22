@@ -35,7 +35,7 @@ Usage rules:
 - Catalog is phone accessories (chargers, cables, earphones, etc. in 12 categories), not phones. Keep storefront copy accordingly.
 - Product images: `php artisan app:scrape-product-images [--force]` now generates local per-category SVGs (brand/model from the product name) into `storage/app/public/products`; no network needed. `public/storage` must be linked.
 - Storefront views live in `resources/views/storefront/`; the layout provides `@stack('styles')`. Validate Blade edits with `php artisan view:cache`.
-- Single `.env` only (since 2026-11-21): `.env.dev-*` were retired (`.bak`). Two dev servers share `.env` and differ only by env vars at launch:
-  - PIN dev (8899): `DB_DATABASE=doan_cnw_dev APP_URL=http://127.0.0.1:8899 POS_PIN_BAT=true php artisan serve --port=8899`
-  - Prod-like dev (8898): `DB_DATABASE=doan_cnw_dev_cu APP_URL=http://127.0.0.1:8898 POS_PIN_BAT=false php artisan serve --port=8898`
-  - Same overrides needed for any artisan command targeting a dev DB (e.g. `DB_DATABASE=doan_cnw_dev php artisan migrate:status`).
+- Single `.env` only (since 2026-11-21): `.env.dev-*` were retired (`.bak`). Since 2026-11-22 the project runs ONE dev server on port 8081 and `.env` itself carries the dev config — no launch overrides needed:
+  - `php artisan serve --port=8081` with `.env`: `DB_DATABASE=doan_cnw_dev`, `APP_URL=http://127.0.0.1:8081`, `POS_PIN_BAT=true`, `POS_MA_DUYET_BAT=true`, `POS_MA_DUYET_HET_HAN_PHUT=10`.
+  - `doan_cnw` is the production DB (read-only unless explicitly approved); `doan_cnw_dev_cu` is the prod-like copy for rollback checks.
+  - Artisan defaults to `doan_cnw_dev`; override `DB_DATABASE=` explicitly when targeting another DB.
