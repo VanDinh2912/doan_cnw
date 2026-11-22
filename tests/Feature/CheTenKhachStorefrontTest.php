@@ -130,7 +130,9 @@ class CheTenKhachStorefrontTest extends TestCase
         $response = $this->actingAs($this->user)->get(route('tintuc.chitiet', [$chuDe->slug, $baiViet->slug]));
         $response->assertOk();
         $this->assertKhongLoPII($response);
-        $response->assertSee(ChePII::hoTen(self::TEN_THAT), false);
+        // Bình luận công khai: "tên + chữ cái đầu họ" (vd "Thị N."), không che toàn bộ.
+        // (Header vẫn hiện dạng che hoTen — assertKhongLoPII đã kiểm PII thật.)
+        $response->assertSee('Thị N.', false);
     }
 
     public function test_form_lien_he_de_trong_va_gui_van_gan_user_id(): void

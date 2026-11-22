@@ -83,7 +83,7 @@
             @forelse ($binhLuans as $binhLuan)
                 <div style="background:var(--sf-surface);border:1px solid var(--sf-border);border-radius:10px;padding:12px 14px;margin-bottom:10px;">
                     <div style="display:flex;gap:10px;align-items:center;font-size:var(--sf-text-sm);margin-bottom:6px;">
-                        <strong>{{ $binhLuan->nguoiDung ? \App\Support\ChePII::hoTen($binhLuan->nguoiDung->name) : 'Người dùng' }}</strong>
+                        <strong>{{ $binhLuan->nguoiDung ? \App\Support\ChePII::tenRutGon($binhLuan->nguoiDung->name) : 'Người dùng' }}</strong>
                         <span style="color:var(--sf-fg-subtle);font-size:var(--sf-text-xs);">{{ $binhLuan->created_at->format('d/m/Y H:i') }}</span>
                     </div>
                     <p style="margin:0;font-size:var(--sf-text-sm);white-space:pre-line;">{{ $binhLuan->noi_dung }}</p>

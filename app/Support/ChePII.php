@@ -27,6 +27,27 @@ class ChePII
         return implode(' ', $ketQua);
     }
 
+    /**
+     * Tên rút gọn cho hiển thị CÔNG KHAI (bình luận): "Nguyễn Văn An" -> "An N."
+     * Chỉ lộ tên gọi + chữ cái đầu họ — đủ nhận diện, không lộ họ tên đầy đủ.
+     */
+    public static function tenRutGon(?string $hoTen): string
+    {
+        $tu = preg_split('/\s+/u', trim((string) $hoTen)) ?: [];
+        $tu = array_values(array_filter($tu, fn ($t) => $t !== ''));
+        if ($tu === []) {
+            return 'Người dùng';
+        }
+        if (count($tu) === 1) {
+            return $tu[0];
+        }
+
+        $ten = end($tu);
+        $dauHo = mb_substr($tu[0], 0, 1, 'UTF-8');
+
+        return $ten.' '.$dauHo.'.';
+    }
+
     // "0901234567" -> "090****567" (3 đầu + **** + 3 cuối)
     public static function soDienThoai(?string $sdt): string
     {
