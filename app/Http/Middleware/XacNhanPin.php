@@ -53,10 +53,11 @@ class XacNhanPin
         if ($request->isMethod('GET') || $request->isMethod('HEAD')) {
             return redirect()->guest(route('pin.nhap', ['return' => $request->fullUrl()]));
         }
-        // POST/PUT/DELETE không JS: quay về trang trước (referer), không về URL route (tránh 405)
+        // POST/PUT/DELETE không JS: quay về trang trước (referer), không về URL route (tránh 405).
+        // Fallback phải là khu quản trị — staff không bị văng ra storefront '/'.
         $referer = $request->headers->get('referer');
         return redirect($referer && ! str_contains($referer, $request->path())
             ? $referer
-            : url('/'))->with('loi_pin', $msg);
+            : route('tongquan'))->with('loi_pin', $msg);
     }
 }

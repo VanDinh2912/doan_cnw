@@ -9,6 +9,6 @@
     <h1>500</h1>
     <h2>Máy chủ gặp sự cố</h2>
     <p>Thao tác chưa hoàn tất. Vui lòng thử lại; nếu lỗi lặp lại, báo quản lý kiểm tra log hệ thống.</p>
-    <a href="{{ url('/') }}">Về trang chủ</a>
+    @include('errors._dieu-huong')
 </body>
 </html>

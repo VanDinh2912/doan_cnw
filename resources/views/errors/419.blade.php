@@ -9,6 +9,7 @@
     <h1>419</h1>
     <h2>Phiên làm việc đã hết hạn</h2>
     <p>Trang đã mở quá lâu hoặc bạn đã đăng xuất ở tab khác. Vui lòng tải lại trang rồi thực hiện lại thao tác.</p>
-    <a href="{{ url()->previous() }}">Tải lại trang</a>
+    <p><a href="{{ url()->previous() }}">Tải lại trang</a></p>
+    @include('errors._dieu-huong')
 </body>
 </html>

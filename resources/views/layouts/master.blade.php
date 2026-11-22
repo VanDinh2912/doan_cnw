@@ -15,6 +15,10 @@
         <span>Web POS</span>
     </a>
     <div class="ms-auto d-flex align-items-center gap-3">
+        <a class="btn btn-outline-secondary btn-sm" href="{{ route('storefront.home') }}" target="_blank" rel="noopener" title="Mở trang cửa hàng trong tab mới">
+            <i class="fa-solid fa-store"></i>
+            <span class="d-none d-md-inline ms-1">Xem cửa hàng</span>
+        </a>
         <div class="app-account">
             <button type="button" class="app-account-toggle" id="appAccountToggle" aria-haspopup="true" aria-expanded="false" aria-controls="appAccountMenu">
                 <i class="fa-solid fa-circle-user"></i>
@@ -26,6 +30,7 @@
                 <a href="{{ route('profile.show') }}"><i class="fa-solid fa-id-card"></i> Thông tin cá nhân</a>
                 <a href="{{ route('doi-mat-khau') }}"><i class="fa-solid fa-key"></i> Đổi mật khẩu</a>
                 <a href="{{ route('pin.xincap') }}"><i class="fa-solid fa-shield-halved"></i> Xin cấp PIN</a>
+                <a href="{{ route('storefront.home') }}" target="_blank" rel="noopener"><i class="fa-solid fa-store"></i> Xem cửa hàng</a>
                 <hr>
                 <a href="{{ route('auth.dangxuat') }}"><i class="fa-solid fa-right-from-bracket"></i> Đăng xuất</a>
             </div>

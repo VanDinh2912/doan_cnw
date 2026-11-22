@@ -91,7 +91,7 @@ class PinController extends Controller
 
         $return = (string) $request->input('return', '');
         $returnOk = $return !== '' && str_starts_with($return, url('/'));
-        $dich = $returnOk ? $return : url()->previous(route('home'));
+        $dich = $returnOk ? $return : url()->previous(route('tongquan'));
         if ($validated['muc'] === PinService::MUC_NGHIEMTRONG && isset($kq['token'])) {
             $dich .= (str_contains($dich, '?') ? '&' : '?').'_pin_token='.urlencode($kq['token']);
         }

@@ -101,8 +101,9 @@ class PinMuc
         }
         $referer = $request->headers->get('referer');
 
+        // Fallback về khu quản trị — staff không bị văng ra storefront '/'.
         return redirect($referer && ! str_contains($referer, $request->path())
-            ? $referer : url('/'))->withInput()->with('can_ma_duyet', $msg);
+            ? $referer : route('tongquan'))->withInput()->with('can_ma_duyet', $msg);
     }
 
     private function chanNhanVien(Request $request): Response

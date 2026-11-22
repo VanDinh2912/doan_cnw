@@ -9,6 +9,6 @@
     <h1>403</h1>
     <h2>Không có quyền truy cập</h2>
     <p>{{ $exception->getMessage() ?: 'Bạn không được phép truy cập trang này.' }}</p>
-    <a href="{{ url()->previous() }}">Quay lại</a>
+    @include('errors._dieu-huong')
 </body>
 </html>
