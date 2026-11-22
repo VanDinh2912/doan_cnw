@@ -139,6 +139,22 @@ class MaDuyetService
         return [$loai, $id, self::thamSoRequest($request, $tenRoute)];
     }
 
+    /**
+     * Lấy [loai, id] từ route object đã match (dùng cho endpoint /gui —
+     * tham số route là id thô, không qua model binding).
+     */
+    public static function dinhDanhRoute(\Illuminate\Routing\Route $route): array
+    {
+        $tenRoute = (string) $route->getName();
+        if (! isset(self::DOI_TUONG_ROUTE[$tenRoute])) {
+            return [null, null];
+        }
+        [$loai, $param] = self::DOI_TUONG_ROUTE[$tenRoute];
+        $id = $route->parameter($param);
+
+        return [$loai, $id !== null ? (int) $id : null];
+    }
+
     /** Tham số request chuẩn hóa theo route — dùng cho cả tạo yêu cầu lẫn verify. */
     public static function thamSoRequest(Request $request, string $tenRoute): array
     {

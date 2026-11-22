@@ -211,6 +211,9 @@ Route::middleware(['auth', 'staff.only', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->
 
     // P3: màn hình nhân viên xử lý đơn online (admin/thu ngân/thủ kho) — ngoài nhóm role:admin,thungan.
     Route::middleware('role:admin,thungan,thukho')->group(function (): void {
+        // NV gửi yêu cầu mã duyệt (tự nó là cơ chế M2 — không cần PIN)
+        Route::post('/yeu-cau-duyet/gui', [\App\Http\Controllers\YeuCauDuyetController::class, 'gui'])
+            ->middleware('throttle:20,1')->name('duyet.gui');
         Route::get('/donhang-online/so-luong', [\App\Http\Controllers\DonHangOnlineController::class, 'getSoLuongCanXuLy'])
             ->name('donhangonline.soluong');
         Route::get('/donhang-online', [\App\Http\Controllers\DonHangOnlineController::class, 'getDanhSach'])
@@ -357,6 +360,11 @@ Route::middleware(['auth', 'staff.only', 'khoa.luc', 'bat.buoc.doi.mat.khau'])->
         Route::get('/doisoat/{webhook}', [\App\Http\Controllers\DoiSoatController::class, 'show'])->name('doisoat.show');
         Route::post('/doisoat/{webhook}/xuly', [\App\Http\Controllers\DoiSoatController::class, 'xuLy'])->name('doisoat.xuly')->middleware('pin.muc');
         Route::post('/trahang/duyet/{phieuTra}', [\App\Http\Controllers\TraHangController::class, 'postDuyet'])->name('trahang.duyet')->middleware('pin.muc');
+        // Yêu cầu duyệt mã hai-người (admin). cap-ma/tu-choi mức A = PIN nghiêm trọng.
+        Route::get('/yeu-cau-duyet', [\App\Http\Controllers\YeuCauDuyetController::class, 'index'])->name('duyet.index');
+        Route::get('/yeu-cau-duyet/so-luong', [\App\Http\Controllers\YeuCauDuyetController::class, 'soLuong'])->name('duyet.solong');
+        Route::post('/yeu-cau-duyet/{yeuCau}/cap-ma', [\App\Http\Controllers\YeuCauDuyetController::class, 'capMa'])->name('duyet.capma')->middleware('pin.muc');
+        Route::post('/yeu-cau-duyet/{yeuCau}/tu-choi', [\App\Http\Controllers\YeuCauDuyetController::class, 'tuChoi'])->name('duyet.tuchoi')->middleware('pin.muc');
         Route::get('/thongke', [\App\Http\Controllers\ThongKeController::class, 'getTrangThongKe'])
             ->name('thongke.index');
         Route::get('/thongke/doanhthu', [\App\Http\Controllers\ThongKeController::class, 'getDoanhThu'])->name('thongke.doanhthu');

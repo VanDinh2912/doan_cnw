@@ -155,6 +155,10 @@
                         <a class="app-nav-link {{ request()->routeIs('doisoat.*') ? 'active' : '' }}" href="{{ route('doisoat.index') }}">
                             <i class="fa-solid fa-scale-balanced"></i><span>Đối soát thanh toán</span>
                         </a>
+                        <a class="app-nav-link {{ request()->routeIs('duyet.*') ? 'active' : '' }}" href="{{ route('duyet.index') }}">
+                            <i class="fa-solid fa-user-check"></i><span>Yêu cầu duyệt</span>
+                            <span class="badge bg-danger ms-auto js-badge-duyet" style="display:none"></span>
+                        </a>
                     </div>
                 </details>
             @endif
