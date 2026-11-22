@@ -7,6 +7,6 @@
 <p class="small text-muted">Trong đó: tiền hàng hoàn {{ number_format((float) $phieuTra->tong_hoan - (float) $phieuTra->tien_hoan_phi_giao, 0, ',', '.') }} đ · hoàn phí giao hàng {{ number_format((float) $phieuTra->tien_hoan_phi_giao, 0, ',', '.') }} đ.</p>
 @endif
 <div class="card"><div class="table-responsive"><table class="table mb-0"><thead><tr><th>Sản phẩm</th><th>Số lượng</th><th>Tình trạng</th><th>Tiền hoàn</th></tr></thead><tbody>@foreach ($phieuTra->chiTiets as $item)<tr><td>{{ $item->sanPham->ten_sanpham }}</td><td>{{ $item->soluong }}</td><td>{{ $item->tinh_trang === 'con_tot' ? 'Còn tốt' : 'Lỗi/hỏng' }}</td><td>{{ number_format($item->thanh_tien, 0, ',', '.') }}</td></tr>@endforeach</tbody></table></div></div>
-@if ($phieuTra->trang_thai === 'cho_duyet')<form class="mt-3" method="POST" action="{{ route('trahang.duyet', $phieuTra) }}" data-can-pin="nghiemtrong">@csrf<button class="btn btn-primary">Duyệt phiếu</button></form>@endif
+@if ($phieuTra->trang_thai === 'cho_duyet')<form class="mt-3" method="POST" action="{{ route('trahang.duyet', $phieuTra) }}" data-can-pin="a">@csrf<button class="btn btn-primary">Duyệt phiếu</button></form>@endif
 <a class="btn btn-link px-0" href="{{ route('trahang.danhsach') }}">Quay lại</a>
 @endsection

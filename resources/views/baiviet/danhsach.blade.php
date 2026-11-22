@@ -54,15 +54,15 @@
                     </td>
                     <td class="text-end text-nowrap">
                         <a class="btn btn-sm btn-outline-primary" href="{{ route('baiviet.sua', $baiViet) }}">Sửa</a>
-                        <form class="d-inline" method="POST" action="{{ route('baiviet.duyet', $baiViet) }}" data-can-pin="thuong">
+                        <form class="d-inline" method="POST" action="{{ route('baiviet.duyet', $baiViet) }}">
                             @csrf
                             <button class="btn btn-sm btn-outline-success" type="submit">{{ $baiViet->kiem_duyet ? 'Bỏ duyệt' : 'Duyệt' }}</button>
                         </form>
-                        <form class="d-inline" method="POST" action="{{ route('baiviet.kichhoat', $baiViet) }}" data-can-pin="thuong">
+                        <form class="d-inline" method="POST" action="{{ route('baiviet.kichhoat', $baiViet) }}">
                             @csrf
                             <button class="btn btn-sm btn-outline-secondary" type="submit">{{ $baiViet->kich_hoat ? 'Ẩn' : 'Hiện' }}</button>
                         </form>
-                        <form class="d-inline" method="POST" action="{{ route('baiviet.xoa', $baiViet) }}" onsubmit="return confirm('Xóa bài viết này? Toàn bộ bình luận sẽ bị xóa theo.')" data-can-pin="nghiemtrong">
+                        <form class="d-inline" method="POST" action="{{ route('baiviet.xoa', $baiViet) }}" onsubmit="return confirm('Xóa bài viết này? Toàn bộ bình luận sẽ bị xóa theo.')" data-can-pin="a">
                             @csrf
                             @method('DELETE')
                             <button class="btn btn-sm btn-outline-danger" type="submit">Xóa</button>

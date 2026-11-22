@@ -4,7 +4,7 @@
 
 @section('content')
 <h1 class="h3 mb-3">Đổi trả hóa đơn {{ $donHang->ma_hoadon }}</h1>
-<form method="POST" action="{{ route('trahang.luu') }}" data-can-pin="thuong">@csrf
+<form method="POST" action="{{ route('trahang.luu') }}" data-can-pin="m2">@csrf
 <input type="hidden" name="invoice_id" value="{{ $donHang->id }}">
 <div class="card mb-3"><div class="table-responsive"><table class="table mb-0">
 <thead><tr><th>Sản phẩm</th><th>Đã bán</th><th>Số lượng trả</th><th>Tình trạng</th></tr></thead>

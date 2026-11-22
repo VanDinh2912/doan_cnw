@@ -69,17 +69,17 @@
                     <td>
                         <a class="btn btn-sm btn-outline-primary" href="{{ route('taikhoan.sua', $user) }}">Sửa</a>
                         @if (array_key_exists('khoa_luc', $user->getAttributes()) && $user->khoa_luc === null)
-                            <form class="d-inline" method="POST" action="{{ route('taikhoan.khoa', $user) }}" data-can-pin="nghiemtrong" onsubmit="return confirm('Khóa tài khoản này?')">
+                            <form class="d-inline" method="POST" action="{{ route('taikhoan.khoa', $user) }}" data-can-pin="a" onsubmit="return confirm('Khóa tài khoản này?')">
                                 @csrf
                                 <button class="btn btn-sm btn-outline-warning" type="submit">Khóa</button>
                             </form>
                         @else
-                            <form class="d-inline" method="POST" action="{{ route('taikhoan.mokhoa', $user) }}" data-can-pin="nghiemtrong" onsubmit="return confirm('Mở khóa tài khoản này?')">
+                            <form class="d-inline" method="POST" action="{{ route('taikhoan.mokhoa', $user) }}" data-can-pin="a" onsubmit="return confirm('Mở khóa tài khoản này?')">
                                 @csrf
                                 <button class="btn btn-sm btn-outline-success" type="submit">Mở khóa</button>
                             </form>
                         @endif
-                        <form class="d-inline" method="POST" action="{{ route('taikhoan.datlaimatkhau', $user) }}" data-can-pin="nghiemtrong" onsubmit="return confirm('Đặt lại mật khẩu? Mật khẩu tạm mới sẽ được hiển thị một lần.')">
+                        <form class="d-inline" method="POST" action="{{ route('taikhoan.datlaimatkhau', $user) }}" data-can-pin="a" onsubmit="return confirm('Đặt lại mật khẩu? Mật khẩu tạm mới sẽ được hiển thị một lần.')">
                             @csrf
                             <button class="btn btn-sm btn-outline-secondary" type="submit">Đặt lại mật khẩu</button>
                         </form>

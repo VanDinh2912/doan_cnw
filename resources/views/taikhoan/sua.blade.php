@@ -4,7 +4,7 @@
 
 @section('content')
 <h1 class="h3 mb-3">Sửa tài khoản nhân viên</h1>
-<form class="card card-body" method="POST" action="{{ route('taikhoan.update', $user) }}" data-can-pin="nghiemtrong">
+<form class="card card-body" method="POST" action="{{ route('taikhoan.update', $user) }}" data-can-pin="a">
     @csrf
     @method('PUT')
     <div class="mb-3">
@@ -60,7 +60,7 @@
                 Yêu cầu gần nhất: {{ $xinPinGanNhat->mo_ta }} — {{ $xinPinGanNhat->created_at }}
             </p>
         @endif
-        <form method="POST" action="{{ route('taikhoan.datlaipin', $user) }}" data-can-pin="nghiemtrong"
+        <form method="POST" action="{{ route('taikhoan.datlaipin', $user) }}" data-can-pin="a"
               onsubmit="return confirm('Cấp PIN tạm mới? PIN hiện tại của nhân viên sẽ vô hiệu và họ bắt buộc đổi PIN.');">
             @csrf
             <div class="input-group" style="max-width: 34rem;">

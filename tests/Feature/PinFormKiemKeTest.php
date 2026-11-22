@@ -6,27 +6,31 @@ use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
 /**
- * Kiểm kê giao diện: mọi <form> trong blade có action trỏ tới route đã gắn
- * xac.nhan.pin phải có data-can-pin đúng mức — nếu thiếu, middleware sẽ
+ * Kiểm kê giao diện: mọi <form> trong blade có action trỏ tới route được
+ * bảo vệ (pin.muc, mức M1/M2/A trong config/pin_muc.php) phải có
+ * data-can-pin="m1|m2|a" tương ứng — nếu thiếu, middleware sẽ
  * redirect-back và MẤT dữ liệu form đã nhập.
  */
 class PinFormKiemKeTest extends TestCase
 {
-    public function test_moi_form_toi_route_pin_deu_co_data_can_pin(): void
+    public function test_moi_form_toi_route_bao_ve_deu_co_data_can_pin(): void
     {
         config(['pos.pin_bat' => true]);
-        // Resolve route name -> muc PIN qua RouteCollection (bat dung ca ten
-        // co prefix group nhu taikhoan.update — cach doc text routes/web.php
-        // khong bat duoc vi ->name('update') nam trong group ->name('taikhoan.')).
+        // Route name -> mức pin.muc (chỉ route thật sự gắn pin.muc).
         $map = [];
         foreach (Route::getRoutes() as $route) {
-            foreach ($route->gatherMiddleware() as $m) {
-                if (preg_match('/^xac\.nhan\.pin:(\w+)$/', (string) $m, $mm)) {
-                    $map[(string) $route->getName()] = $mm[1];
-                }
+            $coPinMuc = collect($route->gatherMiddleware())->contains(
+                fn ($m) => $m === 'pin.muc' || str_ends_with((string) $m, ':pin.muc')
+            );
+            if (! $coPinMuc) {
+                continue;
+            }
+            $muc = config('pin_muc')[(string) $route->getName()] ?? null;
+            if ($muc && in_array(strtoupper((string) $muc), ['M1', 'M2', 'A'], true)) {
+                $map[(string) $route->getName()] = strtolower((string) $muc);
             }
         }
-        $this->assertNotEmpty($map, 'Không tìm thấy route PIN nào');
+        $this->assertNotEmpty($map, 'Không tìm thấy route pin.muc nào');
 
         $thieu = [];
         $tong = 0;
@@ -36,8 +40,6 @@ class PinFormKiemKeTest extends TestCase
                 continue;
             }
             $c = file_get_contents($f->getPathname());
-            // Ten route co the co prefix group -> lay phan sau dau . cuoi? Khong:
-            // quet moi route('...') trong the <form> roi tra cuu map.
             if (! preg_match_all('/<form\b[^>]*>/s', $c, $formTags)) {
                 continue;
             }
@@ -51,13 +53,18 @@ class PinFormKiemKeTest extends TestCase
                     }
                     $muc = $map[$routeName];
                     $tong++;
-                    if (! preg_match('/data-can-pin="(\w+)"/', $tag, $dm) || $dm[1] !== $muc) {
+                    // data-can-pin tĩnh "m1" hoặc biểu thức blade chứa 'm1'
+                    $ok = preg_match('/data-can-pin="(m1|m2|a)"/', $tag, $dm) && $dm[1] === $muc;
+                    if (! $ok && str_contains($tag, "data-can-pin=\"{{") && str_contains($tag, "'{$muc}'")) {
+                        $ok = true;
+                    }
+                    if (! $ok) {
                         $thieu[] = $f->getFilename().' :: '.$routeName.' (can '.$muc.')';
                     }
                 }
             }
         }
-        $this->assertGreaterThan(0, $tong, 'Không tìm thấy form nào tới route PIN — kiểm tra lại regex');
+        $this->assertGreaterThan(0, $tong, 'Không tìm thấy form nào tới route bảo vệ — kiểm tra lại regex');
         $this->assertSame([], $thieu, "Form thiếu/sai data-can-pin:\n".implode("\n", $thieu));
     }
 

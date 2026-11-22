@@ -47,7 +47,7 @@
                         && $khachHang->user->khoa_luc === null && ! $khachHang->biKhoa())
                 <hr class="my-2">
                 <form method="POST" action="{{ route('khachhang.datlaimatkhau', $khachHang) }}"
-                      onsubmit="return confirm('Đặt lại mật khẩu tài khoản này? Mọi phiên đăng nhập sẽ bị hủy.')" data-can-pin="nghiemtrong">
+                      onsubmit="return confirm('Đặt lại mật khẩu tài khoản này? Mọi phiên đăng nhập sẽ bị hủy.')" data-can-pin="a">
                     @csrf
                     <label class="form-label">Đặt lại mật khẩu (chỉ admin)</label>
                     <div class="input-group input-group-sm">
@@ -75,7 +75,7 @@
                     @endif
                     @if ($laAdmin)
                     <form method="POST" action="{{ route('khachhang.mokhoa', $khachHang) }}" class="mt-2"
-                          onsubmit="return confirm('Mở khóa khách hàng này?')" data-can-pin="nghiemtrong">
+                          onsubmit="return confirm('Mở khóa khách hàng này?')" data-can-pin="a">
                         @csrf
                         <button type="submit" class="btn btn-success btn-sm">Mở khóa</button>
                     </form>
@@ -83,7 +83,7 @@
                 @else
                     <p><span class="badge bg-success">Hoạt động</span></p>
                     @if ($laAdmin)
-                    <form method="POST" action="{{ route('khachhang.khoa', $khachHang) }}" class="mt-2" data-can-pin="nghiemtrong">
+                    <form method="POST" action="{{ route('khachhang.khoa', $khachHang) }}" class="mt-2" data-can-pin="a">
                         @csrf
                         <div class="mb-2">
                             <label class="form-label">Lý do khóa (bắt buộc)</label>
@@ -109,7 +109,7 @@
             <small class="text-muted">(≈ {{ number_format($khachHang->diem_tichluy * (int) config('pos.gia_tri_diem'), 0, ',', '.') }} đ)</small></p>
 
         @if ($laAdmin)
-        <form method="POST" action="{{ route('khachhang.dieuchinhdiem', $khachHang) }}" class="row g-2 align-items-end mb-3" data-can-pin="nghiemtrong">
+        <form method="POST" action="{{ route('khachhang.dieuchinhdiem', $khachHang) }}" class="row g-2 align-items-end mb-3" data-can-pin="a">
             @csrf
             <div class="col-auto">
                 <label class="form-label">Điểm (+/-)</label>

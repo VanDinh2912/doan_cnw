@@ -100,10 +100,72 @@ class MaDuyetService
      * 'eq' = phải bằng; 'lte' = giá trị request <= giá trị đã duyệt.
      */
     private const RANG_BUOC = [
-        'sanpham.postsua' => ['gia_ban_moi' => 'lte', 'trang_thai_ban_moi' => 'eq'],
+        'sanpham.postsua' => ['gia_ban_moi' => 'eq', 'trang_thai_ban_moi' => 'eq'],
         'donhang.thanhtoan' => ['giam_gia_phantram' => 'lte', 'diem_su_dung' => 'lte', 'tong_gio' => 'lte'],
-        'donhang.taoqr' => ['diem_su_dung' => 'lte', 'tong_gio' => 'lte'],
+        'donhang.taoqr' => ['giam_gia_phantram' => 'lte', 'diem_su_dung' => 'lte', 'tong_gio' => 'lte'],
     ];
+
+    /**
+     * Route M2 tĩnh -> [loai_doi_tuong, ten_tham_so_route].
+     * Route không có đối tượng cố định (trahang.luu, kho.postnhapkho,
+     * donhang.thanhtoan/taoqr) ràng buộc qua tham_so_duyet.
+     */
+    private const DOI_TUONG_ROUTE = [
+        'khachhang.xoa' => ['khach_hang', 'khachHang'],
+        'sanpham.xoa' => ['san_pham', 'sanPham'],
+        'sanpham.postsua' => ['san_pham', 'sanPham'],
+        'loaisanpham.xoa' => ['loai_san_pham', 'loai'],
+        'hangsxuat.xoa' => ['hang_san_xuat', 'hang'],
+        'nhaphang.nhacungcap.xoa' => ['nha_cung_cap', 'nhaCungCap'],
+        'nhaphang.donnhap.trangthai' => ['don_nhap', 'donNhap'],
+        'hoadonnhap.xacnhan' => ['hoa_don_nhap', 'hoaDon'],
+        'hoadonnhap.huy' => ['hoa_don_nhap', 'hoaDon'],
+        'donhang.xacnhan' => ['don_hang', 'donHang'],
+    ];
+
+    /**
+     * Định danh thao tác từ request hiện tại: [loai, id, thamSoRequest].
+     * thamSoRequest chỉ gồm tham số RÀNG BUỘC (server chuẩn hóa tên).
+     */
+    public static function dinhDanh(Request $request, string $tenRoute): array
+    {
+        $loai = $id = null;
+        if (isset(self::DOI_TUONG_ROUTE[$tenRoute])) {
+            [$loai, $param] = self::DOI_TUONG_ROUTE[$tenRoute];
+            $model = $request->route($param);
+            $id = $model ? (int) ($model->id ?? $model) : null;
+        }
+
+        return [$loai, $id, self::thamSoRequest($request, $tenRoute)];
+    }
+
+    /** Tham số request chuẩn hóa theo route — dùng cho cả tạo yêu cầu lẫn verify. */
+    public static function thamSoRequest(Request $request, string $tenRoute): array
+    {
+        $raw = match ($tenRoute) {
+            'sanpham.postsua' => [
+                'gia_ban_moi' => $request->input('gia_ban'),
+                'trang_thai_ban_moi' => $request->input('trang_thai_ban'),
+            ],
+            'donhang.thanhtoan', 'donhang.taoqr' => self::thamSoPos($request),
+            default => [],
+        };
+
+        return array_filter($raw, fn ($v) => $v !== null && $v !== '');
+    }
+
+    /** Tham số POS: giảm giá %, điểm dùng, tổng giỏ từ session lúc gọi. */
+    private static function thamSoPos(Request $request): array
+    {
+        $gio = collect($request->session()->get('gio_hang', []));
+        $tong = $gio->sum(fn ($i) => (float) ($i['gia_ban'] ?? 0) * (int) ($i['soluong'] ?? 0));
+
+        return [
+            'giam_gia_phantram' => $request->input('giam_gia_phantram'),
+            'diem_su_dung' => $request->input('diem_su_dung'),
+            'tong_gio' => $tong > 0 ? $tong : null,
+        ];
+    }
 
     /** Nhãn tiếng Việt cho mô tả (server sinh, client không gửi). */
     private const NHAN_ROUTE = [

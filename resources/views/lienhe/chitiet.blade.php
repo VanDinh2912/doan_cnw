@@ -36,7 +36,7 @@
         <div class="card mb-3">
             <div class="card-header"><strong>Xử lý</strong></div>
             <div class="card-body">
-                <form method="POST" action="{{ route('lienhe.capnhat', $lienHe) }}" data-can-pin="thuong">
+                <form method="POST" action="{{ route('lienhe.capnhat', $lienHe) }}">
                     @csrf
                     <div class="mb-3">
                         <label class="form-label">Trạng thái</label>

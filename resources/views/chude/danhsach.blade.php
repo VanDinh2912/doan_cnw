@@ -23,7 +23,7 @@
                     <td>{{ $chuDe->bai_viets_count }}</td>
                     <td class="text-end">
                         <a class="btn btn-sm btn-outline-primary" href="{{ route('chude.sua', $chuDe) }}">Sửa</a>
-                        <form class="d-inline" method="POST" action="{{ route('chude.xoa', $chuDe) }}" onsubmit="return confirm('Xóa chủ đề này?')" data-can-pin="nghiemtrong">
+                        <form class="d-inline" method="POST" action="{{ route('chude.xoa', $chuDe) }}" onsubmit="return confirm('Xóa chủ đề này?')" data-can-pin="a">
                             @csrf
                             @method('DELETE')
                             <button class="btn btn-sm btn-outline-danger" type="submit">Xóa</button>

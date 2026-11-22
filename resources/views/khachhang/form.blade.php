@@ -4,7 +4,7 @@
 
 @section('content')
 <h1 class="h3 mb-3">{{ $khachHang->exists ? 'Sửa khách hàng' : 'Thêm khách hàng' }}</h1>
-<form class="card card-body" method="POST" action="{{ $khachHang->exists ? route('khachhang.postsua', $khachHang) : route('khachhang.postthem') }}">
+<form class="card card-body" method="POST" action="{{ $khachHang->exists ? route('khachhang.postsua', $khachHang) : route('khachhang.postthem') }}" data-can-pin="{{ $khachHang->exists ? 'm1' : '' }}">
     @csrf
     @if ($khachHang->exists) @method('PUT') @endif
     <div class="mb-3">

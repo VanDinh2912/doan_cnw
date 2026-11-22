@@ -28,7 +28,7 @@
                     <td>{{ $don->updated_at->format('d/m/Y H:i') }}</td>
                     <td><small>{{ $don->ghi_chu_noi_bo ?? $don->ghi_chu ?? '—' }}</small></td>
                     <td>
-                        <form method="POST" action="{{ route('donhangonline.dahoantien', $don) }}" class="d-flex gap-1" data-can-pin="nghiemtrong">
+                        <form method="POST" action="{{ route('donhangonline.dahoantien', $don) }}" class="d-flex gap-1" data-can-pin="a">
                             @csrf
                             <input type="text" name="ghi_chu" class="form-control form-control-sm" placeholder="Ghi chú hoàn tiền" required minlength="5">
                             <button class="btn btn-sm btn-success text-nowrap" type="submit">Đã hoàn tiền</button>

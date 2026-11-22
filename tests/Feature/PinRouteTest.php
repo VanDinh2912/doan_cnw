@@ -48,25 +48,29 @@ class PinRouteTest extends TestCase
 
     public function test_thuong_chua_nhap_pin_bi_chan_ajax_423(): void
     {
+        // /trahang nay la M2 (ma duyet); dung route M1 de kiem PIN thuong.
+        $kh = KhachHang::create(['ho_ten' => 'K', 'so_dienthoai' => '0900000099']);
         $this->actingAs($this->nv);
-        $this->postJson('/trahang', [])->assertStatus(423)->assertJsonPath('ma', 'CAN_PIN');
+        $this->putJson("/khachhang/sua/{$kh->id}", [])->assertStatus(423)->assertJsonPath('ma', 'CAN_PIN');
     }
 
     public function test_thuong_sai_pin_khong_mo_quyen(): void
     {
         $this->actingAs($this->nv);
-        $this->postJson('/xac-nhan-pin/kiem-tra', ['pin' => '999999', 'muc' => 'thuong', 'hanh_dong' => 'POST /trahang'])
+        $kh = KhachHang::create(['ho_ten' => 'K', 'so_dienthoai' => '0900000098']);
+        $this->postJson('/xac-nhan-pin/kiem-tra', ['pin' => '999999', 'muc' => 'thuong', 'hanh_dong' => 'PUT /khachhang/sua/'.$kh->id])
             ->assertStatus(422)->assertJsonPath('ma', 'SAI');
-        $this->postJson('/trahang', [])->assertStatus(423);
+        $this->putJson("/khachhang/sua/{$kh->id}", [])->assertStatus(423);
     }
 
     public function test_thuong_dung_pin_mo_cua_so_5_phut(): void
     {
         $this->actingAs($this->nv);
-        $this->postJson('/xac-nhan-pin/kiem-tra', ['pin' => '246813', 'muc' => 'thuong', 'hanh_dong' => 'POST /trahang'])
+        $kh = KhachHang::create(['ho_ten' => 'K', 'so_dienthoai' => '0900000097']);
+        $this->postJson('/xac-nhan-pin/kiem-tra', ['pin' => '246813', 'muc' => 'thuong', 'hanh_dong' => 'PUT /khachhang/sua/'.$kh->id])
             ->assertOk()->assertJsonPath('ok', true);
-        // Cửa sổ mở -> route thường đi qua middleware (validation fail 302/422 chứ không 423)
-        $res = $this->post('/trahang', []);
+        // Cửa sổ mở -> route M1 đi qua middleware (validation fail 302/422 chứ không 423)
+        $res = $this->put("/khachhang/sua/{$kh->id}", []);
         $this->assertNotEquals(423, $res->status());
     }
 
@@ -118,7 +122,8 @@ class PinRouteTest extends TestCase
     {
         $nv2 = User::create(['name' => 'N2', 'email' => 'n2@t.local', 'password' => Hash::make('Mk@12345'), 'role' => 'thungan']);
         $this->actingAs($nv2);
-        $res = $this->postJson('/trahang', []);
+        $kh = KhachHang::create(['ho_ten' => 'K', 'so_dienthoai' => '0900000096']);
+        $res = $this->putJson("/khachhang/sua/{$kh->id}", []);
         $res->assertStatus(423)->assertJsonPath('ma', 'CAN_THIET_LAP_PIN');
     }
 }

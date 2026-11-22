@@ -6,7 +6,7 @@
 <h1 class="h3 mb-3">{{ $sanPham->exists ? 'Sửa sản phẩm' : 'Thêm sản phẩm' }}</h1>
 <div class="card">
     <div class="card-body">
-        <form method="POST" enctype="multipart/form-data" action="{{ $sanPham->exists ? route('sanpham.postsua', $sanPham) : route('sanpham.postthem') }}" data-can-pin="{{ $sanPham->exists ? 'nghiemtrong' : 'thuong' }}">
+        <form method="POST" enctype="multipart/form-data" action="{{ $sanPham->exists ? route('sanpham.postsua', $sanPham) : route('sanpham.postthem') }}" data-can-pin="{{ $sanPham->exists ? 'm1' : '' }}">
             @csrf
             @if ($sanPham->exists) @method('PUT') @endif
             <div class="row g-3">

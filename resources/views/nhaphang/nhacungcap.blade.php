@@ -16,7 +16,7 @@
     <tbody>@forelse ($nhaCungCaps as $nhaCungCap)
         <tr><td>{{ $nhaCungCap->ten_nhacungcap }}</td><td>{{ $nhaCungCap->nguoi_lienhe ?: '-' }}</td><td>{{ $nhaCungCap->so_dienthoai ?: '-' }}</td><td>{{ $nhaCungCap->dia_chi ?: '-' }}</td><td class="text-nowrap">
             <a class="btn btn-sm btn-outline-primary" href="{{ route('nhaphang.nhacungcap.sua', $nhaCungCap) }}">Sửa</a>
-            <form class="d-inline" method="POST" action="{{ route('nhaphang.nhacungcap.xoa', $nhaCungCap) }}" data-can-pin="nghiemtrong">@csrf @method('DELETE')<button class="btn btn-sm btn-outline-danger" onclick="return confirm('Xóa nhà cung cấp này?')">Xóa</button></form>
+            <form class="d-inline" method="POST" action="{{ route('nhaphang.nhacungcap.xoa', $nhaCungCap) }}" data-can-pin="m2">@csrf @method('DELETE')<button class="btn btn-sm btn-outline-danger" onclick="return confirm('Xóa nhà cung cấp này?')">Xóa</button></form>
         </td></tr>
     @empty <tr><td colspan="5" class="text-center">Chưa có nhà cung cấp.</td></tr>@endforelse</tbody>
 </table></div></div>

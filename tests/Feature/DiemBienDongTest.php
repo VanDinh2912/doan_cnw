@@ -329,10 +329,12 @@ class DiemBienDongTest extends TestCase
     {
         $route = \Illuminate\Support\Facades\Route::getRoutes()->getByName('khachhang.dieuchinhdiem');
         $this->assertNotNull($route);
+        // Mức A trong config/pin_muc.php + middleware pin.muc (thay xac.nhan.pin:nghiemtrong)
+        $this->assertSame('A', config('pin_muc')['khachhang.dieuchinhdiem'] ?? null);
         $muc = collect($route->gatherMiddleware())->first(
-            fn ($m) => str_contains((string) $m, 'xac.nhan.pin')
+            fn ($m) => $m === 'pin.muc' || str_ends_with((string) $m, ':pin.muc')
         );
-        $this->assertStringContainsString('nghiemtrong', (string) $muc);
+        $this->assertNotNull($muc);
         // Chỉ admin
         $this->assertContains('role:admin', array_map('strval', $route->gatherMiddleware()));
     }

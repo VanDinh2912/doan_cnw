@@ -89,7 +89,7 @@
                     <td class="text-end text-nowrap">
                         <a class="btn btn-sm btn-outline-primary" href="{{ route('sanpham.sua', $sanPham) }}">Sửa</a>
                         <a class="btn btn-sm btn-outline-secondary" href="{{ route('sanpham.tem', $sanPham) }}">Tem</a>
-                        <form class="d-inline" method="POST" action="{{ route('sanpham.xoa', $sanPham) }}" onsubmit="return confirm('Xóa sản phẩm này?')" data-can-pin="nghiemtrong">
+                        <form class="d-inline" method="POST" action="{{ route('sanpham.xoa', $sanPham) }}" onsubmit="return confirm('Xóa sản phẩm này?')" data-can-pin="m2">
                             @csrf
                             @method('DELETE')
                             <button class="btn btn-sm btn-outline-danger" type="submit">Xóa</button>

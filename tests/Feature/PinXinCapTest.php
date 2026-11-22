@@ -107,7 +107,7 @@ class PinXinCapTest extends TestCase
             ->assertOk()
             ->assertSee('/taikhoan/dat-lai-pin/'.$this->nv->id)
             ->assertSee('name="ly_do"', false)
-            ->assertSee('data-can-pin="nghiemtrong"', false);
+            ->assertSee('data-can-pin="a"', false);
     }
 
     public function test_trang_sua_tai_khoan_pick_dung_vai_tro_hien_tai(): void

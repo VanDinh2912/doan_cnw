@@ -98,7 +98,7 @@
     <div class="card-header fw-semibold">Chuyển trạng thái giao</div>
     <div class="card-body d-flex align-items-center gap-3">
         <span>Hiện tại: <b>{{ $don->trang_thai_giao_tieng_viet }}</b></span>
-        <form method="POST" action="{{ route('donhangonline.trangthai', $don) }}" class="d-flex gap-2" data-can-pin="thuong">
+        <form method="POST" action="{{ route('donhangonline.trangthai', $don) }}" class="d-flex gap-2" data-can-pin="m1">
             @csrf
             <input type="hidden" name="trang_thai_giao_moi" value="{{ $trangThaiKe }}">
             <button class="btn btn-primary" type="submit"
@@ -135,7 +135,7 @@
             <p class="text-muted mb-0">Tính năng nhận hàng chưa sẵn sàng — cần áp migration cột nhận hàng trên CSDL.</p>
         @else
             <p class="text-muted">Đối chiếu mã đơn <code>{{ $don->ma_tra_cuu }}</code>, người nhận: <b>{{ $don->ten_khach_dat }}</b> — {{ $don->so_dienthoai_dat }} trước khi xác nhận.</p>
-            <form method="POST" action="{{ route('donhangonline.nhanhang', $don) }}" class="d-flex gap-2 flex-wrap" data-can-pin="thuong">
+            <form method="POST" action="{{ route('donhangonline.nhanhang', $don) }}" class="d-flex gap-2 flex-wrap" data-can-pin="m1">
                 @csrf
                 <input type="text" name="ghi_chu_nhan" class="form-control" style="max-width:320px;" placeholder="Ghi chú (vd: người nhận hộ)" maxlength="255">
                 <button class="btn btn-success text-nowrap" type="submit"
@@ -153,7 +153,7 @@
     <div class="card-header fw-semibold text-danger">Hủy đơn đã thanh toán (chỉ admin)</div>
     <div class="card-body">
         <p class="text-muted">Hủy sẽ hoàn kho, thu hồi điểm đã cộng và đánh dấu <b>CẦN HOÀN TIỀN THỦ CÔNG</b>. Tiền KHÔNG tự hoàn — xử lý thủ công sau.</p>
-        <form method="POST" action="{{ route('donhangonline.huydathanhtoan', $don) }}" class="d-flex gap-2" data-can-pin="nghiemtrong">
+        <form method="POST" action="{{ route('donhangonline.huydathanhtoan', $don) }}" class="d-flex gap-2" data-can-pin="a">
             @csrf
             <input type="text" name="ly_do" class="form-control" placeholder="Lý do hủy (bắt buộc)" required minlength="5" maxlength="255">
             <button class="btn btn-danger text-nowrap" type="submit"

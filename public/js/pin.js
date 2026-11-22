@@ -68,8 +68,12 @@
     document.addEventListener('submit', function (e) {
         var form = e.target;
         if (!(form instanceof HTMLFormElement)) return;
-        var muc = form.getAttribute('data-can-pin');
-        if (!muc) return;
+        var mucRaw = form.getAttribute('data-can-pin');
+        if (!mucRaw) return;
+        // m2 = mã duyệt hai-người: không chặn ở đây, server trả CAN_MA_DUYET
+        // và pin.js phần fetch/dialog mã duyệt xử lý (commit giao diện).
+        if (mucRaw === 'm2') return;
+        var muc = mucRaw === 'm1' ? 'thuong' : (mucRaw === 'a' ? 'nghiemtrong' : mucRaw);
         e.preventDefault();
         e.stopImmediatePropagation();
         var action = form.getAttribute('action') || window.location.pathname;
