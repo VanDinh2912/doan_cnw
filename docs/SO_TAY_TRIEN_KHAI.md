@@ -472,6 +472,9 @@ Lưu ý:
   Chạy dry-run trên prod được; `--apply` chờ lệnh riêng.
 - Chưa migrate: ô bằng chứng không hiện, trang `/doisoat/thu-cong` 404 êm,
   xác nhận thủ công chạy y như cũ.
+- **Lưu ý nhân viên**: bằng chứng đi vào tham số ràng buộc của mã duyệt —
+  gõ sai bằng chứng SAU khi admin đã cấp mã thì thao tác sẽ bị từ chối
+  (tham số không khớp). Phải **xin cấp mã lại** với bằng chứng đúng.
 
 ## 9. Triển khai PIN thao tác nhạy cảm (POS_PIN_BAT + POS_MA_DUYET_BAT)
 

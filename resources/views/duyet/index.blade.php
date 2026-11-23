@@ -62,7 +62,7 @@
                     <td class="small">{{ $yc->created_at?->format('d/m H:i') }}</td>
                     <td class="text-nowrap">
                         @if ($yc->trang_thai === 'cho_xu_ly')
-                            <form method="POST" action="{{ route('duyet.cappin', $yc) }}" class="d-inline" data-can-pin="a">
+                            <form method="POST" action="{{ route('duyet.pin.cap', $yc) }}" class="d-inline" data-can-pin="a">
                                 @csrf
                                 <button class="btn btn-sm btn-warning" title="Cấp PIN tạm (PIN nghiêm trọng)">Cấp PIN tạm</button>
                             </form>
@@ -73,7 +73,7 @@
                 @if ($yc->trang_thai === 'cho_xu_ly')
                 <div class="modal fade" id="mdTuChoiPin{{ $yc->id }}" tabindex="-1">
                     <div class="modal-dialog"><div class="modal-content">
-                        <form method="POST" action="{{ route('duyet.tuchoiipin', $yc) }}" data-can-pin="a">
+                        <form method="POST" action="{{ route('duyet.pin.tuchoi', $yc) }}" data-can-pin="a">
                             @csrf
                             <div class="modal-header"><h5 class="modal-title">Từ chối xin cấp PIN #{{ $yc->id }}</h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
