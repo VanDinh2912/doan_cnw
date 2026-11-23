@@ -441,20 +441,51 @@ Lưu ý:
   nhập kho rồi bật "Đang bán" tay. Không migration. Audit `import_san_pham`
   1 dòng/phiên, không log nội dung dòng.
 
-## 9. Triển khai PIN thao tác nhạy cảm (POS_PIN_BAT)
+## 9. Triển khai PIN thao tác nhạy cảm (POS_PIN_BAT + POS_MA_DUYET_BAT)
 
 Trình tự an toàn (cờ mặc định TẮT — migration không đổi hành vi):
 
-1. Áp migration `2026_11_20_000002_add_pin_to_users_table` (additive).
-2. Admin đặt PIN: `php artisan nguoidung:dat-pin admin@example.com` (nhập ẩn, trên máy chủ).
-3. Admin cấp PIN tạm cho thu ngân/thủ kho qua `/taikhoan/dat-lai-pin/{user}` (cần PIN admin, hiện 1 lần, ép đổi).
-4. Bật `POS_PIN_BAT=true` trong `.env` production.
-5. Kiểm tra 1 thao tác mức thường + 1 mức nghiêm trọng.
-6. Khẩn cấp: quên PIN admin → `nguoidung:dat-pin` trên máy chủ; tắt khẩn cấp → `POS_PIN_BAT=false`.
+1. Áp migration `2026_11_20_000002_add_pin_to_users_table` +
+   `2026_11_22_000002_create_yeu_cau_duyet_table` +
+   `2026_11_22_000003_add_ly_do_yeu_cau_to_yeu_cau_duyet_table` (additive).
+2. Admin đặt PIN cho chính mình: `php artisan nguoidung:dat-pin admin@example.com` (nhập ẩn, trên máy chủ).
+3. Nhân viên **không tự đổi/cấp PIN** (đã gỡ từ 2026-11-22). NV vào
+   **"Xin cấp PIN"** (`/pin/xin-cap`), bắt buộc nhập lý do → hệ thống ghi
+   nhật ký + báo Telegram cho admin.
+4. Admin vào `/taikhoan` → "Đặt lại PIN" cho NV đó: route mức A (admin phải
+   nhập PIN nghiêm trọng của chính mình) + lý do. Hệ thống sinh PIN tạm 6 số
+   ngẫu nhiên, **admin KHÔNG thấy PIN**.
+5. NV vào **"PIN tạm của tôi"** (`/pin/tam-cua-toi`) → xem **đúng 1 lần**
+   (cache mã hóa TTL 30 phút). PIN tạm trở thành PIN thường lâu dài —
+   **không ép đổi** (`bat_buoc_doi_pin=false`).
+6. Mức bảo vệ theo `config/pin_muc.php`: K (không hỏi) / M1 (PIN thường,
+   cửa sổ 5 phút dùng chung) / M2 (NV cần **mã duyệt** do admin cấp một lần,
+   ràng buộc thao tác + tham số; admin dùng PIN nghiêm trọng mỗi lần) /
+   A (chỉ admin, PIN nghiêm trọng mỗi lần). Mã duyệt cấp tại
+   **Hệ thống → Yêu cầu duyệt** (`/yeu-cau-duyet`).
+7. Bật `POS_PIN_BAT=true` + `POS_MA_DUYET_BAT=true` trong `.env` production.
+8. Kiểm tra trước khi bật: `.\scripts\windows\cong-tac-pin-prod.ps1 -Che trang-thai`
+   phải báo `fail=0` (admin đã đổi PIN sau mốc lộ console; mọi NV active có PIN).
+9. Khẩn cấp: quên PIN admin → `nguoidung:dat-pin` trên máy chủ;
+   `POS_MA_DUYET_BAT=false` → M2 tạm hạ M1 (mất nguyên tắc hai người);
+   `POS_PIN_BAT=false` → tắt toàn bộ (chỉ khi sự cố).
 
 Giới hạn: PIN chỉ chặn thay đổi/xuất dữ liệu đã liệt kê, KHÔNG chặn xem
  VD `/khachhang/timkiem?sdt=` có thể bị quét — rủi ro còn lại, đề xuất
  throttle riêng (chưa làm). PIN tĩnh không chống keylogger; nâng cấp TOTP.
+
+### Sau sự cố lộ mật khẩu demo (bắt buộc trước khi bật PIN)
+
+Mật khẩu demo `123456` của `DatabaseSeeder` đã public trong repo. Trước khi
+bật `POS_PIN_BAT` trên production phải:
+
+1. Đổi mật khẩu **tất cả** tài khoản admin/thungan/thukho đang dùng `123456`
+   qua giao diện quản trị (admin → `/taikhoan` hoặc tự đổi).
+2. Chạy `php artisan he-thong:kiem-tra` — mục "Mật khẩu demo" phải `[OK]`
+   (FAIL = còn tài khoản dính, chỉ in id+role).
+3. Cấp PIN cho mọi NV đang hoạt động (mục 3–5 ở trên); kiểm
+   `cong-tac-pin-prod.ps1 -Che trang-thai` → `fail=0`.
+4. Mới bật cờ trong `.env`.
 
 ## 10. Nhận hàng pickup online (cột nhan_hang_*)
 

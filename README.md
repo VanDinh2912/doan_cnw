@@ -557,6 +557,11 @@ Khi cần khôi phục sự cố: dừng ứng dụng, khôi phục tệp sao l�
 
 ## 6. Tài khoản demo
 
+> ⚠️ **CẢNH BÁO:** mật khẩu demo dưới đây đã public trong mã nguồn.
+> **TUYỆT ĐỐI không dùng cho production** — nếu lỡ seed lên CSDL thật phải
+> đổi mật khẩu các tài khoản đó ngay. `he-thong:kiem-tra` sẽ báo FAIL
+> khi còn tài khoản nhân viên dùng mật khẩu demo.
+
 Tất cả tài khoản demo đều có mật khẩu `123456`.
 
 | Vai trò | Email | Quyền chính |
