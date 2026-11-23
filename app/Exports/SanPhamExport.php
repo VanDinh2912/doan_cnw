@@ -26,6 +26,7 @@ class SanPhamExport implements FromCollection, WithHeadings, WithCustomValueBind
                 $sp->ten_sanpham,
                 $sp->loaiSanPham?->ma_loai,
                 $sp->hangSanXuat?->ten,
+                $sp->loaiSanPham?->ten_loai,
                 $sp->don_vi,
                 (float) $sp->gia_ban,
                 (int) $sp->soluong,
@@ -35,6 +36,7 @@ class SanPhamExport implements FromCollection, WithHeadings, WithCustomValueBind
 
     public function headings(): array
     {
-        return ['sku', 'barcode', 'ten_sanpham', 'danh_muc', 'hang', 'don_vi', 'gia_ban', 'soluong', 'trang_thai'];
+        // ten_loai/soluong/trang_thai la cot CHI DOC — import bo qua.
+        return ['sku', 'barcode', 'ten_sanpham', 'danh_muc', 'hang', 'ten_loai', 'don_vi', 'gia_ban', 'soluong', 'trang_thai'];
     }
 }

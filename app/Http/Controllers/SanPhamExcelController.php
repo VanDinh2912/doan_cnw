@@ -68,13 +68,14 @@ class SanPhamExcelController extends Controller
                 ->withInput();
         }
 
-        $keHoach = $this->import->lapKeHoach($doc['inputs']);
+        $keHoach = $this->import->lapKeHoach($doc);
         if (! $keHoach['ok']) {
             return view('sanpham.import-preview', [
                 'token' => null,
                 'loiFile' => $keHoach['errors'],
                 'rows' => $keHoach['rows'],
                 'counts' => $keHoach['counts'],
+                'cot' => $doc['cot'] ?? null,
                 'fileName' => $file->getClientOriginalName(),
             ]);
         }
@@ -84,7 +85,8 @@ class SanPhamExcelController extends Controller
             $file->getClientOriginalName(),
             $doc['file_hash'],
             (int) $file->getSize(),
-            $keHoach
+            $keHoach,
+            $doc
         );
 
         return view('sanpham.import-preview', [
@@ -92,6 +94,7 @@ class SanPhamExcelController extends Controller
             'loiFile' => [],
             'rows' => $keHoach['rows'],
             'counts' => $keHoach['counts'],
+            'cot' => $doc['cot'] ?? null,
             'fileName' => $file->getClientOriginalName(),
         ]);
     }

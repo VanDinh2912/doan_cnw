@@ -49,6 +49,53 @@
     </div>
 @endif
 
+@if (! empty($cot))
+@php
+    $tenCotHienThi = [
+        'sku' => 'SKU', 'barcode' => 'Barcode', 'ten_sanpham' => 'Tên SP',
+        'danh_muc' => 'Danh mục (mã loại)', 'hang' => 'Hãng', 'don_vi' => 'Đơn vị', 'gia_ban' => 'Giá bán',
+    ];
+@endphp
+<div class="card mb-3">
+    <div class="card-body py-2 small">
+        <div class="row g-2">
+            <div class="col-md-6">
+                <strong>Cột đã nhận:</strong>
+                @foreach (($cot['nhan'] ?? []) as $field => $tenGoc)
+                    <span class="badge text-bg-light border me-1 mb-1" title="cột '{{ $tenGoc }}'">
+                        {{ $tenCotHienThi[$field] ?? $field }} <i class="fa-solid fa-arrow-right text-muted"></i> {{ $tenGoc }}
+                    </span>
+                @endforeach
+            </div>
+            <div class="col-md-6">
+                @if (! empty($cot['he_thong']))
+                    <strong class="text-muted">Bỏ qua (hệ thống quản lý):</strong>
+                    @foreach ($cot['he_thong'] as $t) <code>{{ $t }}</code> @endforeach
+                    <br>
+                @endif
+                @if (! empty($cot['chi_doc']))
+                    <strong class="text-muted">Bỏ qua (cột chỉ đọc):</strong>
+                    @foreach ($cot['chi_doc'] as $t) <code>{{ $t }}</code> @endforeach
+                    <br>
+                @endif
+                @if (! empty($cot['bo_qua']))
+                    <strong class="text-muted">Cột không dùng:</strong>
+                    @foreach ($cot['bo_qua'] as $t) <code>{{ $t }}</code> @endforeach
+                @endif
+            </div>
+        </div>
+        @if (! empty($cot['goi_y']))
+            <div class="alert alert-info py-1 px-2 mt-2 mb-0 small">
+                <i class="fa-solid fa-circle-info"></i>
+                @foreach ($cot['goi_y'] as $la => $goi)
+                    Cột "{{ $la }}" — ý bạn là "{{ $goi }}"? (không tự áp dụng, hãy sửa tên cột trong file)
+                @endforeach
+            </div>
+        @endif
+    </div>
+</div>
+@endif
+
 @if (($counts['create'] ?? 0) > 0)
     <div class="alert alert-warning">
         <i class="fa-solid fa-triangle-exclamation"></i>

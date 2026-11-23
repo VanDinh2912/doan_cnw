@@ -57,3 +57,19 @@ DELETE FROM products WHERE sku LIKE 'IMP-%' OR sku LIKE 'ERR-%';
 
 Sau đó vào `/sanpham` tắt/bật lại nếu cần; `activity_logs` giữ nguyên
 bản ghi `import_san_pham` (append-only, không xóa).
+
+## Cập nhật M2 (import linh hoạt)
+
+Từ M2, import sản phẩm khớp cột theo **tên tiêu đề chuẩn hóa** (không phân
+biệt hoa/thường/dấu/khoảng trắng/gạch) + bí danh trong `config/import_sp.php`.
+Chỉ `sku` bắt buộc; ô trống = không đổi; cột hệ thống (`soluong`,
+`trang_thai`, `gia_nhap`...) và cột lạ bị bỏ qua + liệt kê trong preview.
+File xuất từ hệ thống nhập lại được nguyên trạng.
+
+| File mới | Nội dung | Kỳ vọng |
+|---|---|---|
+| `import_sanpham_chi_gia.xlsx` | Chỉ 2 cột `sku, gia_ban` — cập nhật giá hàng loạt | SKU `IMP-GIA-01/02` chưa tồn tại → tạo mới sẽ báo lỗi thiếu trường (ten_sanpham/danh_muc/don_vi). Để test cập nhật giá thật: đổi SKU thành SKU sản phẩm có sẵn trên dev trước khi upload. |
+| `import_sanpham_linh_hoat.xlsx` | Cột đảo thứ tự, tên tiếng Việt ("Mã SP"/"Tên"/"Danh mục"/"Giá"/"ĐVT"), cột lạ "ghi chú nội bộ" + "Số lượng" | Preview: cột lạ + `Số lượng` bị bỏ qua (Số lượng = hệ thống quản lý); tạo mới 2 SP `IMP-LINH-01/02` trạng thái NGỪNG BÁN. |
+
+Lưu ý: `import_sanpham_chi_gia.xlsx` chỉ đúng nghĩa "cập nhật giá" khi SKU
+đã tồn tại — với SKU mới nó minh họa lỗi "thiếu trường bắt buộc khi tạo mới".

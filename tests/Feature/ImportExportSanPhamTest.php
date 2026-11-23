@@ -94,6 +94,22 @@ class ImportExportSanPhamTest extends TestCase
         return new UploadedFile($path, 'test.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
     }
 
+    /** M2: file xlsx voi header tuy y (moi phan tu = 1 dong du lieu). */
+    private function makeXlsxHeader(array $header, array $dataRows): UploadedFile
+    {
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->fromArray([$header], null, 'A1');
+        foreach ($dataRows as $r => $row) {
+            $sheet->fromArray([$row], null, 'A'.($r + 2));
+        }
+        $path = storage_path('app/test-import-'.uniqid().'.xlsx');
+        (new XlsxWriter($spreadsheet))->save($path);
+        $this->tempFiles[] = $path;
+
+        return new UploadedFile($path, 'test.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
+    }
+
     private function upload(UploadedFile $file)
     {
         $this->loai(); // dam bao ma_loai 'CS' ton tai cho cac test dung no
@@ -164,11 +180,12 @@ class ImportExportSanPhamTest extends TestCase
 
     public function test_header_sai_bao_loi_ro(): void
     {
+        // M2: chi "sku" la cot bat buoc — file thieu sku bao loi ro ngay header
         $this->actingAs($this->user());
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
-        $sheet->fromArray([['sku', 'barcode', 'ten_sanpham', 'danh_muc', 'hang', 'don_vi']], null, 'A1');
-        $sheet->fromArray([['X', '', 'Ten', 'CS', '', 'Cái']], null, 'A2');
+        $sheet->fromArray([['barcode', 'ten_sanpham', 'danh_muc', 'hang', 'don_vi', 'gia_ban']], null, 'A1');
+        $sheet->fromArray([['', 'Ten', 'CS', '', 'Cái', 1000]], null, 'A2');
         $path = storage_path('app/test-bad-header.xlsx');
         (new XlsxWriter($spreadsheet))->save($path);
         $this->tempFiles[] = $path;
@@ -531,7 +548,7 @@ class ImportExportSanPhamTest extends TestCase
         $this->assertNotContains('Giá nhập', $export->headings());
         $this->assertNotContains('gia_nhap', $export->headings());
         $row = $export->collection()->first();
-        $this->assertCount(9, $row);
+        $this->assertCount(10, $row); // M2: + cot ten_loai chi doc
         $this->assertNotContains(77777, array_map('strval', $row));
 
         $res = $this->get(route('sanpham.xuatexcel'));
@@ -589,8 +606,161 @@ class ImportExportSanPhamTest extends TestCase
         $doc = $service->docFile($file);
         $this->assertCount(1, $doc['inputs']);
         $this->loai();
-        $kh = $service->lapKeHoach($doc['inputs']);
+        $kh = $service->lapKeHoach($doc); // M2: nhan ca $doc (inputs + cot)
         $this->assertTrue($kh['ok']);
         $this->assertSame('create', $kh['rows'][0]['action']);
+    }
+
+    // ---------- M2: import linh hoat ----------
+
+    public function test_m2_cot_dao_thu_tu_va_ten_tieng_viet(): void
+    {
+        $this->loai();
+        $service = app(SanPhamImportService::class);
+        // Dao thu tu + ten goi khac: "Mã SP"->sku, "Tên"->ten_sanpham,
+        // "Danh mục"->danh_muc, "ĐVT"->don_vi, "Giá"->gia_ban
+        $file = $this->makeXlsxHeader(
+            ['Giá', 'Tên', 'Mã SP', 'Danh mục', 'ĐVT'],
+            [[150000, 'Cáp đảo cột', 'SKU-DOC-1', 'CS', 'Cái']]
+        );
+        $doc = $service->docFile($file);
+        $this->assertArrayNotHasKey('header_loi', $doc);
+        $kh = $service->lapKeHoach($doc);
+        $this->assertTrue($kh['ok'], json_encode($kh['errors'], JSON_UNESCAPED_UNICODE));
+        $this->assertSame('create', $kh['rows'][0]['action']);
+    }
+
+    public function test_m2_cot_la_bo_qua_va_goi_y(): void
+    {
+        $this->loai();
+        $service = app(SanPhamImportService::class);
+        $file = $this->makeXlsxHeader(
+            ['sku', 'ten_sanpham', 'danh_muc', 'don_vi', 'gia_ban', 'soluong', 'trang_thai', 'ten_loai', 'cot_la'],
+            [['SKU-LA-1', 'SP lạ', 'CS', 'Cái', 50000, 99, 'Đang bán', 'Củ sạc', 'x']]
+        );
+        $doc = $service->docFile($file);
+        $cot = $doc['cot'];
+        // cot he thong + chi doc bi loai khoi 'nhan'
+        $this->assertArrayNotHasKey('soluong', $cot['nhan']);
+        $this->assertArrayNotHasKey('trang_thai', $cot['nhan']);
+        $this->assertArrayNotHasKey('ten_loai', $cot['nhan']);
+        $this->assertContains('soluong', $cot['he_thong']);
+        $this->assertContains('trang_thai', $cot['he_thong']);
+        $this->assertContains('ten_loai', $cot['chi_doc']);
+        $this->assertNotEmpty($cot['bo_qua']);
+        $kh = $service->lapKeHoach($doc);
+        $this->assertTrue($kh['ok']);
+        // tao moi thanh cong du co cot he thong trong file
+        $this->assertSame('create', $kh['rows'][0]['action']);
+    }
+
+    public function test_m2_chi_sku_va_gia_ban_cap_nhat_gia(): void
+    {
+        $this->loai();
+        $sp = $this->sanPham(['sku' => 'SKU-GIA', 'gia_ban' => 100000, 'ten_sanpham' => 'Tên cũ']);
+        $service = app(SanPhamImportService::class);
+        $file = $this->makeXlsxHeader(['sku', 'gia_ban'], [['SKU-GIA', 120000]]);
+        $doc = $service->docFile($file);
+        $kh = $service->lapKeHoach($doc);
+        $this->assertTrue($kh['ok']);
+        $this->assertSame('update', $kh['rows'][0]['action']);
+        // chi gia_ban thay doi — ten_sanpham khong bi cham
+        $changes = $kh['rows'][0]['changes'];
+        $this->assertCount(1, $changes);
+        $this->assertSame('gia_ban', $changes[0]['field']);
+        $this->assertEquals(100000, $changes[0]['old']);
+        $this->assertSame(120000, $changes[0]['new']);
+        $this->assertSame(['gia_ban' => 120000], $kh['plan'][0]['data']);
+        $kq = $service->ghiKeHoach($kh['plan']);
+        $this->assertSame(1, $kq['cap_nhat']);
+        $sp->refresh();
+        $this->assertSame(120000, (int) $sp->gia_ban);
+        $this->assertSame('Tên cũ', $sp->ten_sanpham);
+    }
+
+    public function test_m2_o_trong_khong_ghi_de(): void
+    {
+        $this->loai();
+        $sp = $this->sanPham(['sku' => 'SKU-TRONG', 'ten_sanpham' => 'Giữ nguyên', 'gia_ban' => 50000]);
+        $service = app(SanPhamImportService::class);
+        // cot co mat nhung o trong -> khong doi; gia_ban co gia tri -> doi
+        $file = $this->makeXlsxHeader(['sku', 'ten_sanpham', 'gia_ban'], [['SKU-TRONG', '', 60000]]);
+        $doc = $service->docFile($file);
+        $kh = $service->lapKeHoach($doc);
+        $this->assertSame('update', $kh['rows'][0]['action']);
+        $changes = $kh['rows'][0]['changes'];
+        $this->assertCount(1, $changes);
+        $this->assertSame('gia_ban', $changes[0]['field']);
+        $this->assertEquals(50000, $changes[0]['old']);
+        $this->assertSame(60000, $changes[0]['new']);
+        $service->ghiKeHoach($kh['plan']);
+        $sp->refresh();
+        $this->assertSame('Giữ nguyên', $sp->ten_sanpham);
+        $this->assertSame(60000, (int) $sp->gia_ban);
+    }
+
+    public function test_m2_cot_soluong_trang_thai_khong_bi_nhap(): void
+    {
+        $this->loai();
+        $this->hang('Hoco');
+        $sp = $this->sanPham(['sku' => 'SKU-HT', 'soluong' => 7, 'trang_thai' => true, 'gia_nhap' => 30000]);
+        $service = app(SanPhamImportService::class);
+        $file = $this->makeXlsxHeader(
+            ['sku', 'ten_sanpham', 'danh_muc', 'hang', 'don_vi', 'gia_ban', 'soluong', 'trang_thai', 'gia_nhap'],
+            [['SKU-HT', 'Tên mới HT', 'CS', 'Hoco', 'Cái', 80000, 999, 'Ngừng bán', 1]]
+        );
+        $doc = $service->docFile($file);
+        $kh = $service->lapKeHoach($doc);
+        $this->assertTrue($kh['ok']);
+        $service->ghiKeHoach($kh['plan']);
+        $sp->refresh();
+        $this->assertSame('Tên mới HT', $sp->ten_sanpham);
+        $this->assertSame(80000, (int) $sp->gia_ban);
+        // he thong quan ly KHONG doi
+        $this->assertSame(7, (int) $sp->soluong);
+        $this->assertTrue((bool) $sp->trang_thai);
+        $this->assertSame(30000, (int) $sp->gia_nhap);
+    }
+
+    public function test_m2_tao_moi_thieu_truong_bao_loi_dong(): void
+    {
+        $this->loai();
+        $service = app(SanPhamImportService::class);
+        // thieu cot ten_sanpham hoan toan -> tao moi phai bao loi dong cu the
+        $file = $this->makeXlsxHeader(['sku', 'danh_muc', 'don_vi', 'gia_ban'], [['SKU-Thieu', 'CS', 'Cái', 1000]]);
+        $doc = $service->docFile($file);
+        $kh = $service->lapKeHoach($doc);
+        $this->assertFalse($kh['ok']);
+        $this->assertStringContainsString('Dòng 2', $kh['errors'][0]);
+        $this->assertStringContainsString('ten_sanpham', $kh['errors'][0]);
+    }
+
+    public function test_m2_vong_xuat_nhap_khong_doi(): void
+    {
+        $this->seed(); // du lieu day du: dau tieng Viet, hang, barcode so 0, sku chu
+        $service = app(SanPhamImportService::class);
+        // Gia lap file xuat: lay export roi dua vao dang input nhu file that
+        $export = new SanPhamExport();
+        $headings = $export->headings();
+        $rows = $export->collection()->take(5)->values();
+        // Viet ra xlsx that roi doc nguoc — dam bao round-trip qua PhpSpreadsheet
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->fromArray([$headings], null, 'A1');
+        $r = 2;
+        foreach ($rows as $row) {
+            $sheet->fromArray([$row], null, 'A'.$r++);
+        }
+        $path = storage_path('app/test-roundtrip-'.uniqid().'.xlsx');
+        (new XlsxWriter($spreadsheet))->save($path);
+        $this->tempFiles[] = $path;
+        $file = new UploadedFile($path, 'rt.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
+
+        $doc = $service->docFile($file);
+        $kh = $service->lapKeHoach($doc);
+        $this->assertTrue($kh['ok'], json_encode(array_slice($kh['errors'], 0, 3), JSON_UNESCAPED_UNICODE));
+        $this->assertSame(0, $kh['counts']['update'], 'khong dong nao duoc cap nhat');
+        $this->assertSame(0, $kh['counts']['error']);
+        $this->assertSame(5, $kh['counts']['skip'], 'ca 5 dong deu "Khong doi"');
     }
 }
