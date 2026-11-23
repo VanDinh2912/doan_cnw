@@ -34,6 +34,7 @@ class KiemTraHeThong extends Command
         $this->kiemTraLog();
         $this->kiemTraEngine();
         $this->kiemTraMigration();
+        $this->kiemTraMatKhauDemo();
 
         $this->line(sprintf('Kết quả: %d lỗi, %d cảnh báo.', $this->soLoi, $this->soCanhBao));
 
@@ -197,6 +198,28 @@ class KiemTraHeThong extends Command
         }
 
         $this->bao('OK', 'Đối soát SePay', "lần cuối {$luc} ({$phut} phút trước)");
+    }
+
+    /**
+     * FAIL nếu tài khoản nhân viên còn dùng mật khẩu demo đã public
+     * (DatabaseSeeder: '123456'). Chỉ in id + role — KHÔNG in mật khẩu/hash.
+     */
+    private function kiemTraMatKhauDemo(): void
+    {
+        $matKhauDemo = ['123456']; // dong bo voi DatabaseSeeder
+        $viPham = [];
+        foreach (\App\Models\User::whereIn('role', ['admin', 'thungan', 'thukho'])->get(['id', 'role', 'password']) as $u) {
+            foreach ($matKhauDemo as $mk) {
+                if (\Illuminate\Support\Facades\Hash::check($mk, $u->password)) {
+                    $viPham[] = "#{$u->id}({$u->role})";
+                    break;
+                }
+            }
+        }
+        $this->bao($viPham === [] ? 'OK' : 'FAIL', 'Mật khẩu demo',
+            $viPham === []
+                ? 'không tài khoản nhân viên nào dùng mật khẩu demo'
+                : 'tài khoản còn mật khẩu demo đã public: '.implode(', ', $viPham).' — đổi ngay qua giao diện quản trị');
     }
 
     private function kiemTraMoiTruong(): void

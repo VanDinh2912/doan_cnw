@@ -282,6 +282,27 @@ class KiemTraHeThongTest extends TestCase
         $this->assertStringContainsString('[OK] PIN nhân viên', $out);
     }
 
+    public function test_tai_khoan_dung_mat_khau_demo_la_fail(): void
+    {
+        // Seeder tao MK '123456' cho ca 3 vai tro -> phai FAIL, in id+role.
+        $out = $this->chayKiemTra();
+
+        $this->assertStringContainsString('[FAIL] Mật khẩu demo', $out);
+        $this->assertStringContainsString('(admin)', $out);
+        $this->assertStringNotContainsString('123456', $out);
+    }
+
+    public function test_doi_mat_khau_xong_thi_ok(): void
+    {
+        foreach (User::whereIn('role', ['admin', 'thungan', 'thukho'])->get() as $u) {
+            $u->forceFill(['password' => bcrypt('MatKhauThatKhongDemo@99')])->save();
+        }
+
+        $out = $this->chayKiemTra();
+
+        $this->assertStringContainsString('[OK] Mật khẩu demo', $out);
+    }
+
     /**
      * Artisan::output() trả toàn bộ output của lần gọi gần nhất, cho phép kiểm
      * nhiều đoạn trên cùng một dòng (expectsOutputToContain chỉ khớp một đoạn/dòng).
