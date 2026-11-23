@@ -64,6 +64,33 @@ class DatHangOnlineController extends Controller
         return 'Tài khoản đã bị khóa, vui lòng liên hệ cửa hàng (hotline '.config('storefront.hotline', '1900 0000').').';
     }
 
+    /**
+     * Tài khoản nhân viên (admin/thungan/thukho) không đặt hàng qua storefront:
+     * bán hàng phải đi qua POS. Vẫn được xem giỏ/form/tra cứu/trạng thái.
+     * Chặn ở server (postDat/postHuy); form chỉ hiển thị nút vô hiệu.
+     */
+    private function laNhanVien(Request $request): bool
+    {
+        return in_array($request->user()?->role, ['admin', 'thungan', 'thukho'], true);
+    }
+
+    private const MSG_CHAN_NHAN_VIEN = 'Tài khoản nhân viên bán hàng qua POS — vào /pos để bán.';
+
+    /** Ghi nhật ký lần bị chặn (không PII, không nội dung form) rồi trả redirect. */
+    private function chanDatHangNhanVien(Request $request, string $hanhDongRoute): RedirectResponse
+    {
+        NhatKyService::ghi(
+            $request,
+            'chan_dat_hang_nhan_vien',
+            'route',
+            null,
+            'NV #'.($request->user()?->id ?? 0).' ('.($request->user()?->role ?? '?').')'
+                .' bị chặn '.$hanhDongRoute.' trên storefront'
+        );
+
+        return back()->with('error', self::MSG_CHAN_NHAN_VIEN);
+    }
+
     public function getForm(Request $request): View|RedirectResponse
     {
         if ($this->khachDangNhapBiKhoa($request)) {
@@ -90,11 +117,15 @@ class DatHangOnlineController extends Controller
             'mienPhiGiaoTu' => (int) config('pos.mien_phi_giao_tu', 0),
             'giaoTanNoiBat' => (bool) config('pos.giao_tan_noi_bat', false),
             'khachHang' => auth()->user()?->khachHang,
+            'laNhanVien' => $this->laNhanVien($request),
         ]);
     }
 
     public function postDat(Request $request, ThanhToanChuyenKhoanService $service): RedirectResponse
     {
+        if ($this->laNhanVien($request)) {
+            return $this->chanDatHangNhanVien($request, 'dat-hang.dat');
+        }
         if ($this->khachDangNhapBiKhoa($request)) {
             return back()->with('error', $this->thongBaoKhoa());
         }
@@ -443,6 +474,9 @@ class DatHangOnlineController extends Controller
 
     public function postHuy(Request $request, string $ma_tra_cuu, ThanhToanChuyenKhoanService $service): RedirectResponse
     {
+        if ($this->laNhanVien($request)) {
+            return $this->chanDatHangNhanVien($request, 'don-hang.huy');
+        }
         if ($this->khachDangNhapBiKhoa($request)) {
             return back()->with('error', $this->thongBaoKhoa());
         }

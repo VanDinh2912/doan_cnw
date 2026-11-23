@@ -122,7 +122,15 @@
                 <div style="color:var(--sf-fg-muted);font-size:var(--sf-text-sm);">Tổng hiển thị để tham khảo; server tính lại từ giá DB khi đặt.</div>
             </div>
 
-            <button type="submit" class="sf-icon-btn is-primary" style="height:44px;padding:0 24px;">
+            @if ($laNhanVien ?? false)
+                <div class="sf-alert is-error" role="alert" style="margin-bottom:12px;">
+                    Tài khoản nhân viên không đặt hàng qua trang này — vui lòng bán hàng qua
+                    <a href="{{ route('pos.index') }}">POS</a>.
+                </div>
+            @endif
+
+            <button type="submit" class="sf-icon-btn is-primary" style="height:44px;padding:0 24px;"
+                    @disabled($laNhanVien ?? false)>
                 <i class="fa-solid fa-bag-shopping"></i> Đặt hàng
             </button>
         </form>

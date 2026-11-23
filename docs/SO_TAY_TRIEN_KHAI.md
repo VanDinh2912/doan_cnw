@@ -440,6 +440,14 @@ Lưu ý:
   transaction all-or-nothing. SP mới: trang_thai=0/soluong=0/gia_nhap=0 —
   nhập kho rồi bật "Đang bán" tay. Không migration. Audit `import_san_pham`
   1 dòng/phiên, không log nội dung dòng.
+- Nhân viên (admin/thungan/thukho) KHÔNG đặt hàng online qua storefront:
+  `postDat`/`postHuy` chặn ở server (thông báo "bán hàng qua POS"), form
+  hiển thị nút gửi vô hiệu; vẫn xem giỏ/tra cứu/trạng thái. Mỗi lần bị
+  chặn ghi `activity_logs.hanh_dong='chan_dat_hang_nhan_vien'` (user id +
+  role + route, không PII). GIỚI HẠN: biện pháp này chỉ ngăn nhầm lẫn —
+  nhân viên vẫn có thể đặt như khách vãng lai sau khi đăng xuất; kiểm soát
+  thật là xác nhận thủ công qua mã duyệt + trang soát xác nhận thủ công
+  (`/doisoat/thu-cong`).
 
 ## 9. Triển khai PIN thao tác nhạy cảm (POS_PIN_BAT + POS_MA_DUYET_BAT)
 
