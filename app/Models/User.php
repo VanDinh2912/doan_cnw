@@ -50,6 +50,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'khoa_luc' => 'datetime',
+            'pin_doi_luc' => 'datetime',
             'bat_buoc_doi_mat_khau' => 'boolean',
             'bat_buoc_doi_pin' => 'boolean',
             'last_login_at' => 'datetime',

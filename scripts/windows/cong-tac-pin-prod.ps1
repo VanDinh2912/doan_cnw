@@ -6,14 +6,20 @@
 #   -Che trang-thai : CHI DOC. Bao trang thai 2 co + chay toan bo kiem tra.
 #   -Che tat        : BAT BUOC qua du kiem tra nhu -Che bat, roi tat ca 2 co.
 #   -Che bat        : BAT BUOC dat het kiem tra moi duoc bat.
+#   -TuKiemTra      : SELF-TEST logic tren sqlite tam (khong cham DB that).
 #
-# Kiem tra truoc khi bat (bat buoc dat):
+# Du lieu kiem tra lay tu `php artisan pin:trang-thai` (JSON co cau truc,
+# app/Services/KiemTraPinService) — KHONG parse chuoi artisan nua, khong
+# nuot stderr: lenh loi/rong -> FAIL "khong kiem tra duoc".
+#
+# Kiem tra (bat buoc dat truoc khi -Che bat):
 #   1. Khong co APP_ENV trong phien; artisan dang ket noi doan_cnw.
-#   2. users co du cot pin_*; bang yeu_cau_duyet da ton tai.
-#   3. MOI admin co pin_doi_luc moi hon moc lo PIN (nhat ky pin_dat
-#      nguon=console, uu tien activity_logs id=463, fallback dong moi nhat).
-#   4. Moi thu ngan/thu kho DANG HOAT DONG co PIN rieng cho muc M1
-#      (thieu thi WARN kem email da che, khong in email day du).
+#   2. users co du 5 cot pin_*; bang yeu_cau_duyet da ton tai.
+#   3. MOI admin co pin_hash VA pin_doi_luc LON HON moc lo PIN
+#      (activity_logs pin_dat nguon=console, uu tien id=463).
+#      BANG moc = chua doi sau su co = FAIL.
+#   4. MOI thu ngan/thu kho DANG HOAT DONG (khoa_luc null/qua han) co
+#      pin_hash — thieu la FAIL (khong qua duoc muc M1).
 #
 # Sau khi sua .env: neu production co config cache phai chay lai
 #   php artisan config:cache
@@ -23,12 +29,13 @@
 #   .\scripts\windows\cong-tac-pin-prod.ps1 -Che trang-thai
 #   .\scripts\windows\cong-tac-pin-prod.ps1 -Che bat
 #   .\scripts\windows\cong-tac-pin-prod.ps1 -Che tat
+#   .\scripts\windows\cong-tac-pin-prod.ps1 -TuKiemTra
 #
-# Ket thuc: 0 = OK; 1 = co loi / tu choi bat.
+# Ket thuc: 0 = OK; 1 = co loi / tu choi bat / self-test that bai.
 
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('bat', 'tat', 'trang-thai')]
+    [ValidateSet('bat', 'tat', 'trang-thai', 'TuKiemTra')]
     [string]$Che
 )
 
@@ -61,8 +68,36 @@ function Doc-Co([string]$key) {
     return ($m.Line -split '=', 2)[1].Trim().Trim('"').Trim("'")
 }
 
+# Chay artisan va lay JSON dong dau tien bat dau bang '{'.
+# Tra $null neu exit != 0 hoac khong co JSON -> caller bao FAIL.
+function Lay-TrangThai {
+    $out = php artisan pin:trang-thai 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "  [LOI] artisan pin:trang-thai exit=$LASTEXITCODE" -ForegroundColor Red
+        return $null
+    }
+    $dongJson = $out | Where-Object { $_ -match '^\s*\{' } | Select-Object -First 1
+    if (-not $dongJson) {
+        Write-Host "  [LOI] artisan pin:trang-thai khong tra JSON" -ForegroundColor Red
+        return $null
+    }
+    try {
+        return ($dongJson | ConvertFrom-Json)
+    } catch {
+        Write-Host "  [LOI] JSON khong parse duoc" -ForegroundColor Red
+        return $null
+    }
+}
+
 Push-Location $repo
 try {
+    # ---------- SELF-TEST: khong cham DB that ----------
+    if ($Che -eq 'TuKiemTra') {
+        Write-Host "=== SELF-TEST cong tac PIN (sqlite tam, khong cham DB that) ===" -ForegroundColor White
+        php artisan pin:tu-kiem-tra
+        exit $LASTEXITCODE
+    }
+
     Write-Host "=== Cong tac PIN + Ma duyet tren PROD (che do: $Che) ===" -ForegroundColor White
 
     # ---------- DOC trang thai hien tai (moi che do) ----------
@@ -72,10 +107,10 @@ try {
     Info "POS_MA_DUYET_BAT  = $(if ($null -eq $maDuyetBat) {'(mac dinh true)'} else {$maDuyetBat})"
 
     if ($Che -eq 'trang-thai') {
-        # Chi doc: van chay nhanh cac kiem tra doc duoi day roi thoat.
-        $pinHieuLuc = ($pinBat -eq 'true')
+        # Chi doc: chay kiem tra khi tinh nang dang bat; -Che bat luon kiem tra.
+        $pinHieuLuc = ($pinBat -eq 'true') -or ($Che -eq 'bat')
     } else {
-        $pinHieuLuc = ($Che -eq 'bat')
+        $pinHieuLuc = ($Che -eq 'bat') -or ($pinBat -eq 'true')
     }
 
     # ---------- Kiem tra moi truong ----------
@@ -85,35 +120,32 @@ try {
         Ok 'Khong co APP_ENV trong phien'
     }
 
-    $db = (php artisan tinker --execute="echo config('database.connections.'.config('database.default').'.database');" 2>$null |
-        Where-Object { $_ -match '^\S+$' } | Select-Object -Last 1 | Out-String).Trim()
-    Write-Host "  Database artisan dang dung: $db"
-    if ($db -ne 'doan_cnw') {
-        Loi "DB = '$db' (mong doi doan_cnw). Dung lai - khong cham DB khac."
-    } else {
-        Ok 'DB = doan_cnw'
-    }
-
     if ($fail -gt 0) {
         Write-Host "`n$fail KIEM TRA THAT BAI - dung lai." -ForegroundColor Red
         exit 1
     }
 
+    # ---------- JSON trang thai tu artisan ----------
+    $tt = Lay-TrangThai
+    if ($null -eq $tt) {
+        Loi 'khong lay duoc trang thai tu artisan pin:trang-thai - khong the kiem tra'
+        exit 1
+    }
+    Write-Host "  Database artisan dang dung: $($tt.db)"
+    if ($tt.db -ne 'doan_cnw') {
+        Loi "DB = '$($tt.db)' (mong doi doan_cnw). Dung lai - khong cham DB khac."
+    } else {
+        Ok 'DB = doan_cnw'
+    }
+
     # ---------- Schema ----------
-    $cotPin = @('pin_hash', 'pin_sai_lien_tiep', 'pin_khoa_den', 'pin_doi_luc', 'bat_buoc_doi_pin')
-    $thieu = php artisan tinker --execute="echo count(array_filter(['pin_hash','pin_sai_lien_tiep','pin_khoa_den','pin_doi_luc','bat_buoc_doi_pin'], fn(`$c) => Illuminate\Support\Facades\Schema::hasColumn('users', `$c)));" 2>$null |
-        Where-Object { $_ -match '^\d+$' } | Select-Object -Last 1 | Out-String
-    $soCot = [int](($thieu).Trim())
-    if ($soCot -lt 5) {
-        Loi "users chi co $soCot/5 cot pin_* (thieu migration PIN?)"
+    if ([int]$tt.cot_pin -lt 5) {
+        Loi "users chi co $($tt.cot_pin)/5 cot pin_* (thieu migration PIN?)"
     } else {
         Ok 'users du 5 cot pin_*'
     }
 
-    $coBangYc = php artisan tinker --execute="echo Illuminate\Support\Facades\Schema::hasTable('yeu_cau_duyet') ? 'CO' : 'KHONG';" 2>$null |
-        Where-Object { $_ -match '^(CO|KHONG)$' } | Select-Object -Last 1 | Out-String
-    $coBangYc = $coBangYc.Trim()
-    if ($coBangYc -eq 'CO') {
+    if ($tt.bang_yc) {
         Ok 'bang yeu_cau_duyet da ton tai'
     } elseif ($Che -eq 'bat') {
         Loi 'thieu bang yeu_cau_duyet - can migrate tren doan_cnw TRUOC khi bat ma duyet'
@@ -121,42 +153,42 @@ try {
         CanhBao 'thieu bang yeu_cau_duyet - can migrate truoc khi bat ma duyet (hien khong anh huong neu PIN dang tat)'
     }
 
-    # ---------- Moc lo PIN: activity_logs id=463 (pin_dat, console) ----------
-    # Fallback: dong pin_dat nguon=console moi nhat. In moc thoi gian, khong PII.
-    $mocLo = php artisan tinker --execute="`$r = App\Models\NhatKyHoatDong::whereKey(463)->first(); if (!`$r) { `$r = App\Models\NhatKyHoatDong::where('hanh_dong','pin_dat')->where('nguon','console')->latest('id')->first(); } echo `$r ? `$r->created_at->toDateTimeString() : 'KHONG_CO';" 2>$null |
-        Where-Object { $_ -match '^\d{4}-\d{2}-\d{2}' -or $_ -match '^KHONG_CO$' } | Select-Object -Last 1 | Out-String
-    $mocLo = $mocLo.Trim()
-    if ($mocLo -eq 'KHONG_CO' -or $mocLo -eq '') {
-        CanhBao 'khong tim thay nhat ky pin_dat (console) - khong the doi chieu moc lo PIN; van cho phep doc trang thai nhung -Che bat se tu choi'
-        $mocLoOk = $false
+    if ($fail -gt 0) {
+        Write-Host "`n$fail KIEM TRA THAT BAI - dung lai." -ForegroundColor Red
+        exit 1
+    }
+
+    # ---------- Moc lo PIN ----------
+    $mocLoOk = ($null -ne $tt.moc_lo -and $tt.moc_lo -ne '')
+    if ($mocLoOk) {
+        Info "moc lo PIN (pin_dat console): $($tt.moc_lo)"
     } else {
-        Info "moc lo PIN (pin_dat console): $mocLo"
-        $mocLoOk = $true
+        CanhBao 'khong tim thay nhat ky pin_dat (console) - khong the doi chieu moc lo PIN; -Che bat se bi chan'
     }
 
-    # ---------- Admin: pin_doi_luc phai moi hon moc lo ----------
-    if ($pinHieuLuc -and $mocLoOk) {
-        $adminChuaDoi = php artisan tinker --execute="echo App\Models\User::where('role','admin')->get()->filter(fn(`$u) => !`$u->pin_doi_luc || `$u->pin_doi_luc->lte('$mocLo'))->pluck('id')->implode(',');" 2>$null |
-            Where-Object { $_ -match '^\d+(,\d+)*$|^$' } | Select-Object -Last 1 | Out-String
-        $adminChuaDoi = $adminChuaDoi.Trim()
-        if ($adminChuaDoi -eq '') {
-            Ok 'moi admin da doi PIN sau moc lo'
-        } else {
-            Loi "admin chua doi PIN sau moc lo (user id: $adminChuaDoi) - chay dat-pin-prod.ps1 truoc"
-        }
-    } elseif ($pinHieuLuc) {
-        Info 'bo qua doi chieu moc lo PIN (khong co moc) - -Che bat se bi chan'
-    }
-
-    # ---------- NV thu ngan/thu kho dang hoat dong phai co PIN ----------
+    # ---------- Cac kiem tra chi khi tinh nang hieu luc / sap bat ----------
     if ($pinHieuLuc) {
-        $thieuPin = php artisan tinker --execute="echo App\Models\User::whereIn('role',['thungan','thukho'])->where(function(`$q){`$q->whereNull('khoa_luc')->orWhere('khoa_luc','<=',now());})->whereNull('pin_hash')->get()->map(fn(`$u)=>preg_replace('/^(.).*(@.*)$/','$1***$2',`$u->email))->implode(',');" 2>$null |
-            Where-Object { $_ -match '@|^$' } | Select-Object -Last 1 | Out-String
-        $thieuPin = $thieuPin.Trim()
-        if ($thieuPin -eq '') {
+        # Admin: pin_doi_luc phai LON HON moc (bang = chua doi sau su co)
+        if ($mocLoOk) {
+            if (@($tt.admin_thieu_pin).Count -gt 0) {
+                Loi "admin thieu pin_hash (user id: $($tt.admin_thieu_pin -join ',')) - chay dat-pin-prod.ps1 truoc"
+            }
+            if (@($tt.admin_chua_doi).Count -gt 0) {
+                Loi "admin chua doi PIN SAU moc lo (user id: $($tt.admin_chua_doi -join ',')) - PIN dang dung la ban dat qua console, co the da lo. Doi PIN qua /taikhoan roi chay lai"
+            }
+            if (@($tt.admin_thieu_pin).Count -eq 0 -and @($tt.admin_chua_doi).Count -eq 0) {
+                Ok 'moi admin da co PIN va doi PIN sau moc lo'
+            }
+        } else {
+            Info 'bo qua doi chieu moc lo PIN (khong co moc) - -Che bat se bi chan'
+        }
+
+        # NV thungan/thukho dang hoat dong phai co PIN — thieu la FAIL
+        $nvThieu = @($tt.nv_thieu_pin)
+        if ($nvThieu.Count -eq 0) {
             Ok 'moi thu ngan/thu kho dang hoat dong deu co PIN'
         } else {
-            CanhBao "NV thieu PIN (email che): $thieuPin - ho se khong qua duoc muc M1"
+            Loi "NV thieu PIN (email che): $($nvThieu -join ', ') - ho se KHONG qua duoc muc M1. Cap PIN qua /taikhoan"
         }
     }
 
@@ -170,18 +202,9 @@ try {
     $pinMoi = if ($Che -eq 'bat') { 'true' } else { 'false' }
     $maMoi = if ($Che -eq 'bat') { 'true' } else { 'false' }
 
-    if ($Che -eq 'bat') {
-        # Dieu kien bat: khong loi + co moc lo + bang da co
-        if ($fail -gt 0 -or -not $mocLoOk -or $coBangYc -ne 'CO') {
-            Write-Host "`nTU CHOI BAT: con $fail loi (hoac thieu moc lo/bang). Khong sua .env." -ForegroundColor Red
-            exit 1
-        }
-    } else {
-        # Che tat: van yeu cau DB dung, nhung khong can cac dieu kien bat
-        if ($fail -gt 0) {
-            Write-Host "`nTU CHOI TAT: $fail kiem tra moi truong that bai." -ForegroundColor Red
-            exit 1
-        }
+    if ($fail -gt 0 -or (-not $mocLoOk) -or ($tt.bang_yc -ne $true)) {
+        Write-Host "`nTU CHOI $($Che.ToUpper()): con $fail loi (hoac thieu moc lo/bang). Khong sua .env." -ForegroundColor Red
+        exit 1
     }
 
     if (-not (Test-Path $envFile)) {
