@@ -129,11 +129,20 @@ class KiemTraHeThong extends Command
         // Khi cờ tắt: KHÔNG truy vấn cột pin_* (code PIN phải chạy được cả khi
         // migration chưa áp — chỉ kiểm tra khi cờ bật).
         if (config('pos.pin_bat')) {
-            $adminChuaPin = \App\Models\User::where('role', 'admin')->whereNull('pin_hash')->count();
-            $this->bao($adminChuaPin === 0 ? 'OK' : 'WARN', 'PIN thao tác nhạy cảm',
+            $dangHoatDong = function ($q) {
+                $q->whereNull('khoa_luc')->orWhere('khoa_luc', '<=', now());
+            };
+            $adminChuaPin = \App\Models\User::where('role', 'admin')->where($dangHoatDong)->whereNull('pin_hash')->count();
+            $this->bao($adminChuaPin === 0 ? 'OK' : 'FAIL', 'PIN thao tác nhạy cảm',
                 $adminChuaPin === 0
-                    ? 'POS_PIN_BAT đang bật, mọi admin đã có PIN'
-                    : "POS_PIN_BAT đang bật nhưng {$adminChuaPin} admin chưa có PIN — chạy nguoidung:dat-pin");
+                    ? 'POS_PIN_BAT đang bật, mọi admin đang hoạt động đã có PIN'
+                    : "POS_PIN_BAT đang bật nhưng {$adminChuaPin} admin đang hoạt động chưa có PIN — chạy nguoidung:dat-pin");
+
+            $nvChuaPin = \App\Models\User::whereIn('role', ['thungan', 'thukho'])->where($dangHoatDong)->whereNull('pin_hash')->count();
+            $this->bao($nvChuaPin === 0 ? 'OK' : 'WARN', 'PIN nhân viên',
+                $nvChuaPin === 0
+                    ? 'mọi thu ngân/thủ kho đang hoạt động đã có PIN'
+                    : "{$nvChuaPin} thu ngân/thủ kho đang hoạt động chưa có PIN — sẽ bị chặn ở thao tác mức M1 (cấp qua /taikhoan)");
         } elseif (app()->environment('production')) {
             $this->bao('WARN', 'PIN thao tác nhạy cảm', 'POS_PIN_BAT đang tắt trên production — thao tác nhạy cảm không yêu cầu PIN');
         } else {

@@ -235,6 +235,53 @@ class KiemTraHeThongTest extends TestCase
         $this->assertNotNull(Cache::get(KiemTraHeThong::KHOA_SCHEDULER));
     }
 
+    public function test_admin_dang_hoat_dong_thieu_pin_la_fail(): void
+    {
+        config(['pos.pin_bat' => true]);
+        // Moi user deu co PIN tru admin -> chi con admin thieu.
+        foreach (User::all() as $u) {
+            $u->forceFill(['pin_hash' => bcrypt('123456')])->save();
+        }
+        User::where('role', 'admin')->firstOrFail()
+            ->forceFill(['pin_hash' => null])->save();
+
+        $out = $this->chayKiemTra();
+
+        $this->assertStringContainsString('[FAIL] PIN thao tác nhạy cảm', $out);
+        $this->assertStringContainsString('admin', $out);
+    }
+
+    public function test_nv_thieu_pin_la_warn_kem_so_luong(): void
+    {
+        config(['pos.pin_bat' => true]);
+        foreach (User::all() as $u) {
+            $u->forceFill(['pin_hash' => bcrypt('123456')])->save();
+        }
+        // Thu kho dang hoat dong khong co PIN -> WARN, khong FAIL.
+        User::where('role', 'thukho')->firstOrFail()
+            ->forceFill(['pin_hash' => null])->save();
+
+        $out = $this->chayKiemTra();
+
+        $this->assertStringContainsString('[OK] PIN thao tác nhạy cảm', $out);
+        $this->assertStringContainsString('[WARN] PIN nhân viên', $out);
+        $this->assertStringContainsString('1 thu ngân/thủ kho', $out);
+    }
+
+    public function test_nv_bi_khoa_khong_tinh_thieu_pin(): void
+    {
+        config(['pos.pin_bat' => true]);
+        foreach (User::all() as $u) {
+            $u->forceFill(['pin_hash' => bcrypt('123456')])->save();
+        }
+        User::where('role', 'thungan')->firstOrFail()
+            ->forceFill(['pin_hash' => null, 'khoa_luc' => now()->addDay()])->save();
+
+        $out = $this->chayKiemTra();
+
+        $this->assertStringContainsString('[OK] PIN nhân viên', $out);
+    }
+
     /**
      * Artisan::output() trả toàn bộ output của lần gọi gần nhất, cho phép kiểm
      * nhiều đoạn trên cùng một dòng (expectsOutputToContain chỉ khớp một đoạn/dòng).
