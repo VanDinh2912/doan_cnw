@@ -735,6 +735,26 @@ class ImportExportSanPhamTest extends TestCase
         $this->assertStringContainsString('ten_sanpham', $kh['errors'][0]);
     }
 
+    public function test_m2_dem_o_trong_theo_cot(): void
+    {
+        $this->loai();
+        $service = app(SanPhamImportService::class);
+        // 2 dong: dong 1 co gia_ban, dong 2 trong gia_ban; hang co mat nhung trong het
+        $file = $this->makeXlsxHeader(
+            ['sku', 'ten_sanpham', 'danh_muc', 'don_vi', 'gia_ban', 'hang'],
+            [
+                ['SKU-TR1', 'SP một', 'CS', 'Cái', 10000, ''],
+                ['SKU-TR2', 'SP hai', 'CS', 'Cái', '', ''],
+            ]
+        );
+        $doc = $service->docFile($file);
+        $cot = $doc['cot'];
+        $this->assertSame(2, $cot['tong_dong']);
+        $this->assertSame(1, $cot['trong']['gia_ban']);
+        $this->assertSame(2, $cot['trong']['hang']); // hang trong het 2 dong
+        $this->assertSame(['sku'], $cot['bat_buoc']);
+    }
+
     public function test_m2_vong_xuat_nhap_khong_doi(): void
     {
         $this->seed(); // du lieu day du: dau tieng Viet, hang, barcode so 0, sku chu

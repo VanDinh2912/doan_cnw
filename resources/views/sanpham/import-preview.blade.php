@@ -92,6 +92,38 @@
                 @endforeach
             </div>
         @endif
+        @php
+            $trongCot = $cot['trong'] ?? [];
+            $tongDongCot = (int) ($cot['tong_dong'] ?? 0);
+            $batBuocCot = $cot['bat_buoc'] ?? ['sku'];
+            $cotTrongHet = [];
+            $cotTrongMotPhan = [];
+            foreach ($trongCot as $fieldTrong => $soTrong) {
+                if (in_array($fieldTrong, $batBuocCot, true) || $tongDongCot === 0) {
+                    continue;
+                }
+                $nhanTrong = $tenCotHienThi[$fieldTrong] ?? $fieldTrong;
+                if ($soTrong >= $tongDongCot) {
+                    $cotTrongHet[] = $nhanTrong;
+                } else {
+                    $cotTrongMotPhan[] = $soTrong.' ô trống ở cột '.$nhanTrong.' (giá trị cũ được giữ nguyên)';
+                }
+            }
+        @endphp
+        @if ($cotTrongHet !== [])
+            <div class="alert alert-warning py-1 px-2 mt-2 mb-0 small">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <strong>Cột không có dữ liệu, bị coi như không có:</strong>
+                {{ implode(', ', $cotTrongHet) }} — mọi ô đều trống.
+            </div>
+        @endif
+        @if ($cotTrongMotPhan !== [])
+            <div class="text-muted small mt-1">
+                @foreach ($cotTrongMotPhan as $moTaTrong)
+                    {{ $moTaTrong }}{{ !$loop->last ? '; ' : '' }}
+                @endforeach
+            </div>
+        @endif
     </div>
 </div>
 @endif

@@ -161,6 +161,7 @@ abstract class ImportServiceBase
 
         // --- Cac dong du lieu ---
         $inputs = [];
+        $trong = []; // field => so o trong (chi cot co mat trong file)
         $fields = array_keys($this->truongImport());
         foreach ($rows as $idx => $row) {
             if ($idx === 0) {
@@ -181,6 +182,9 @@ abstract class ImportServiceBase
                 }
                 $cell = $cells[$viTri[$field]] ?? '';
                 $f[$field] = $this->oSangChuoi($cell);
+                if ($f[$field] === '') {
+                    $trong[$field] = ($trong[$field] ?? 0) + 1;
+                }
             }
             $inputs[] = ['line' => $line, 'fields' => $f];
         }
@@ -196,7 +200,7 @@ abstract class ImportServiceBase
             'file_hash' => $hash,
             'errors' => [],
             'inputs' => $inputs,
-            'cot' => $this->dongGoiCot($nhan, $boQua, $goiY, $heThong, $chiDoc),
+            'cot' => $this->dongGoiCot($nhan, $boQua, $goiY, $heThong, $chiDoc, $trong, count($inputs)),
         ];
     }
 
@@ -226,10 +230,12 @@ abstract class ImportServiceBase
 
     private function cotRong(): array
     {
-        return ['nhan' => [], 'bo_qua' => [], 'goi_y' => [], 'he_thong' => [], 'chi_doc' => []];
+        return ['nhan' => [], 'bo_qua' => [], 'goi_y' => [], 'he_thong' => [], 'chi_doc' => [],
+            'trong' => [], 'tong_dong' => 0, 'bat_buoc' => []];
     }
 
-    private function dongGoiCot(array $nhan, array $boQua, array $goiY, array $heThong, array $chiDoc): array
+    private function dongGoiCot(array $nhan, array $boQua, array $goiY, array $heThong, array $chiDoc,
+        array $trong = [], int $tongDong = 0): array
     {
         // goi_y da nhung trong chuoi bo_qua; tach rieng de view hien ro
         $dsGoiY = [];
@@ -239,12 +245,22 @@ abstract class ImportServiceBase
             }
         }
 
+        $batBuoc = [];
+        foreach ($this->truongImport() as $f => $c) {
+            if ($c['bat_buoc'] ?? false) {
+                $batBuoc[] = $f;
+            }
+        }
+
         return [
             'nhan' => $nhan,
             'bo_qua' => array_values(array_filter($boQua, fn ($b) => ! str_contains($b, 'ý bạn là'))),
             'goi_y' => $dsGoiY,
             'he_thong' => array_values($heThong),
             'chi_doc' => array_values($chiDoc),
+            'trong' => $trong,
+            'tong_dong' => $tongDong,
+            'bat_buoc' => $batBuoc,
         ];
     }
 
