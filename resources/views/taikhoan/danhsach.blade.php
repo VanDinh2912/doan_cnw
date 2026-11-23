@@ -6,7 +6,13 @@
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h3 mb-0">Tài khoản nhân viên</h1>
-    <a class="btn btn-primary" href="{{ route('taikhoan.them') }}">Thêm tài khoản</a>
+    <div class="d-flex gap-2">
+        <a class="btn btn-outline-warning" href="{{ route('duyet.index', ['tab' => 'pin']) }}">
+            <i class="fa-solid fa-key me-1"></i> Hộp duyệt
+            @if (($soYeuCauPinCho ?? 0) > 0)<span class="badge bg-danger">{{ $soYeuCauPinCho }}</span>@endif
+        </a>
+        <a class="btn btn-primary" href="{{ route('taikhoan.them') }}">Thêm tài khoản</a>
+    </div>
 </div>
 <form class="row g-2 mb-3" method="GET" action="{{ route('taikhoan.danhsach') }}">
     <div class="col-md-3">

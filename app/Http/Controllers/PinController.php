@@ -9,7 +9,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\View\View;
 
 class PinController extends Controller
@@ -105,7 +104,15 @@ class PinController extends Controller
         $user = $request->user();
         abort_unless($user && in_array($user->role, ['admin', 'thungan', 'thukho'], true), 403);
 
-        return view('pin.xincap');
+        // M4: hien trang thai cac yeu cau xin cap PIN gan day cua chinh minh.
+        $yeuCauPin = collect();
+        if (\App\Support\KiemTraSchema::coBang('yeu_cau_pin')) {
+            \App\Models\YeuCauPin::donHetHan();
+            $yeuCauPin = \App\Models\YeuCauPin::where('user_id', $user->id)
+                ->orderByDesc('id')->limit(10)->get();
+        }
+
+        return view('pin.xincap', ['yeuCauPin' => $yeuCauPin]);
     }
 
     /**
@@ -123,6 +130,33 @@ class PinController extends Controller
             'ly_do.required' => 'Vui lòng nhập lý do xin cấp PIN.',
             'ly_do.min' => 'Lý do phải có ít nhất 5 ký tự.',
         ]);
+
+        // M4: khi bang yeu_cau_pin da ton tai -> tao ban ghi co trang thai;
+        // thieu bang -> luong cu (chi log + Telegram), khong loi.
+        if (\App\Support\KiemTraSchema::coBang('yeu_cau_pin')) {
+            \App\Models\YeuCauPin::donHetHan();
+            $dangCho = \App\Models\YeuCauPin::where('user_id', $user->id)
+                ->where('trang_thai', \App\Models\YeuCauPin::TT_CHO_XU_LY)->exists();
+            if ($dangCho) {
+                return redirect()->route('pin.xincap')
+                    ->with('loi_pin', 'Bạn đã gửi yêu cầu và đang chờ quản trị viên xử lý — vui lòng chờ, không gửi trùng.');
+            }
+            try {
+                \App\Models\YeuCauPin::create([
+                    'user_id' => $user->id,
+                    'ly_do' => trim($validated['ly_do']),
+                    'trang_thai' => \App\Models\YeuCauPin::TT_CHO_XU_LY,
+                    'khoa_cho' => $user->id,
+                ]);
+            } catch (\Illuminate\Database\QueryException $e) {
+                // khoa_cho unique: request dong thoi -> coi nhu da co yeu cau cho
+                if (str_contains($e->getMessage(), 'Duplicate')) {
+                    return redirect()->route('pin.xincap')
+                        ->with('loi_pin', 'Bạn đã gửi yêu cầu và đang chờ quản trị viên xử lý — vui lòng chờ.');
+                }
+                throw $e;
+            }
+        }
 
         $lyDo = trim($validated['ly_do']);
         NhatKyService::ghi($request, 'pin_xin_cap', 'user', $user->id,
@@ -171,7 +205,7 @@ class PinController extends Controller
         ]);
     }
 
-    /** Khóa cache giữ PIN tạm cho từng user (mã hóa bằng APP_KEY, TTL 30'). */
+    /** Khóa cache giữ PIN tạm cho từng user — ủy quyền PinTamService (giữ tên cũ cho BC). */
     public static function KHOA_PIN_TAM(): string
     {
         return 'pin_tam_user_';
@@ -188,26 +222,8 @@ class PinController extends Controller
         abort_if($user->role === 'khachhang', 422, 'Không áp dụng cho tài khoản khách hàng.');
         $validated = $request->validate(['ly_do' => ['required', 'string', 'max:255']]);
 
-        // PIN tạm 6 số ngẫu nhiên, tránh dãy yếu hiển nhiên
-        do {
-            $pinTam = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-        } while (PinService::pinYeu($pinTam, $user));
-
-        $user->forceFill([
-            'pin_hash' => Hash::make($pinTam),
-            'pin_sai_lien_tiep' => 0,
-            'pin_khoa_den' => null,
-            'pin_doi_luc' => now(),
-            'bat_buoc_doi_pin' => false, // PIN tạm dùng luon lam PIN thuong, khong ep doi
-        ])->save();
-        PinService::xoaSessionPin();
-        // Lưu PIN tạm mã hóa trong cache 30' để CHÍNH NV đó tự xem 1 lần
-        // tại /pin/tam-cua-toi (không cần admin đọc cho NV).
-        \Illuminate\Support\Facades\Cache::put(
-            self::KHOA_PIN_TAM().$user->id, encrypt($pinTam), now()->addMinutes(30)
-        );
-        NhatKyService::ghi($request, 'pin_dat_lai', 'user', $user->id,
-            "Admin #{$admin->id} đặt lại PIN cho user #{$user->id} — {$validated['ly_do']}", null, null, null, 'pin');
+        // Dung chung PinTamService voi duyet yeu cau (M4) — nguon 'web' = chu dong.
+        \App\Services\PinTamService::capTamCho($user, $admin, $validated['ly_do'], $request, 'web');
 
         // KHONG hien PIN cho admin — chi NV tu xem 1 lan tai /pin/tam-cua-toi.
         // Admin biet PIN cua NV se danh bai muc dich "chong nguoi la o quay".

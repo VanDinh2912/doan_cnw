@@ -41,7 +41,12 @@ class TaiKhoanNhanVienController extends Controller
         // Yeu cau xin cap PIN gan nhat cua tung NV (de admin thay cho duyet)
         $xinPinGanNhat = $this->layXinPinGanNhat($users->pluck('id')->all());
 
-        return view('taikhoan.danhsach', compact('users', 'xinPinGanNhat'));
+        // M4: so yeu cau xin cap PIN dang cho (hien badge tren nut "Hop duyet")
+        $soYeuCauPinCho = KiemTraSchema::coBang('yeu_cau_pin')
+            ? \App\Models\YeuCauPin::where('trang_thai', \App\Models\YeuCauPin::TT_CHO_XU_LY)->count()
+            : 0;
+
+        return view('taikhoan.danhsach', compact('users', 'xinPinGanNhat', 'soYeuCauPinCho'));
     }
 
     /**

@@ -91,4 +91,5 @@ return [
     'chude.xoa' => 'A', 'baiviet.xoa' => 'A',
     'sanpham.import.xacnhan' => 'A',
     'duyet.capma' => 'A', 'duyet.tuchoi' => 'A',
+    'duyet.cappin' => 'A', 'duyet.tuchoiipin' => 'A',
 ];

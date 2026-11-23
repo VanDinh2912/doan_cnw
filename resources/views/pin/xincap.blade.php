@@ -36,5 +36,39 @@
             </form>
         </div>
     </div>
+
+    @if (($yeuCauPin ?? collect())->isNotEmpty())
+    <div class="card mt-3">
+        <div class="card-header fw-bold">Yêu cầu của tôi</div>
+        <div class="card-body p-0">
+            <table class="table table-sm align-middle mb-0">
+                <thead><tr><th>#</th><th>Lý do</th><th>Trạng thái</th><th>Gửi lúc</th></tr></thead>
+                <tbody>
+                @foreach ($yeuCauPin as $yc)
+                    <tr>
+                        <td>{{ $yc->id }}</td>
+                        <td class="small">{{ \Illuminate\Support\Str::limit($yc->ly_do, 60) }}</td>
+                        <td>
+                            @switch($yc->trang_thai)
+                                @case('cho_xu_ly')<span class="badge bg-warning text-dark">Đang chờ</span>@break
+                                @case('da_cap')
+                                    <span class="badge bg-success">Đã cấp</span>
+                                    <a class="small" href="{{ route('pin.tam') }}">Xem PIN tạm (1 lần)</a>
+                                    @break
+                                @case('tu_choi')
+                                    <span class="badge bg-danger">Bị từ chối</span>
+                                    @if ($yc->ly_do_tu_choi)<div class="small text-muted">{{ $yc->ly_do_tu_choi }}</div>@endif
+                                    @break
+                                @case('het_han')<span class="badge bg-secondary">Hết hạn</span>@break
+                            @endswitch
+                        </td>
+                        <td class="small text-muted">{{ $yc->created_at?->format('d/m H:i') }}</td>
+                    </tr>
+                @endforeach
+                </tbody>
+            </table>
+        </div>
+    </div>
+    @endif
 </div>
 @endsection

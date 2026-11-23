@@ -365,6 +365,9 @@ Route::middleware(['auth', 'staff.only', 'khoa.luc', 'bat.buoc.doi.mat.khau', \A
         Route::get('/yeu-cau-duyet/so-luong', [\App\Http\Controllers\YeuCauDuyetController::class, 'soLuong'])->name('duyet.solong');
         Route::post('/yeu-cau-duyet/{yeuCau}/cap-ma', [\App\Http\Controllers\YeuCauDuyetController::class, 'capMa'])->name('duyet.capma')->middleware('pin.muc');
         Route::post('/yeu-cau-duyet/{yeuCau}/tu-choi', [\App\Http\Controllers\YeuCauDuyetController::class, 'tuChoi'])->name('duyet.tuchoi')->middleware('pin.muc');
+        // M4: duyet yeu cau xin cap PIN (muc A = PIN nghiem trong moi lan)
+        Route::post('/yeu-cau-duyet/pin/{yeuCauPin}/cap', [\App\Http\Controllers\YeuCauDuyetController::class, 'capPin'])->name('duyet.cappin')->middleware('pin.muc');
+        Route::post('/yeu-cau-duyet/pin/{yeuCauPin}/tu-choi', [\App\Http\Controllers\YeuCauDuyetController::class, 'tuChoiPin'])->name('duyet.tuchoiipin')->middleware('pin.muc');
         Route::get('/thongke', [\App\Http\Controllers\ThongKeController::class, 'getTrangThongKe'])
             ->name('thongke.index');
         Route::get('/thongke/doanhthu', [\App\Http\Controllers\ThongKeController::class, 'getDoanhThu'])->name('thongke.doanhthu');

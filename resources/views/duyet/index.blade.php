@@ -2,10 +2,103 @@
 @section('title', 'Yêu cầu duyệt')
 @section('content')
 <div class="d-flex align-items-center justify-content-between mb-3">
-    <h4 class="mb-0">Yêu cầu duyệt thao tác</h4>
+    <h4 class="mb-0">Yêu cầu duyệt</h4>
     <button class="btn btn-sm btn-outline-secondary" onclick="location.reload()"><i class="fa-solid fa-rotate"></i> Làm mới</button>
 </div>
 
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item">
+        <a class="nav-link {{ ($tab ?? 'thao_tac') === 'thao_tac' ? 'active' : '' }}"
+           href="{{ route('duyet.index', ['tab' => 'thao_tac']) }}">
+            <i class="fa-solid fa-file-signature me-1"></i> Yêu cầu thao tác
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {{ ($tab ?? '') === 'pin' ? 'active text-bg-warning' : '' }}"
+           href="{{ route('duyet.index', ['tab' => 'pin']) }}">
+            <i class="fa-solid fa-key me-1"></i> Xin cấp PIN
+            @if (($soChoPin ?? 0) > 0)<span class="badge bg-danger">{{ $soChoPin }}</span>@endif
+        </a>
+    </li>
+</ul>
+
+@if (($tab ?? 'thao_tac') === 'pin')
+{{-- ===== TAB XIN CAP PIN (M4) — mau sac rieng, hanh dong khac han tab thao tac ===== --}}
+<div class="card border-warning">
+    <div class="card-body py-2 small text-muted">
+        Nhân viên xin cấp/đặt lại PIN kèm <strong>lý do</strong>. "Cấp PIN tạm" sinh PIN 6 số ngẫu nhiên —
+        <strong>bạn không thấy PIN</strong>; nhân viên tự xem đúng 1 lần tại <code>/pin/tam-cua-toi</code> (cache 30 phút).
+        Yêu cầu tự hết hạn sau 7 ngày.
+    </div>
+</div>
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead><tr>
+                <th>#</th><th>Nhân viên</th><th>Lý do</th><th>Trạng thái</th>
+                <th>Người xử lý</th><th>Thời gian</th><th></th>
+            </tr></thead>
+            <tbody>
+            @forelse (($dsPin ?? collect()) as $yc)
+                <tr class="{{ $yc->trang_thai === 'cho_xu_ly' ? 'table-warning' : '' }}">
+                    <td>{{ $yc->id }}</td>
+                    <td>
+                        <div class="fw-semibold">{{ $yc->nhanVien->name ?? '#'.$yc->user_id }}</div>
+                        <div class="small text-muted">{{ $yc->nhanVien->email ?? '' }} · {{ $yc->nhanVien->role ?? '' }}</div>
+                    </td>
+                    <td class="small">&ldquo;{{ $yc->ly_do }}&rdquo;</td>
+                    <td>
+                        @switch($yc->trang_thai)
+                            @case('cho_xu_ly')<span class="badge bg-warning text-dark">Chờ xử lý</span>@break
+                            @case('da_cap')<span class="badge bg-success">Đã cấp PIN</span>@break
+                            @case('tu_choi')<span class="badge bg-danger">Từ chối</span>@break
+                            @case('het_han')<span class="badge bg-secondary">Hết hạn</span>@break
+                        @endswitch
+                        @if ($yc->trang_thai === 'tu_choi' && $yc->ly_do_tu_choi)
+                            <div class="small text-muted">{{ $yc->ly_do_tu_choi }}</div>
+                        @endif
+                    </td>
+                    <td class="small">{{ $yc->adminXuLy->name ?? '—' }}{{ $yc->xu_ly_luc ? ' · '.$yc->xu_ly_luc->format('d/m H:i') : '' }}</td>
+                    <td class="small">{{ $yc->created_at?->format('d/m H:i') }}</td>
+                    <td class="text-nowrap">
+                        @if ($yc->trang_thai === 'cho_xu_ly')
+                            <form method="POST" action="{{ route('duyet.cappin', $yc) }}" class="d-inline" data-can-pin="a">
+                                @csrf
+                                <button class="btn btn-sm btn-warning" title="Cấp PIN tạm (PIN nghiêm trọng)">Cấp PIN tạm</button>
+                            </form>
+                            <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#mdTuChoiPin{{ $yc->id }}">Từ chối</button>
+                        @endif
+                    </td>
+                </tr>
+                @if ($yc->trang_thai === 'cho_xu_ly')
+                <div class="modal fade" id="mdTuChoiPin{{ $yc->id }}" tabindex="-1">
+                    <div class="modal-dialog"><div class="modal-content">
+                        <form method="POST" action="{{ route('duyet.tuchoiipin', $yc) }}" data-can-pin="a">
+                            @csrf
+                            <div class="modal-header"><h5 class="modal-title">Từ chối xin cấp PIN #{{ $yc->id }}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                            <div class="modal-body">
+                                <p class="small text-muted">{{ $yc->nhanVien->name ?? '' }} — &ldquo;{{ $yc->ly_do }}&rdquo;</p>
+                                <label class="form-label small">Lý do từ chối (nhân viên sẽ thấy)</label>
+                                <input type="text" name="ly_do" class="form-control" maxlength="255" required minlength="5">
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                                <button class="btn btn-danger">Từ chối</button>
+                            </div>
+                        </form>
+                    </div></div>
+                </div>
+                @endif
+            @empty
+                <tr><td colspan="7" class="text-center text-muted py-4">Không có yêu cầu xin cấp PIN nào{{ $dsPin && $dsPin->hasPages() ? '' : '' }}.</td></tr>
+            @endforelse
+            </tbody>
+        </table>
+    </div>
+    @if ($dsPin && $dsPin->hasPages())<div class="card-footer">{{ $dsPin->links() }}</div>@endif
+</div>
+@else
 <div class="card mb-3">
     <div class="card-body py-2 small text-muted">
         Nhân viên gửi yêu cầu kèm <strong>lý do</strong> cho thao tác mức M2 (tiền/mất dữ liệu). Kiểm tra kỹ <strong>người yêu cầu, lý do, thao tác, đối tượng và tham số ràng buộc</strong> trước khi cấp mã. Mã hiện đúng một lần — đọc/ghi lại cho nhân viên.
@@ -91,6 +184,7 @@
     </div>
     @if ($ds->hasPages())<div class="card-footer">{{ $ds->links() }}</div>@endif
 </div>
+@endif
 
 {{-- Modal hiện mã một lần --}}
 <div class="modal fade" id="mdMa" tabindex="-1" data-bs-backdrop="static">

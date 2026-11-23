@@ -483,10 +483,17 @@ Trình tự an toàn (cờ mặc định TẮT — migration không đổi hành
 2. Admin đặt PIN cho chính mình: `php artisan nguoidung:dat-pin admin@example.com` (nhập ẩn, trên máy chủ).
 3. Nhân viên **không tự đổi/cấp PIN** (đã gỡ từ 2026-11-22). NV vào
    **"Xin cấp PIN"** (`/pin/xin-cap`), bắt buộc nhập lý do → hệ thống ghi
-   nhật ký + báo Telegram cho admin.
-4. Admin vào `/taikhoan` → "Đặt lại PIN" cho NV đó: route mức A (admin phải
-   nhập PIN nghiêm trọng của chính mình) + lý do. Hệ thống sinh PIN tạm 6 số
-   ngẫu nhiên, **admin KHÔNG thấy PIN**.
+   nhật ký + báo Telegram cho admin. **M4**: khi bảng `yeu_cau_pin` đã
+   migrate, mỗi NV chỉ có 1 yêu cầu chờ (`khoa_cho` unique); yêu cầu tự
+   hết hạn sau 7 ngày; NV xem trạng thái tại `/pin/xin-cap` ("Yêu cầu của
+   tôi": chờ / đã cấp / từ chối kèm lý do / hết hạn).
+4. Admin vào **Hộp duyệt** (`/yeu-cau-duyet`) tab **"Xin cấp PIN"** (badge
+   gộp cả 2 loại chờ) → "Cấp PIN tạm" (mức A, PIN nghiêm trọng mỗi lần) hoặc
+   "Từ chối" kèm lý do ≥5 ký tự (NV thấy lý do). Hoặc `/taikhoan` →
+   "Đặt lại PIN" chủ động (mức A + lý do) — cùng `PinTamService`, nguồn
+   `web`. Hệ thống sinh PIN tạm 6 số ngẫu nhiên, **admin KHÔNG thấy PIN**.
+   Thiếu bảng `yeu_cau_pin`: xin cấp chạy như cũ (log + Telegram), tab mới
+   trống, badge chỉ đếm yêu cầu thao tác.
 5. NV vào **"PIN tạm của tôi"** (`/pin/tam-cua-toi`) → xem **đúng 1 lần**
    (cache mã hóa TTL 30 phút). PIN tạm trở thành PIN thường lâu dài —
    **không ép đổi** (`bat_buoc_doi_pin=false`).
