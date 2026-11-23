@@ -33,6 +33,12 @@ class KiemTraHeThongTest extends TestCase
             'logging.default' => 'daily',
         ]);
         Cache::forget(SepayDoiSoat::KHOA_LAN_CUOI);
+
+        // Seeder dat MK demo '123456' cho moi NV -> kiem-tra se FAIL.
+        // Doi het sang MK khong-phai-demo; test rieng tu dat lai khi can.
+        foreach (User::all() as $u) {
+            $u->forceFill(['password' => bcrypt('MatKhauKhongPhaiDemo@99')])->save();
+        }
     }
 
     public function test_bao_loi_khi_scheduler_chua_tung_chay(): void
@@ -284,7 +290,10 @@ class KiemTraHeThongTest extends TestCase
 
     public function test_tai_khoan_dung_mat_khau_demo_la_fail(): void
     {
-        // Seeder tao MK '123456' cho ca 3 vai tro -> phai FAIL, in id+role.
+        // Dat lai MK demo '123456' cho admin -> phai FAIL, in id+role.
+        User::where('role', 'admin')->firstOrFail()
+            ->forceFill(['password' => bcrypt('123456')])->save();
+
         $out = $this->chayKiemTra();
 
         $this->assertStringContainsString('[FAIL] Mật khẩu demo', $out);
