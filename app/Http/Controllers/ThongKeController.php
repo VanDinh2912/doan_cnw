@@ -29,6 +29,8 @@ class ThongKeController extends Controller
                 : [],
             // Công nợ điểm: chỉ đọc, không đổi công thức doanh thu/lợi nhuận.
             'congNoDiem' => $this->congNoDiem(),
+            // M5: thẻ "Xác nhận thủ công chưa đối chiếu" — chỉ admin, chỉ khi bảng đã migrate.
+            'xacNhanThuCongChuaSoat' => $this->thongKeXacNhanThuCongChuaSoat(),
         ];
 
         return view('tongquan', $data);
@@ -67,6 +69,25 @@ class ThongKeController extends Controller
             'tong_diem' => $tongDiem,
             'so_khach' => (int) ($row->so_khach ?? 0),
             'quy_doi' => $tongDiem * (int) config('pos.gia_tri_diem', 1000),
+        ];
+    }
+
+    /** M5 — đếm + tổng tiền xác nhận thủ công chưa đối chiếu (admin only, null nếu bảng chưa có). */
+    private function thongKeXacNhanThuCongChuaSoat(): ?array
+    {
+        if (auth()->user()->role !== 'admin'
+            || ! \App\Support\KiemTraSchema::coBang('xac_nhan_thu_cong')) {
+            return null;
+        }
+
+        $row = \App\Models\XacNhanThuCong::query()
+            ->whereNull('soat_luc')
+            ->selectRaw('COUNT(*) AS so_luong, COALESCE(SUM(so_tien), 0) AS tong_tien')
+            ->first();
+
+        return [
+            'so_luong' => (int) ($row->so_luong ?? 0),
+            'tong_tien' => (int) ($row->tong_tien ?? 0),
         ];
     }
 

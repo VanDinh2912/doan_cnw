@@ -165,6 +165,9 @@ class MaDuyetService
                 'trang_thai_ban_moi' => $request->has('trang_thai') ? ($request->boolean('trang_thai') ? '1' : '0') : null,
             ],
             'donhang.thanhtoan', 'donhang.taoqr' => self::thamSoPos($request),
+            // M5: bang chung nhan tien di vao mo_ta de admin thay khi cap ma,
+            // dong thoi rang buoc ma voi dung bang chung do.
+            'donhang.xacnhan' => ['bang_chung' => $request->input('bang_chung')],
             default => [],
         };
 
@@ -328,6 +331,9 @@ class MaDuyetService
         }
         if (isset($thamSo['tong_gio'])) {
             $them .= ' — tổng giỏ '.number_format((float) $thamSo['tong_gio'], 0, ',', '.').'đ';
+        }
+        if (isset($thamSo['bang_chung'])) {
+            $them .= ' — bằng chứng: '.mb_substr((string) $thamSo['bang_chung'], 0, 100);
         }
 
         return "{$nhan}{$doiTuong}{$them}";

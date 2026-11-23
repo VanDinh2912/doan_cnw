@@ -108,6 +108,19 @@
             </small>
         </div>
     </div>
+    @if ($xacNhanThuCongChuaSoat !== null)
+    <div class="col-sm-6 col-lg-6">
+        <a href="{{ route('doisoat.thucu') }}" class="text-decoration-none">
+            <div class="stat-card {{ $xacNhanThuCongChuaSoat['so_luong'] > 0 ? 'border-danger' : '' }}">
+                <div class="stat-label">Xác nhận thủ công chưa đối chiếu</div>
+                <div class="stat-value {{ $xacNhanThuCongChuaSoat['so_luong'] > 0 ? 'text-danger' : '' }}">{{ $xacNhanThuCongChuaSoat['so_luong'] }}</div>
+                <small class="text-muted">
+                    {{ number_format($xacNhanThuCongChuaSoat['tong_tien'], 0, ',', '.') }} đ — <a href="{{ route('doisoat.thucu') }}">mở trang soát</a>
+                </small>
+            </div>
+        </a>
+    </div>
+    @endif
     <div class="col-12">
         <div class="stat-card {{ ($chiSo['so_sp_chua_co_gia_nhap'] ?? 0) > 0 ? 'border-warning' : '' }}">
             <div class="stat-label">Đang bán nhưng chưa có giá nhập</div>

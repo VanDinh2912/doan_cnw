@@ -85,7 +85,7 @@ return [
     'khachhang.datlaimatkhau' => 'A', 'khachhang.dieuchinhdiem' => 'A',
     'donhangonline.huydathanhtoan' => 'A', 'donhangonline.dahoantien' => 'A',
     'kiemke.approve' => 'A',
-    'nhatky.export' => 'A', 'doisoat.xuly' => 'A', 'trahang.duyet' => 'A', 'baocao.hoadon' => 'A',
+    'nhatky.export' => 'A', 'doisoat.xuly' => 'A', 'doisoat.thucu.soat' => 'A', 'trahang.duyet' => 'A', 'baocao.hoadon' => 'A',
     'taikhoan.store' => 'A', 'taikhoan.update' => 'A', 'taikhoan.khoa' => 'A',
     'taikhoan.mokhoa' => 'A', 'taikhoan.datlaimatkhau' => 'A', 'taikhoan.datlaipin' => 'A',
     'chude.xoa' => 'A', 'baiviet.xoa' => 'A',

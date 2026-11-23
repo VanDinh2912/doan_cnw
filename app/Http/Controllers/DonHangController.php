@@ -14,6 +14,7 @@ use App\Services\NhatKyService;
 use App\Services\PinService;
 use App\Services\ThanhToanChuyenKhoanService;
 use App\Services\VietQrService;
+use App\Support\KiemTraSchema;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -29,6 +30,7 @@ class DonHangController extends Controller
     {
         return view('pos.index', [
             'loais' => LoaiSanPham::orderBy('ten_loai')->get(),
+            'coBangXacNhanThuCong' => KiemTraSchema::coBang('xac_nhan_thu_cong'),
         ]);
     }
 
@@ -187,9 +189,47 @@ class DonHangController extends Controller
      * Xác nhận thanh toán thủ công từ thu ngân (phương án dự phòng khi mất mạng / khách chuyển không quét webhook).
      * POST /donhang/xacnhan/{donHang}
      */
-    public function postXacNhanThanhToan(DonHang $donHang, ThanhToanChuyenKhoanService $service): JsonResponse
+    public function postXacNhanThanhToan(Request $request, DonHang $donHang, ThanhToanChuyenKhoanService $service): JsonResponse
     {
-        $res = $service->hoanTatThanhToan($donHang, null, auth()->user(), 'Thu ngân xác nhận thủ công');
+        // M5: bang chung nhan tien bat buoc khi bang xac_nhan_thu_cong da ton tai.
+        // Bang chua co (prod chua migrate) -> luong cu chay y nguyen.
+        $coBangXn = KiemTraSchema::coBang('xac_nhan_thu_cong');
+        $validated = $request->validate([
+            'bang_chung' => [$coBangXn ? 'required' : 'nullable', 'string', 'min:5', 'max:255'],
+        ], [
+            'bang_chung.required' => 'Vui lòng nhập bằng chứng nhận tiền (vd: 4 số cuối mã giao dịch hoặc tên người chuyển).',
+            'bang_chung.min' => 'Bằng chứng phải có ít nhất 5 ký tự.',
+        ]);
+
+        $nguoi = auth()->user();
+        $ycId = (int) ($request->attributes->get('ma_duyet_yc_id') ?? 0) ?: null;
+        $adminDuyetId = $ycId
+            ? (int) ($request->attributes->get('ma_duyet_admin_id') ?? 0) ?: null
+            : ($nguoi?->role === 'admin' ? $nguoi->id : null);
+
+        $res = DB::transaction(function () use ($donHang, $service, $validated, $nguoi, $ycId, $adminDuyetId) {
+            $kq = $service->hoanTatThanhToan($donHang, null, $nguoi, 'Thu ngân xác nhận thủ công');
+            if ($kq['success'] && ! ($kq['already_processed'] ?? false) && KiemTraSchema::coBang('xac_nhan_thu_cong')) {
+                try {
+                    \App\Models\XacNhanThuCong::create([
+                        'invoice_id' => $kq['don_hang']->id,
+                        'so_tien' => (int) $kq['don_hang']->tong_thanh_toan,
+                        'bang_chung' => trim((string) $validated['bang_chung']),
+                        'nguoi_xac_nhan_id' => $nguoi?->id,
+                        'yeu_cau_duyet_id' => $ycId,
+                        'admin_duyet_id' => $adminDuyetId,
+                        'xac_nhan_luc' => now(),
+                    ]);
+                } catch (\Illuminate\Database\QueryException $e) {
+                    // invoice_id unique: bam dup/webhook lap -> bo qua, khong lam hong don.
+                    if (! str_contains($e->getMessage(), 'Duplicate')) {
+                        throw $e;
+                    }
+                }
+            }
+
+            return $kq;
+        });
 
         if (! $res['success']) {
             return response()->json(['error' => $res['message']], 422);
@@ -301,6 +341,7 @@ class DonHangController extends Controller
             'donHangs' => $truyVan->paginate(20)->withQueryString(),
             'tuNgay' => $validated['tu_ngay'] ?? '',
             'denNgay' => $validated['den_ngay'] ?? '',
+            'coBangXacNhanThuCong' => KiemTraSchema::coBang('xac_nhan_thu_cong'),
         ]);
     }
 

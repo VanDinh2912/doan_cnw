@@ -67,13 +67,13 @@ class DonHangPickupXuLyTest extends TestCase
         $this->assertSame(8, (int) $sp->fresh()->soluong); // 10 - 2 đang giữ
 
         $thuNgan = User::where('role', 'thungan')->firstOrFail();
-        $this->actingAs($thuNgan)->postJson(route('donhang.xacnhan', $don))
+        $this->actingAs($thuNgan)->postJson(route('donhang.xacnhan', $don), ['bang_chung' => 'GD-test-1234'])
             ->assertOk()->assertJson(['success' => true]);
         $this->assertSame('da_thanh_toan', $don->fresh()->trang_thai);
         $this->assertSame(8, (int) $sp->fresh()->soluong); // không trừ lại
 
         // Bấm đúp → đã xử lý (422 already_processed), không trừ kho/ghi movement lần hai
-        $this->actingAs($thuNgan)->postJson(route('donhang.xacnhan', $don))
+        $this->actingAs($thuNgan)->postJson(route('donhang.xacnhan', $don), ['bang_chung' => 'GD-test-1234'])
             ->assertStatus(422);
         $this->assertSame(8, (int) $sp->fresh()->soluong);
         $this->assertSame(1, \App\Models\BienDongKho::where('invoice_id', $don->id)->where('loai', 'ban')->count());
@@ -92,7 +92,7 @@ class DonHangPickupXuLyTest extends TestCase
         $this->assertSame(10, (int) $sp->fresh()->soluong); // hoàn kho
 
         // Đơn đã hủy không xác nhận được nữa
-        $this->actingAs($thuNgan)->postJson(route('donhang.xacnhan', $don))
+        $this->actingAs($thuNgan)->postJson(route('donhang.xacnhan', $don), ['bang_chung' => 'GD-test-1234'])
             ->assertStatus(422);
         $this->assertSame('da_huy', $don->fresh()->trang_thai);
         $this->assertSame(10, (int) $sp->fresh()->soluong);
@@ -114,13 +114,13 @@ class DonHangPickupXuLyTest extends TestCase
         // Đơn quá hạn nhưng scheduler chưa hủy: nhân viên vẫn xác nhận được
         // (tiền đã về) — hành vi hiện có của hoanTatThanhToan, giữ nguyên.
         $don2 = $this->donPickup(['han_giu' => now()->subMinute()]);
-        $this->actingAs($thuNgan)->postJson(route('donhang.xacnhan', $don2))
+        $this->actingAs($thuNgan)->postJson(route('donhang.xacnhan', $don2), ['bang_chung' => 'GD-test-1234'])
             ->assertOk()->assertJson(['success' => true]);
 
         // Đơn quá hạn ĐÃ bị hủy → không xác nhận được nữa
         $don3 = $this->donPickup(['han_giu' => now()->subMinute()]);
         app(ThanhToanChuyenKhoanService::class)->huyChoThanhToan($don3, 'Quá hạn giữ hàng');
-        $this->actingAs($thuNgan)->postJson(route('donhang.xacnhan', $don3))
+        $this->actingAs($thuNgan)->postJson(route('donhang.xacnhan', $don3), ['bang_chung' => 'GD-test-1234'])
             ->assertStatus(422);
         $this->assertSame('da_huy', $don3->fresh()->trang_thai);
     }
@@ -143,7 +143,7 @@ class DonHangPickupXuLyTest extends TestCase
             ]
         );
         $thuNgan = User::where('role', 'thungan')->firstOrFail();
-        $this->actingAs($thuNgan)->postJson(route('donhang.xacnhan', $don))
+        $this->actingAs($thuNgan)->postJson(route('donhang.xacnhan', $don), ['bang_chung' => 'GD-test-1234'])
             ->assertOk()->assertJson(['success' => true]);
         $this->assertSame('da_thanh_toan', $don->fresh()->trang_thai);
         // Webhook lặp sau xác nhận thủ công không tác dụng lần hai

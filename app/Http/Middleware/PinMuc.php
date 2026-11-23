@@ -81,6 +81,9 @@ class PinMuc
             if (! $yc) {
                 return $this->canMaDuyet($request, 'Mã duyệt không đúng hoặc đã hết hạn.');
             }
+            // M5: controller doc de lien ket xac_nhan_thu_cong.yeu_cau_duyet_id/admin_duyet_id.
+            $request->attributes->set('ma_duyet_yc_id', $yc->id);
+            $request->attributes->set('ma_duyet_admin_id', $yc->admin_cap_id);
             $response = $next($request);
             // Chỉ đốt mã khi thao tác thành công (không phải redirect lỗi validate).
             $loiValidate = $response->isRedirect()

@@ -9,6 +9,23 @@
     đánh dấu đã xử lý — <strong>không</strong> tự hoàn tiền và <strong>không</strong> tự đổi trạng thái đơn.
 </p>
 
+@if (! ($sepayBat ?? true))
+    <div class="alert alert-warning">
+        <i class="fa fa-triangle-exclamation me-1"></i>
+        <strong>SePay đang TẮT</strong> — trang này chỉ có dữ liệu khi webhook/đối soát tự động chạy;
+        danh sách rỗng <em>không</em> đồng nghĩa "đã sạch". Thu ngân xác nhận tay nằm ở
+        <a href="{{ route('doisoat.thucu') }}">Xác nhận thủ công</a>.
+    </div>
+@endif
+
+@if ($coBangXacNhanThuCong ?? false)
+    <div class="mb-3">
+        <a class="btn btn-outline-primary btn-sm" href="{{ route('doisoat.thucu') }}">
+            <i class="fa fa-hand-holding-dollar me-1"></i> Xác nhận thủ công chưa đối chiếu
+        </a>
+    </div>
+@endif
+
 <form class="row g-2 mb-3" method="GET">
     <div class="col-md-3">
         <select class="form-select" name="trang_thai_xu_ly">

@@ -71,15 +71,23 @@
 document.addEventListener('DOMContentLoaded', function() {
     var token = document.querySelector('meta[name="csrf-token"]').content;
 
+    var CO_BANG_XN = @json($coBangXacNhanThuCong ?? false);
+
     document.querySelectorAll('.js-xac-nhan-thanh-toan').forEach(function(btn) {
         btn.addEventListener('click', function() {
             var id = this.dataset.id;
             var ma = this.dataset.ma;
+            var bc = '';
+            if (CO_BANG_XN) {
+                bc = (prompt('Bằng chứng nhận tiền cho đơn ' + ma + ' (vd: 4 số cuối mã GD hoặc tên người chuyển, tối thiểu 5 ký tự):') || '').trim();
+                if (bc.length < 5) { alert('Bằng chứng nhận tiền bắt buộc, tối thiểu 5 ký tự.'); return; }
+            }
             if (!confirm('Xác nhận thanh toán cho đơn ' + ma + '?')) return;
 
             fetch('/donhang/xacnhan/' + id, {
                 method: 'POST',
-                headers: { 'X-CSRF-TOKEN': token, 'Accept': 'application/json' }
+                headers: { 'X-CSRF-TOKEN': token, 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                body: JSON.stringify({ bang_chung: bc })
             })
             .then(function(r) { return r.json(); })
             .then(function(d) {

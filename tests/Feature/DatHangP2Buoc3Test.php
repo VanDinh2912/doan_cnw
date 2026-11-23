@@ -245,7 +245,7 @@ class DatHangP2Buoc3Test extends TestCase
         $don = $this->donGiaoChoThanhToan($this->sp());
         $thuNgan = User::where('role', 'thungan')->firstOrFail();
 
-        $res = $this->actingAs($thuNgan)->postJson(route('donhang.xacnhan', $don));
+        $res = $this->actingAs($thuNgan)->postJson(route('donhang.xacnhan', $don), ['bang_chung' => 'GD-test-1234']);
         $res->assertOk();
 
         $this->assertSame('da_thanh_toan', $don->fresh()->trang_thai);

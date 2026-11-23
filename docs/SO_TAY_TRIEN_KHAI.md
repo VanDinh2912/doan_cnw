@@ -21,6 +21,8 @@ thứ tự tên file, nên **thứ tự áp thực tế** là:
 | 4 | `2026_11_16_000001_add_can_hoan_tien_to_invoices_table` | P3: cờ cần hoàn tiền thủ công + ghi chú nội bộ | `invoices.can_hoan_tien` bool, `invoices.ghi_chu_noi_bo` varchar(255) | ✅ có guard | Thấp | `down()` có điều kiện |
 | 5 | `2026_11_16_000002_add_tien_hoan_phi_giao_to_returns_table` | Quy tắc hoàn phí giao: tick admin một lần/đơn | `returns.tien_hoan_phi_giao` unsigned int default 0 | ✅ có guard | Thấp: chỉ thêm cột có default; thiếu cột → trả hàng chạy hành vi cũ, tick ship báo 422 | `down()` có điều kiện |
 | 6 | `2026_11_22_000001_create_diem_bien_dong_table` | Sổ cái điểm tích lũy | Bảng mới `diem_bien_dong` (customer_id, loai, diem, so_du_sau, invoice_id, return_id, user_id, ly_do, su_kien unique, created_at) | ✅ code guard `KiemTraSchema::coBang` — **chạy được khi chưa migrate** | Thấp: chỉ thêm bảng; code hiện tại tự bỏ qua ghi sổ nếu thiếu bảng | `down()` drop bảng |
+| 7 | `2026_11_23_000001_create_xac_nhan_thu_cong_table` | M5: soát xác nhận thanh toán thủ công | Bảng mới `xac_nhan_thu_cong` (invoice_id unique FK→invoices, so_tien, bang_chung, nguoi_xac_nhan_id, yeu_cau_duyet_id, admin_duyet_id, xac_nhan_luc, soat_boi_id, soat_luc, ghi_chu_soat) | ✅ code guard `KiemTraSchema::coBang` — **chạy được khi chưa migrate** (ô bằng chứng chỉ hiện khi bảng có; thiếu bảng luồng cũ y nguyên) | Thấp: chỉ thêm bảng; unique invoice_id chống ghi trùng | `down()` drop bảng |
+| 8 | `2026_11_23_000002_create_yeu_cau_pin_table` | M4: yêu cầu cấp PIN có trạng thái | Bảng mới `yeu_cau_pin` (user_id, ly_do, trang_thai, admin_xu_ly_id, xu_ly_luc, ly_do_tu_choi, khoa_cho nullable unique) | ✅ code guard — thiếu bảng xin cấp PIN chạy như cũ (log + Telegram) | Thấp: chỉ thêm bảng | `down()` drop bảng |
 
 ### Quy trình bật sổ cái điểm (sau khi duyệt migration)
 
@@ -448,6 +450,28 @@ Lưu ý:
   nhân viên vẫn có thể đặt như khách vãng lai sau khi đăng xuất; kiểm soát
   thật là xác nhận thủ công qua mã duyệt + trang soát xác nhận thủ công
   (`/doisoat/thu-cong`).
+
+### M5 — Kiểm soát xác nhận thanh toán thủ công
+
+- `/donhang/xacnhan` (admin+thungan, mức M2 mã duyệt): khi bảng
+  `xac_nhan_thu_cong` đã migrate, **bắt buộc "bằng chứng nhận tiền"**
+  (≥5 ký tự, vd 4 số cuối mã GD / tên người chuyển). Bằng chứng đi vào
+  `mo_ta` của yêu cầu duyệt → admin thấy khi cấp mã, và mã gắn đúng
+  bằng chứng đó (`tham_so_duyet` ràng buộc eq).
+- Khi hoàn tất, ghi 1 dòng `xac_nhan_thu_cong` trong CÙNG transaction với
+  `hoanTatThanhToan`: ai xác nhận, số tiền đơn, mã duyệt + admin cấp mã.
+  `invoice_id` unique → bấm đúp/webhook lặp không tạo dòng thứ 2.
+- Trang `/doisoat/thu-cong` (admin): danh sách xác nhận thủ công, mặc định
+  "chưa đối chiếu", lọc ngày, tổng tiền; nút "Đã đối chiếu sao kê" (mức A).
+- `/tongquan` (admin): thẻ "Xác nhận thủ công chưa đối chiếu" (số + tổng tiền).
+- `/doisoat`: banner "SePay đang TẮT" khi cả webhook key lẫn API token trống
+  (chỉ đọc cờ cấu hình, không in giá trị); list rỗng không đồng nghĩa "sạch".
+- Lệnh nhập lại dữ liệu cũ: `php artisan thu-cong:khoi-tao-tu-ghi-chu`
+  (mặc định dry-run; `--apply` ghi, idempotent) — tạo dòng cho hóa đơn có
+  `ghi_chu` chứa "Thu ngân xác nhận thủ công" mà chưa có dòng soát.
+  Chạy dry-run trên prod được; `--apply` chờ lệnh riêng.
+- Chưa migrate: ô bằng chứng không hiện, trang `/doisoat/thu-cong` 404 êm,
+  xác nhận thủ công chạy y như cũ.
 
 ## 9. Triển khai PIN thao tác nhạy cảm (POS_PIN_BAT + POS_MA_DUYET_BAT)
 

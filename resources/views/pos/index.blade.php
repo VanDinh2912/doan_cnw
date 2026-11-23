@@ -154,6 +154,15 @@
                 <div class="text-primary small" id="qr-modal-status">
                     <i class="fa fa-circle-notch fa-spin me-1"></i> Đang chờ nhận diện chuyển khoản từ SePay...
                 </div>
+
+                @if ($coBangXacNhanThuCong ?? false)
+                <div class="text-start mt-3">
+                    <label for="qr-modal-bang-chung" class="form-label small fw-semibold">Bằng chứng nhận tiền <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="qr-modal-bang-chung" maxlength="255"
+                           placeholder="VD: 4 số cuối mã GD, tên người chuyển…">
+                    <div class="form-text">Bắt buộc khi xác nhận thủ công — dùng đối soát sau.</div>
+                </div>
+                @endif
             </div>
             <div class="modal-footer justify-content-between">
                 <button type="button" class="btn btn-outline-danger" id="btn-modal-huy-cho">
@@ -477,6 +486,9 @@ btnTaoQr?.addEventListener('click', async () => {
 
 btnModalXacNhan?.addEventListener('click', async () => {
     if (!currentInvoiceId) return;
+    var bangChung = document.getElementById('qr-modal-bang-chung');
+    var bc = bangChung ? bangChung.value.trim() : '';
+    if (bc.length < 5) { alert('Vui lòng nhập bằng chứng nhận tiền (ít nhất 5 ký tự).'); if (bangChung) bangChung.focus(); return; }
     if (!confirm('Xác nhận đã nhận đủ tiền chuyển khoản cho hóa đơn này?')) return;
 
     btnModalXacNhan.disabled = true;
@@ -488,8 +500,10 @@ btnModalXacNhan?.addEventListener('click', async () => {
             method: 'POST',
             headers: {
                 'X-CSRF-TOKEN': csrfToken,
-                'Accept': 'application/json'
-            }
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ bang_chung: bc })
         });
         const kq = await docPhanHoi(res, 'Không thể xác nhận thanh toán.');
         if (kq.ok && kq.data.success) {

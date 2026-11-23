@@ -354,6 +354,9 @@ Route::middleware(['auth', 'staff.only', 'khoa.luc', 'bat.buoc.doi.mat.khau', \A
         Route::get('/nhatky', [\App\Http\Controllers\NhatKyController::class, 'index'])->name('nhatky.index');
         Route::get('/nhatky/xuat-csv', [\App\Http\Controllers\NhatKyController::class, 'export'])->name('nhatky.export')->middleware('pin.muc');
         Route::get('/doisoat', [\App\Http\Controllers\DoiSoatController::class, 'index'])->name('doisoat.index');
+        // M5: soát xác nhận thanh toán thủ công (ghi = mức A) — khai báo TRƯỚC {webhook}
+        Route::get('/doisoat/thu-cong', [\App\Http\Controllers\DoiSoatController::class, 'thuCong'])->name('doisoat.thucu');
+        Route::post('/doisoat/thu-cong/{xacNhan}/soat', [\App\Http\Controllers\DoiSoatController::class, 'soatXong'])->name('doisoat.thucu.soat')->middleware('pin.muc');
         Route::get('/doisoat/{webhook}', [\App\Http\Controllers\DoiSoatController::class, 'show'])->name('doisoat.show');
         Route::post('/doisoat/{webhook}/xuly', [\App\Http\Controllers\DoiSoatController::class, 'xuLy'])->name('doisoat.xuly')->middleware('pin.muc');
         Route::post('/trahang/duyet/{phieuTra}', [\App\Http\Controllers\TraHangController::class, 'postDuyet'])->name('trahang.duyet')->middleware('pin.muc');

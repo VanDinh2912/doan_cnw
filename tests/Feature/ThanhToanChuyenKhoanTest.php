@@ -625,7 +625,7 @@ class ThanhToanChuyenKhoanTest extends TestCase
         $donHang = $this->taoHoaDonChoThanhToan(150000, $kh, 0, 15);
 
         $response = $this->actingAs($this->cashier)
-            ->postJson(route('donhang.xacnhan', $donHang));
+            ->postJson(route('donhang.xacnhan', $donHang), ['bang_chung' => 'GD-test-1234']);
 
         $response->assertOk();
         $response->assertJson(['success' => true]);
@@ -661,7 +661,7 @@ class ThanhToanChuyenKhoanTest extends TestCase
 
         // Thu ngân bấm xác nhận sau đó
         $response = $this->actingAs($this->cashier)
-            ->postJson(route('donhang.xacnhan', $donHang));
+            ->postJson(route('donhang.xacnhan', $donHang), ['bang_chung' => 'GD-test-1234']);
 
         $response->assertStatus(422);
         // Điểm không bị cộng thêm
@@ -800,7 +800,7 @@ class ThanhToanChuyenKhoanTest extends TestCase
 
         // 3. Sau khi thanh toán thành công
         $this->actingAs($this->cashier)
-            ->postJson(route('donhang.xacnhan', $donHang))
+            ->postJson(route('donhang.xacnhan', $donHang), ['bang_chung' => 'GD-test-1234'])
             ->assertOk();
 
         // 4. Doanh thu ghi nhận đúng số tiền của hóa đơn vừa thanh toán.
