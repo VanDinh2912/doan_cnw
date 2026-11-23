@@ -76,7 +76,7 @@ ngày 2026-11-21).
 ## 1b. Nhật ký áp migration
 
 **2026-11-16 ~22:3x** — đã áp thành công 5 migration lên `doan_cnw` (MySQL 8.4.7,
-InnoDB), xác nhận của Lê Văn Định lúc 22:13. Tag git:
+InnoDB), xác nhận của chủ dự án lúc 22:13. Tag git:
 `backup/truoc-migrate-doan-cnw-20261116`.
 
 - Danh sách đã áp (đúng thứ tự): `2026_11_11_000001_add_ma_tham_chieu_to_payment_webhooks_table`,
@@ -91,9 +91,9 @@ InnoDB), xác nhận của Lê Văn Định lúc 22:13. Tag git:
   `activity_logs` +6 cột +2 index); `migrate:status` 0 pending.
 - Thời gian áp: ~0,6 giây tổng (từng migration 28–247 ms), trong chế độ bảo trì.
 - Sao lưu (KHÔNG nằm trong repo, chỉ ghi tên + kích thước):
-  - `D:\Study\xampp\www\doan_cnw_truoc_migrate_20261116_2216.sql` — 382,3 KB
+  - `<thư-mục-www>\doan_cnw_truoc_migrate_20261116_2216.sql` — 382,3 KB
     (bản chính, đã kiểm chứng khôi phục khớp 27 bảng/2164 dòng trên `doan_cnw_dev`);
-  - `D:\Study\xampp\www\doan_cnw_truoc_migrate_that_20261116_2235.sql` — 382,3 KB
+  - `<thư-mục-www>\doan_cnw_truoc_migrate_that_20261116_2235.sql` — 382,3 KB
     (bản ngay trước khi áp thật);
   - `storage/app/backups/doan_cnw-20261116-152541.sql` — bản của `sao-luu:csdl`.
   **Người dùng cần chép các tệp này ra USB/ổ khác.**
@@ -109,7 +109,7 @@ InnoDB), xác nhận của Lê Văn Định lúc 22:13. Tag git:
 - Chi tiết đầy đủ: `docs/BAO_CAO_AP_MIGRATION.md`.
 
 **2026-11-17 ~06:5x** — đã áp thành công 3 migration tin tức lên `doan_cnw`
-(xác nhận của Lê Văn Định 14:38). Commit code trước đó: `12dfd10` (Google OAuth),
+(xác nhận của chủ dự án 14:38). Commit code trước đó: `12dfd10` (Google OAuth),
 `e8cb5d2` (tin tức).
 
 - Danh sách đã áp: `2026_11_17_000001_create_news_topics_table`,
@@ -119,7 +119,7 @@ InnoDB), xác nhận của Lê Văn Định lúc 22:13. Tag git:
 - Kiểm chứng: số dòng mọi bảng cũ **không đổi** (chỉ `migrations` 41→44);
   3 bảng mới InnoDB; `TinTucSeeder` idempotent (3 chủ đề + 3 bài viết);
   819 tests xanh trên `doan_cnw_dev`; smoke test `/bai-viet` 200.
-- Sao lưu: `D:\Study\xampp\www\backups\doan_cnw_truoc_migrate_tintuc_20261117_0634.sql`
+- Sao lưu: `<thư-mục-www>\backups\doan_cnw_truoc_migrate_tintuc_20261117_0634.sql`
   (~395 KB, 27 bảng, đã kiểm chứng khôi phục khớp số dòng trên `doan_cnw_dev`).
 
 **2026-11-17 ~12:0x** — đã áp thành công 1 migration email đơn online lên
@@ -129,7 +129,7 @@ InnoDB), xác nhận của Lê Văn Định lúc 22:13. Tag git:
   `ALTER TABLE invoices ADD email_dat varchar(150) NULL` (additive, nullable).
 - Kiểm chứng: số dòng mọi bảng **không đổi** (chỉ `migrations` 44→45);
   engine toàn InnoDB; `migrate:status` 0 pending; 825 tests xanh.
-- Sao lưu: `D:\Study\xampp\www\backups\doan_cnw_truoc_migrate_email_that_20261117_1158.sql`
+- Sao lưu: `<thư-mục-www>\backups\doan_cnw_truoc_migrate_email_that_20261117_1158.sql`
   (~404 KB) + bản diễn tập `doan_cnw_truoc_migrate_email_20261117_0706.sql` (~407 KB).
 - Sau áp: bật `POS_DAT_HANG_ONLINE_BAT=true` trong `.env` local
   (`POS_GIAO_TAN_NOI_BAT` giữ `false`); smoke test `/dat-hang`, `/don-hang/tra-cuu` OK.
@@ -146,7 +146,7 @@ InnoDB), xác nhận của Lê Văn Định lúc 22:13. Tag git:
   additive, không ALTER dữ liệu cũ.
 - Kiểm chứng: số dòng mọi bảng **không đổi** (chỉ `migrations` 45→46);
   engine toàn InnoDB; `migrate:status` 0 pending.
-- Sao lưu: `D:\Study\xampp\www\backups\doan_cnw_truoc_migrate_khachhang_20261117_1330.sql`
+- Sao lưu: `<thư-mục-www>\backups\doan_cnw_truoc_migrate_khachhang_20261117_1330.sql`
   (~412 KB, "Dump completed").
 - `demo:kiemtra-du-lieu` sau khi sửa checker (customers >= 100): **"Dữ liệu hợp lệ"**.
 - Tính năng đi kèm: admin khóa/mở hồ sơ khách (đồng bộ `users.khoa_luc` trong
@@ -162,7 +162,7 @@ InnoDB), xác nhận của Lê Văn Định lúc 22:13. Tag git:
   nội bộ), không ALTER bảng cũ.
 - Kiểm chứng: số dòng mọi bảng **không đổi** (users=4, customers=101,
   invoices=14, products=300); `lien_he` 0 dòng; `migrations` 46→47; 0 pending.
-- Sao lưu: `D:\Study\xampp\www\backups\doan_cnw_truoc_migrate_lienhe_20261117_1814.sql`
+- Sao lưu: `<thư-mục-www>\backups\doan_cnw_truoc_migrate_lienhe_20261117_1814.sql`
   (~408 KB, "Dump completed").
 - Tính năng đi kèm: form `/lien-he` public (honeypot + throttle), `/tuyen-dung`,
   trang tĩnh `/trang/{slug}` (nội dung `config/trang_tinh.php`), admin
@@ -177,7 +177,7 @@ InnoDB), xác nhận của Lê Văn Định lúc 22:13. Tag git:
 - Kiểm chứng sau migrate: products=300, `brand_id` toàn NULL, brands=0,
   `migrations` 47→49; mọi bảng khác không đổi; engine InnoDB; 0 pending.
   Diễn tập `doan_cnw_dev`: 98.8ms + 207.3ms.
-- Sao lưu: `D:\Study\xampp\www\backups\doan_cnw_truoc_migrate_hang_20261117_1952.sql`
+- Sao lưu: `<thư-mục-www>\backups\doan_cnw_truoc_migrate_hang_20261117_1952.sql`
   (~411 KB) + `doan_cnw_truoc_backfill_hang_20261117_2155.sql` (~403 KB,
   ngay trước backfill).
 - Backfill: `php artisan app:backfill-product-brands` (dry-run mặc định,

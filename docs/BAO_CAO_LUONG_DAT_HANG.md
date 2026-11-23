@@ -135,8 +135,8 @@ Hệ quả thiết kế chính: (a) thêm trạng thái mới phải `ALTER ENUM
 
 ## 10. Phụ lục — test thăm dò tạm (không commit)
 
-- File: `C:\Users\vandi\AppData\Local\Temp\dat-hang-probe\DatHangProbeTest.php` + `evidence.txt` (120 dòng bằng chứng).
-- Chạy từ gốc `DA`: `XDEBUG_MODE=off php vendor/bin/phpunit C:/Users/vandi/AppData/Local/Temp/dat-hang-probe/DatHangProbeTest.php`
+- File: `<thư-mục-người-dùng>\AppData\Local\Temp\dat-hang-probe\DatHangProbeTest.php` + `evidence.txt` (120 dòng bằng chứng).
+- Chạy từ gốc `DA`: `XDEBUG_MODE=off php vendor/bin/phpunit <thư-mục-người-dùng>/AppData/Local/Temp/dat-hang-probe/DatHangProbeTest.php`
 - Kết quả: **OK (14 tests, 196 assertions)**, PHP 8.4.15, ~1,1 s, SQLite `:memory:` (theo `phpunit.xml`, không chạm DB thật).
 - Phủ: guest/khachhang × 12 route đơn hàng (browser 302 + JSON 401), webhook 401, đối chứng thungan tạo đơn tiền mặt + QR + xác nhận + hủy hoàn kho, đăng ký liên kết SĐT 3 kịch bản + leo thang role, 6 edge số lượng, tamper giá, giá cũ, SP ẩn/xóa sau khi thêm, CSRF 419, audit middleware toàn bộ route.
 - Lưu ý môi trường: test nạp cấu hình VietQR từ env nên `url_qr` khác null (số tài khoản nhận là công khai trên QR; báo cáo này không in lại). Không đọc/ghi `.env` trực tiếp.

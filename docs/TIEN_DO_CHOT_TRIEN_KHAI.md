@@ -31,7 +31,7 @@ Cập nhật sau mỗi hạng mục. Đọc file này đầu tiên khi tiếp t�
 ## Lệnh tiếp tục
 
 ```powershell
-cd D:\Study\xampp\www\DA
+cd <thư-mục-dự-án>
 $env:XDEBUG_MODE='off'; php artisan test --compact
 # MySQL-copy (filter CHÍNH XÁC):
 $env:DB_CONNECTION='mysql'; $env:DB_DATABASE='doan_cnw_copy'; $env:DB_USERNAME='root'; $env:DB_PASSWORD=''

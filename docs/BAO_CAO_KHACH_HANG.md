@@ -14,7 +14,7 @@
 
 - Lỗi gốc: ô SĐT ở form thêm/sửa khách và POS thêm nhanh chỉ validate
   `required|string|max:15|unique`, **không kiểm tra định dạng** nên nhận cả chữ
-  (ví dụ dữ liệu thật có bản ghi SĐT = "Lê Văn Định").
+  (ví dụ dữ liệu thật có bản ghi SĐT = "<tên-người>").
 - Đã có sẵn `unique` index trên `customers.so_dienthoai`
   (`database/migrations/2026_01_01_000006_create_customers_table.php:14`) →
   **không cần migration mới** cho chống trùng.
@@ -80,7 +80,7 @@ Truy vấn chỉ đọc qua script tạm boot Laravel (đã xóa sau khi chạy)
 | Cặp trùng SĐT thô (GROUP BY) | 0 |
 | Cặp trùng sau chuẩn hóa | 0 |
 
-- Bản ghi sai duy nhất: `so_dienthoai = "Lê Văn Định"` (nhập tên vào ô SĐT).
+- Bản ghi sai duy nhất: `so_dienthoai = "<tên-người>"` (nhập tên vào ô SĐT).
 - 100 bản ghi còn lại đều là di động 10 số đầu `03/05/07/08/09`; không có số cố định
   `02x`, không có biến thể `+84`/khoảng trắng.
 - **Kết luận:** áp dụng quy tắc chặt (khớp 100/101). Bản ghi lỗi giữ nguyên, không
@@ -103,7 +103,7 @@ Truy vấn chỉ đọc qua script tạm boot Laravel (đã xóa sau khi chạy)
 
 | # | Lỗi | Trước (file:dòng cũ) | Sau (file:dòng mới) | Test chứng minh |
 |---|---|---|---|---|
-| 1 | **Nhận chữ vào SĐT** khi thêm/sửa khách: chỉ `required,string,max:15,unique`, không kiểm tra định dạng. Bằng chứng: bản ghi thật SĐT = "Lê Văn Định" | `KhachHangController.php:80-91` (`validated()`), `:66-78` (`postTaoNhanh`) | Chuẩn hóa + Rule chung: `KhachHangController.php:69-102`; `app/Rules/SoDienThoaiHopLe.php:14-44` | `test_them_khach_tu_choi_sdt_khong_hop_le` (9 ca, gồm mảng), `test_pos_tao_nhanh_tu_choi_sdt_chu`, `test_them_khach_chuan_hoa_sdt_hop_le` (6 biến thể) |
+| 1 | **Nhận chữ vào SĐT** khi thêm/sửa khách: chỉ `required,string,max:15,unique`, không kiểm tra định dạng. Bằng chứng: bản ghi thật SĐT = "<tên-người>" | `KhachHangController.php:80-91` (`validated()`), `:66-78` (`postTaoNhanh`) | Chuẩn hóa + Rule chung: `KhachHangController.php:69-102`; `app/Rules/SoDienThoaiHopLe.php:14-44` | `test_them_khach_tu_choi_sdt_khong_hop_le` (9 ca, gồm mảng), `test_pos_tao_nhanh_tu_choi_sdt_chu`, `test_them_khach_chuan_hoa_sdt_hop_le` (6 biến thể) |
 | 2 | **Đăng ký storefront nhận SĐT 11 số / mọi đầu 0** (`regex:/^0\d{9,10}$/`), không chuẩn hóa; link khách vãng lai theo SĐT thô nên `+84…` không khớp bản ghi `0…` | `AuthController.php:77-135` (regex cũ + tra cứu thô) | `AuthController.php:80-87` (merge chuẩn hóa + Rule chung), `:113` (tra cứu bằng SĐT đã chuẩn hóa) | `test_dang_ky_chuan_hoa_sdt`, `test_dang_ky_tu_choi_sdt_chu`, `test_dang_ky_link_khach_vang_lai_sau_chuan_hoa` |
 | 3 | **POS tìm khách không chuẩn hóa** (`+84…` không ra kết quả) và **không escape `%`/`_`** trong LIKE (`sdt=09%` khớp mọi khách đầu 09) | `KhachHangController.php:54-64` (`LIKE 'sdt%'` thô) | `KhachHangController.php:55-67` (chuẩn hóa + escape `\`, `%`, `_`) | `test_pos_tim_kiem_chuan_hoa_sdt`, `test_pos_tim_kiem_escape_ky_tu_like` |
 | 4 | **Import xlsx / seeder không chuẩn hóa SĐT** (chỉ `trim` / cast chuỗi) | `NhapDuLieuTaiLieu.php:44-74`, `DuLieuMau300Seeder.php:73-77` | `NhapDuLieuTaiLieu.php:53-58` (chuẩn hóa + bỏ qua dòng sai, đếm `skipped`), `DuLieuMau300Seeder.php:76` | Unit `SoDienThoaiHopLeTest` (hàm dùng chung); chưa có test riêng cho import (cần file xlsx) |
@@ -152,7 +152,7 @@ Toàn bộ test dùng SQLite `:memory:` + `RefreshDatabase`; không mạng, khô
 
 ## 7. Rủi ro còn lại
 
-- **1 bản ghi thật sai quy tắc** (SĐT = "Lê Văn Định"): giữ nguyên, không tự sửa.
+- **1 bản ghi thật sai quy tắc** (SĐT = "<tên-người>"): giữ nguyên, không tự sửa.
   Khi sửa khách này bằng form, bắt buộc phải nhập SĐT hợp lệ (Rule chặn giá trị cũ)
   — đây là hành vi mong muốn, nhưng người vận hành cần biết để nhập số thật.
 - **Endpoint POS thêm khách nhanh chưa có UI gọi** (`postTaoNhanh`): đã validate
@@ -171,7 +171,7 @@ Toàn bộ test dùng SQLite `:memory:` + `RefreshDatabase`; không mạng, khô
 
 ## 8. Cần người dùng xác nhận
 
-1. **Sửa bản ghi SĐT sai duy nhất** ("Lê Văn Định"). Chuẩn hóa không khôi phục được
+1. **Sửa bản ghi SĐT sai duy nhất** ("<tên-người>"). Chuẩn hóa không khôi phục được
    chữ số từ tên người ⇒ cần người thật cung cấp SĐT đúng. Lệnh dry-run CHỈ ĐỌC để
    liệt kê bản ghi không khớp quy tắc (không chạy trong đợt này):
 

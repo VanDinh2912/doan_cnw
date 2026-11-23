@@ -1,12 +1,12 @@
 # Báo cáo áp migration lên doan_cnw — 2026-11-16
 
 Áp 5 migration pending lên DB thật `doan_cnw` (MySQL 8.4.7, WAMP
-`D:\Study\xampp`). Xác nhận người dùng: Lê Văn Định, 22:13. Tag git:
+`<thư-mục-xampp>`). Xác nhận người dùng: Chủ dự án, 22:13. Tag git:
 `backup/truoc-migrate-doan-cnw-20261116`. Không commit dữ liệu/backup.
 
 ## 1. Điều kiện tiên quyết — tất cả đạt
 
-- Thư mục `D:\Study\xampp\www\DA`, nhánh `main`, HEAD `43ca81e` (chỉ docs sau
+- Thư mục `<thư-mục-dự-án>`, nhánh `main`, HEAD `43ca81e` (chỉ docs sau
   `e54533e`), git status/stash sạch; đủ file bắt buộc.
 - `migrate:status`: đúng **5 Pending** khớp tên trong sổ tay.
 - MySQL `mysql.exe -u root` không mật khẩu kết nối được; `doan_cnw_dev` chưa có.
@@ -22,7 +22,7 @@
 | Bước | Kết quả |
 |---|---|
 | `php artisan sao-luu:csdl` (DB_DUMP_BINARY chỉ đường mysqldump) | `storage/app/backups/doan_cnw-20261116-152541.sql` — 382,3 KB |
-| `mysqldump --single-transaction --routines --result-file` | `D:\Study\xampp\www\doan_cnw_truoc_migrate_20261116_2216.sql` — 391.296 byte, 27 CREATE TABLE, "Dump completed" |
+| `mysqldump --single-transaction --routines --result-file` | `<thư-mục-www>\doan_cnw_truoc_migrate_20261116_2216.sql` — 391.296 byte, 27 CREATE TABLE, "Dump completed" |
 | Tạo `doan_cnw_dev` + nạp dump | OK |
 | **Kiểm chứng khôi phục** | **27/27 bảng khớp số dòng (tổng 2.164 dòng), engine InnoDB, tiếng Việt đúng dấu** |
 
@@ -50,7 +50,7 @@
 ## 4. Áp lên doan_cnw — thành công
 
 - Sao lưu lại ngay trước khi áp:
-  `D:\Study\xampp\www\doan_cnw_truoc_migrate_that_20261116_2235.sql` —
+  `<thư-mục-www>\doan_cnw_truoc_migrate_that_20261116_2235.sql` —
   391.296 byte; số dòng mọi bảng khớp snapshot TRƯỚC (dữ liệu không đổi
   trong lúc diễn tập).
 - `php artisan down --retry=60` → bảo trì; chụp mốc cuối 27 bảng.

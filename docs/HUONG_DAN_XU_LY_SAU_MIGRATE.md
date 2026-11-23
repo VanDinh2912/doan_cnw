@@ -147,12 +147,12 @@ hạn** (hiện đã ~292k dòng), không tự xoay.
 ### 6a. Sao lưu database định kỳ
 - Lệnh có sẵn: `php artisan sao-luu:csdl` — cần `mysqldump` trong PATH hoặc
   `DB_DUMP_BINARY` trỏ đúng (máy này:
-  `DB_DUMP_BINARY=D:\Study\xampp\bin\mysql\mysql8.4.7\bin\mysqldump.exe`).
+  `DB_DUMP_BINARY=<thư-mục-xampp>\bin\mysql\mysql8.4.7\bin\mysqldump.exe`).
 - Nên chạy **mỗi ngày** qua Windows Task Scheduler (ví dụ 22:00), chép bản ra
   USB/ổ ngoài định kỳ. Hiện giữ tối đa 7 bản trong `storage/app/backups`.
 - Đợt này đã tạo 3 tệp backup ngoài repo — **bạn tự chép ra USB**:
-  - `D:\Study\xampp\www\doan_cnw_truoc_migrate_20261116_2216.sql`
-  - `D:\Study\xampp\www\doan_cnw_truoc_migrate_that_20261116_2235.sql`
+  - `<thư-mục-www>\doan_cnw_truoc_migrate_20261116_2216.sql`
+  - `<thư-mục-www>\doan_cnw_truoc_migrate_that_20261116_2235.sql`
   - `storage/app/backups/doan_cnw-20261116-152541.sql` (trong repo, gitignored)
 
 ### 6b. `demo:kiemtra-du-lieu` báo "customers không đúng"
@@ -165,7 +165,7 @@ hạn** (hiện đã ~292k dòng), không tự xoay.
 - Đang giữ bản sao đã migrate — dùng để thử nghiệm an toàn trước khi đụng DB
   thật. Xóa khi không cần:
   ```powershell
-  & "D:\Study\xampp\bin\mysql\mysql8.4.7\bin\mysql.exe" -u root -e "DROP DATABASE doan_cnw_dev;"
+  & "<thư-mục-xampp>\bin\mysql\mysql8.4.7\bin\mysql.exe" -u root -e "DROP DATABASE doan_cnw_dev;"
   ```
 - Muốn tạo lại bản mới nhất từ doan_cnw: lặp lại quy trình mysqldump → tạo DB →
   nạp (xem `docs/SO_TAY_TRIEN_KHAI.md` mục 2).

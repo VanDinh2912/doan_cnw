@@ -565,7 +565,9 @@ Tất cả tài khoản demo đều có mật khẩu `123456`.
 | Thu ngân | `thungan@example.com` | POS, giỏ hàng, thanh toán, hóa đơn |
 | Thủ kho | `thukho@example.com` | Sản phẩm, loại sản phẩm, nhập kho |
 
-Mật khẩu trên chỉ dùng cho demo, không dùng trong môi trường thật.
+Mật khẩu trên chỉ dùng cho demo local/dev, **TUYỆT ĐỐI không dùng cho tài
+ khoản production** — giá trị `123456` đã public trong mã nguồn. Nếu lỡ seed
+ lên CSDL thật, phải đổi mật khẩu các tài khoản đó ngay qua giao diện quản trị.
 Các email trên trùng với tài khoản được tạo trong `database/seeders/DatabaseSeeder.php`.
 
 ## 7. Chức năng chính
@@ -2185,7 +2187,7 @@ Chi tiết khảo sát, nguyên nhân dashboard sai định nghĩa và bằng ch
 | `php artisan test tests/Feature/PosWorkflowTest.php` (chạy lại lớp flake) | **32 passed** (195 assertions), 58.26s | Xác nhận flake; không sửa mã phiếu trả trong đợt này |
 | `XDEBUG_MODE=off php artisan test` (lượt 2, sạch) | **224 passed, 1 skipped (1208 assertions), 214.82s**, exit 0 | 225 ca: 27 Unit + 198 Feature; skip duy nhất `KhoaDongMysqlTest` |
 | `php artisan view:cache` | ✅ Thành công | Toàn bộ view biên dịch được |
-| Kiểm tra dữ liệu thật `doan_cnw` (CHỈ ĐỌC) | 101 khách; 0 rỗng; 0 trùng; **1 SĐT sai** ("Lê Văn Định") | 100/101 khớp quy tắc chặt ⇒ áp quy tắc chặt; bản ghi sai giữ nguyên, đề xuất dry-run ở mục 8 báo cáo |
+| Kiểm tra dữ liệu thật `doan_cnw` (CHỈ ĐỌC) | 101 khách; 0 rỗng; 0 trùng; **1 SĐT sai** ("<tên-người>") | 100/101 khớp quy tắc chặt ⇒ áp quy tắc chặt; bản ghi sai giữ nguyên, đề xuất dry-run ở mục 8 báo cáo |
 | Migration mới | **Không thêm** | Unique index `customers.so_dienthoai` đã có sẵn |
 | `.env` / migrate/seed/demo:reset trên DB thật | **Không đọc/ghi; không chạy** | Không merge/push |
 

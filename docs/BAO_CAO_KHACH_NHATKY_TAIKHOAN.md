@@ -153,7 +153,7 @@ trung gian khác; ghi nhận **chưa kiểm chứng được**, không kết lu�
 là gì, spec Stage 1 (bail định dạng trước, trùng chỉ với số hợp lệ đã chuẩn hóa, bỏ
 qua rỗng/NULL và bản ghi đang sửa, chốt model) triệt tiêu cả hai lớp lỗi.
 Báo cáo cũ 2026-11-11 của nhánh fix ghi nhận dữ liệu thật từng có 1 bản ghi SĐT là
-tên người ("Lê Văn Định") — xem mục 0.8, nay đã hết.
+tên người ("<tên-người>") — xem mục 0.8, nay đã hết.
 
 ### 0.8. Số liệu DB thật (CHỈ ĐỌC, 2026-11-15, không in PII)
 
@@ -372,7 +372,7 @@ sẵn; đối chiếu `SHOW CREATE` thật vs copy giống hệt (mục 1.2). Kh
 ### 1.7. Số liệu dữ liệu cũ (CHỈ ĐỌC) + đề xuất lệnh chuẩn hóa
 
 - Stage 0 đã đếm trên `doan_cnw` (chỉ đọc): **101 khách, 0 rỗng/NULL/sai định
-  dạng/trùng** (bản ghi sai "Lê Văn Định" trong báo cáo 11-11 đã được sửa). Stage 1
+  dạng/trùng** (bản ghi sai "<tên-người>" trong báo cáo 11-11 đã được sửa). Stage 1
   **không sửa/xóa dữ liệu khách hiện có**.
 - Đề xuất quy trình (người dùng tự chạy, agent không chạy):
   1. `php artisan khachhang:chuan-hoa-sdt` — **DRY-RUN**, chỉ liệt kê (che SĐT),

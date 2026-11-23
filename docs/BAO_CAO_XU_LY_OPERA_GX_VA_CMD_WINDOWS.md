@@ -4,7 +4,7 @@
 - **Phạm vi:** máy cá nhân Windows (user `vandi`), tác vụ `\WebPOS-Scheduler` của dự án DA
 - **Kết quả cuối:** Opera GX đã gỡ hoàn toàn; cửa sổ cmd nhấp nháy mỗi phút đã hết;
   scheduler Laravel vẫn chạy đúng mỗi phút, log cập nhật bình thường
-- **Sao lưu:** `D:\Study\backups\OperaGX-2026-11-11` (140.8 MB, profile + export registry)
+- **Sao lưu:** `<thư-mục-sao-lưu>\OperaGX-2026-11-11` (140.8 MB, profile + export registry)
 
 ---
 
@@ -66,7 +66,7 @@ Chạy elevated `remove_opera_gx.ps1`, log `remove_opera_gx.log`.
 **Sao lưu trước khi gỡ** (robocopy exit 1 = thành công):
 
 ```
-D:\Study\backups\OperaGX-2026-11-11\
+<thư-mục-sao-lưu>\OperaGX-2026-11-11\
   Roaming-Opera Software\
   Local-Opera Software\
   registry-HKCU-OperaSoftware.reg
@@ -79,7 +79,7 @@ D:\Study\backups\OperaGX-2026-11-11\
 **Gỡ bằng uninstaller chính thức:**
 
 ```powershell
-Start-Process -FilePath 'C:\Users\vandi\AppData\Local\Programs\Opera GX\opera.exe' `
+Start-Process -FilePath '<thư-mục-người-dùng>\AppData\Local\Programs\Opera GX\opera.exe' `
   -ArgumentList '--uninstall','--runimmediately','--deleteuserprofile=1' -PassThru
 ```
 
@@ -142,7 +142,7 @@ Watcher `watch_cmd_flash.ps1` bắt được chuỗi tiến trình thật:
 
 ```
 svchost.exe (PID 2300, Task Scheduler)
-  → cmd.exe /c ""D:\Study\xampp\www\DA\scripts\windows\chay-schedule.bat""
+  → cmd.exe /c ""<thư-mục-dự-án>\scripts\windows\chay-schedule.bat""
     → php artisan schedule:run
       → cmd /c ... donhang:huy-qua-han   (17:39:01, 17:40:01)
 ```
@@ -161,7 +161,7 @@ Tạo `scripts\windows\chay-schedule-hidden.vbs`:
 Option Explicit
 Dim sh, rc, bat
 Set sh = CreateObject("WScript.Shell")
-bat = "D:\Study\xampp\www\DA\scripts\windows\chay-schedule.bat"
+bat = "<thư-mục-dự-án>\scripts\windows\chay-schedule.bat"
 rc = sh.Run("""" & bat & """", 0, True)
 WScript.Quit rc
 ```
@@ -169,10 +169,10 @@ WScript.Quit rc
 Đổi action của task thành:
 
 ```
-wscript.exe //B //Nologo "D:\Study\xampp\www\DA\scripts\windows\chay-schedule-hidden.vbs"
+wscript.exe //B //Nologo "<thư-mục-dự-án>\scripts\windows\chay-schedule-hidden.vbs"
 ```
 
-- XML task gốc sao lưu tại `C:\Users\vandi\AppData\Local\Temp\webpos_scheduler_task_backup.xml`.
+- XML task gốc sao lưu tại `<thư-mục-người-dùng>\AppData\Local\Temp\webpos_scheduler_task_backup.xml`.
 - `chay-schedule.bat` **không sửa** — vẫn tự `cd` về gốc dự án, ghi log
   `storage\logs\schedule-YYYY-MM-DD.log`, giữ log 14 ngày, trả `ERRORLEVEL`.
 - `WScript.Shell.Run(..., 0, True)` chạy ẩn và chờ; process con kế thừa console ẩn.
@@ -213,6 +213,6 @@ Lần quét cuối `VISIBLE CMD: none` xác nhận không còn cửa sổ nào.
 2. Nếu đổi đường dẫn dự án, phải sửa đường dẫn trong `chay-schedule-hidden.vbs`
    và trong action của task.
 3. Muốn khôi phục task như cũ: import
-   `C:\Users\vandi\AppData\Local\Temp\webpos_scheduler_task_backup.xml`.
+   `<thư-mục-người-dùng>\AppData\Local\Temp\webpos_scheduler_task_backup.xml`.
 4. Backup Opera GX chỉ để tra cứu; xóa thư mục backup là mất dữ liệu profile cũ.
 5. Không có thay đổi nào tới mã nghiệp vụ Laravel, CSDL hay cấu hình SePay.

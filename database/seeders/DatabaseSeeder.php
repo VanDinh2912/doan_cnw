@@ -13,6 +13,9 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        // CANH BAO: mat khau demo co dinh '123456' — CHI cho moi truong dev/thu.
+        // KHONG duoc seed len production (mat khau da public trong repo).
+        // De xuat (chua lam): doc tu bien moi truong SEED_DEMO_PASSWORD.
         $matKhau = Hash::make('123456');
 
         User::firstOrCreate(
