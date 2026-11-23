@@ -42,7 +42,7 @@ class MauImportSheetDuLieu implements FromCollection, WithHeadings, WithTitle, W
 
     public function headings(): array
     {
-        return ['sku', 'barcode', 'ten_sanpham', 'danh_muc', 'hang', 'don_vi', 'gia_ban'];
+        return ['sku', 'barcode', 'ten_sanpham', 'danh_muc', 'hang', 'don_vi', 'gia_ban', 'hinh_anh_url'];
     }
 
     public function collection(): Collection
@@ -80,6 +80,9 @@ class MauImportSheetHuongDan implements FromCollection, WithTitle
             ['hang', 'Không', 'Tên hãng đúng như trong mục Hãng sản xuất, hãng phải đang kích hoạt. Để trống = giữ nguyên/không gán.'],
             ['don_vi', 'Chỉ khi tạo mới', 'Đơn vị tính, ví dụ: Cái, Hộp, Mét.'],
             ['gia_ban', 'Chỉ khi tạo mới*', 'Giá bán, số nguyên dương (VNĐ), ví dụ 199000. (*cập nhật giá thì bắt buộc có giá trị)'],
+            ['hinh_anh_url', 'Không', 'URL ảnh trực tiếp jpg/png/webp, <=2MB, mỗi cạnh <=6000px, http/https cổng 80/443,'],
+            ['', '', 'không IP nội bộ. Tải về + lưu cục bộ khi XÁC NHẬN (tối đa 20 ảnh/lượt). Trống = giữ ảnh cũ;'],
+            ['', '', 'đổi URL = thay ảnh mới và xóa file cũ. Ảnh lỗi chỉ cảnh báo, sản phẩm vẫn nhập.'],
             [''],
             ['SKU chưa tồn tại → TẠO MỚI ở trạng thái NGỪNG BÁN, tồn 0, giá nhập 0 (phải nhập kho rồi bật Đang bán).'],
             ['SKU đã tồn tại → CẬP NHẬT các trường có giá trị; KHÔNG đổi tồn kho, giá nhập, trạng thái bán.'],

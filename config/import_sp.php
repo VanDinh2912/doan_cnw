@@ -43,6 +43,12 @@ return [
             'nhan' => 'gia_ban',
             'aliases' => ['gia_ban', 'gia ban', 'gia', 'price', 'gia ban le'],
         ],
+        // GD1: URL anh — tai ve va luu cuc bo khi XAC NHAN (preview khong goi mang).
+        // Chi co tac dung khi products da co 3 cot hinh_anh_nguon/sha256/tai_luc.
+        'hinh_anh_url' => [
+            'nhan' => 'hinh_anh_url',
+            'aliases' => ['hinh_anh_url', 'hinh anh url', 'anh', 'anh url', 'url anh', 'hinh_anh', 'image url', 'image', 'photo url'],
+        ],
     ],
 
     // He thong quan ly — bo qua + thong bao "bi bo qua (he thong quan ly)"

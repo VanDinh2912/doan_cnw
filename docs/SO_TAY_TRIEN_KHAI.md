@@ -23,6 +23,7 @@ thứ tự tên file, nên **thứ tự áp thực tế** là:
 | 6 | `2026_11_22_000001_create_diem_bien_dong_table` | Sổ cái điểm tích lũy | Bảng mới `diem_bien_dong` (customer_id, loai, diem, so_du_sau, invoice_id, return_id, user_id, ly_do, su_kien unique, created_at) | ✅ code guard `KiemTraSchema::coBang` — **chạy được khi chưa migrate** | Thấp: chỉ thêm bảng; code hiện tại tự bỏ qua ghi sổ nếu thiếu bảng | `down()` drop bảng |
 | 7 | `2026_11_23_000001_create_xac_nhan_thu_cong_table` | M5: soát xác nhận thanh toán thủ công | Bảng mới `xac_nhan_thu_cong` (invoice_id unique FK→invoices, so_tien, bang_chung, nguoi_xac_nhan_id, yeu_cau_duyet_id, admin_duyet_id, xac_nhan_luc, soat_boi_id, soat_luc, ghi_chu_soat) | ✅ code guard `KiemTraSchema::coBang` — **chạy được khi chưa migrate** (ô bằng chứng chỉ hiện khi bảng có; thiếu bảng luồng cũ y nguyên) | Thấp: chỉ thêm bảng; unique invoice_id chống ghi trùng | `down()` drop bảng |
 | 8 | `2026_11_23_000002_create_yeu_cau_pin_table` | M4: yêu cầu cấp PIN có trạng thái | Bảng mới `yeu_cau_pin` (user_id, ly_do, trang_thai, admin_xu_ly_id, xu_ly_luc, ly_do_tu_choi, khoa_cho nullable unique) | ✅ code guard — thiếu bảng xin cấp PIN chạy như cũ (log + Telegram) | Thấp: chỉ thêm bảng | `down()` drop bảng |
+| 9 | `2026_11_24_000001_them_cot_anh_url_vao_products` | GD1: ảnh sản phẩm qua URL trong import Excel | Thêm 3 cột nullable vào `products`: `hinh_anh_nguon` varchar(500), `hinh_anh_sha256` varchar(64), `hinh_anh_tai_luc` timestamp | ✅ code guard `KiemTraSchema::coCot` ×3 — **chạy được khi chưa migrate**: thiếu cột → cột `hinh_anh_url` trong file import bị bỏ qua kèm thông báo "chưa cập nhật CSDL", luồng cũ y nguyên | Thấp: chỉ thêm cột nullable; không đổi cột `hinh_anh` | `down()` drop 3 cột |
 
 ### Quy trình bật sổ cái điểm (sau khi duyệt migration)
 
@@ -616,3 +617,30 @@ bật `POS_PIN_BAT` trên production phải:
 - CHƯA LÀM (báo cáo, chờ quyết định): chuẩn hóa Gmail (a.b@gmail.com,
   ab+tag@gmail.com cùng hộp thư) để chống tạo nhiều tài khoản — cần
   quyết định có thêm cột normalized email hay không.
+
+## 13. Ảnh sản phẩm qua URL trong import Excel (GD1)
+
+Cột `hinh_anh_url` trong file import: URL chỉ kiểm định dạng ở preview;
+ảnh tải về + lưu cục bộ (`storage/app/public/sanpham/anh-<sha256>.<ext>`)
+khi XÁC NHẬN. Cần migration `2026_11_24_000001` (3 cột `products`) — thiếu
+cột thì cột này bị bỏ qua em, luồng cũ chạy y nguyên.
+
+**Điểm yếu & biện pháp đã có:**
+- **SSRF**: chỉ http/https cổng 80/443, không userinfo; phân giải DNS rồi
+  chặn mọi dải nội bộ/đặc biệt (127/8, 10/8, 172.16/12, 192.168/16,
+  169.254/16, 100.64/10, 0.0.0.0/8, ::1, fc00::/7, fe80::/10,
+  ::ffff:IPv4 nội bộ, IP viết tắt thập phân/hex/octal); kết nối ghim IP đã
+  kiểm (`CURLOPT_RESOLVE`) chống DNS rebinding; redirect ≤3 lần và kiểm IP
+  từng bước; timeout 5s kết nối / 15s tổng; tối đa 20 ảnh/lượt, 2MB/ảnh.
+  Danh sách tên miền tin cậy (`config/anh_url.php`) mặc định TẮT.
+- **DoS**: giới hạn kích thước đọc 2MB, cạnh ≤6000px, xử lý lại bằng GD
+  (bỏ metadata, mã hóa lại), tên file theo sha256 chống lưu trùng.
+- **Nội dung giả**: chỉ nhận JPG/PNG/WEBP kiểm bằng `finfo` + `getimagesize`
+  (không tin đuôi file/Content-Type); SVG và mọi định dạng khác bị từ chối.
+- **Link chết / URL nội bộ**: lỗi một ảnh chỉ là cảnh báo theo dòng — sản
+  phẩm vẫn được nhập, ảnh giữ nguyên/cũ; kết quả liệt kê dòng + lý do.
+- **Bản quyền**: URL công khai không đồng nghĩa được phép dùng ảnh — người
+  nhập chịu trách nhiệm nguồn ảnh.
+- **APP_URL localhost**: file export có `hinh_anh_url` trỏ `APP_URL` — khi
+  APP_URL là localhost/127.0.0.1 hệ thống cảnh báo; URL nội bộ sẽ bị chặn
+  khi import lại (đúng thiết kế SSRF).

@@ -73,3 +73,17 @@ File xuất từ hệ thống nhập lại được nguyên trạng.
 
 Lưu ý: `import_sanpham_chi_gia.xlsx` chỉ đúng nghĩa "cập nhật giá" khi SKU
 đã tồn tại — với SKU mới nó minh họa lỗi "thiếu trường bắt buộc khi tạo mới".
+
+## Cập nhật GD1 (ảnh qua URL)
+
+Thêm cột tùy chọn `hinh_anh_url` (bí danh: "Ảnh", "URL ảnh", "Hình ảnh"...).
+URL chỉ được KIỂM ĐỊNH DẠNG ở preview; ảnh thật chỉ tải về + lưu cục bộ
+(`sanpham/anh-<sha256>.<ext>`, GD re-encode, bỏ metadata) khi XÁC NHẬN.
+Chỉ jpg/png/webp ≤2MB, mỗi cạnh ≤6000px, http/https cổng 80/443, chặn IP
+nội bộ/SSRF; tối đa 20 ảnh/lượt; URL trống = giữ ảnh cũ; lỗi 1 ảnh chỉ cảnh
+báo, sản phẩm vẫn nhập. Cần DB có 3 cột `hinh_anh_nguon/sha256/tai_luc`
+(migration `2026_11_24_000001`) — thiếu cột thì cột này bị bỏ qua.
+
+| File mới | Nội dung | Kỳ vọng |
+|---|---|---|
+| `import_sanpham_co_anh_url.xlsx` | 2 dòng: `IMP-ANH-01` có `hinh_anh_url` trỏ `https://picsum.photos/...` (URL thật công khai, test thủ công), `IMP-ANH-02` để trống | Preview: không gọi mạng. Xác nhận: tải ảnh về local cho dòng 1, dòng 2 không ảnh. Ảnh lỗi (mất mạng/URL chết) vẫn tạo SP, chỉ cảnh báo. |

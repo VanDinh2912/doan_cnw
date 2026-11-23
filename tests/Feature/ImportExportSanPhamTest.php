@@ -548,7 +548,7 @@ class ImportExportSanPhamTest extends TestCase
         $this->assertNotContains('Giá nhập', $export->headings());
         $this->assertNotContains('gia_nhap', $export->headings());
         $row = $export->collection()->first();
-        $this->assertCount(10, $row); // M2: + cot ten_loai chi doc
+        $this->assertCount(11, $row); // M2: + ten_loai chi doc; GD1: + hinh_anh_url
         $this->assertNotContains(77777, array_map('strval', $row));
 
         $res = $this->get(route('sanpham.xuatexcel'));

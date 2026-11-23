@@ -6,6 +6,7 @@ use App\Models\Brand;
 use App\Models\LoaiSanPham;
 use App\Models\SanPham;
 use App\Services\Import\ImportServiceBase;
+use App\Support\KiemTraSchema;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -26,9 +27,17 @@ class SanPhamImportService extends ImportServiceBase
     /** Truong bat buoc khi TAO MOI (cap nhat chi can sku). */
     private const BAT_BUOC_TAO_MOI = ['ten_sanpham', 'danh_muc', 'don_vi', 'gia_ban'];
 
-    public function __construct()
+    public function __construct(private readonly AnhTuUrlService $anh)
     {
         $this->datCachePrefix('import_sp:');
+    }
+
+    /** products da co 3 cot metadata anh? Thieu -> bo qua cot hinh_anh_url em. */
+    public function coCotAnh(): bool
+    {
+        return KiemTraSchema::coCot('products', 'hinh_anh_nguon')
+            && KiemTraSchema::coCot('products', 'hinh_anh_sha256')
+            && KiemTraSchema::coCot('products', 'hinh_anh_tai_luc');
     }
 
     protected function fileCauHinh(): string
@@ -45,11 +54,16 @@ class SanPhamImportService extends ImportServiceBase
         $inputs = $doc['inputs'] ?? [];
         $truongCo = $doc['cot']['nhan'] ?? []; // field => ten cot goc
 
+        $coCotAnh = $this->coCotAnh();
+
         $loaiTheoMa = LoaiSanPham::query()->get()->keyBy(fn ($l) => mb_strtolower((string) $l->ma_loai));
         $hangTheoTen = Brand::query()->get()->keyBy(fn ($b) => mb_strtolower((string) $b->ten));
 
-        $sanPham = SanPham::query()
-            ->get(['id', 'sku', 'barcode', 'ten_sanpham', 'category_id', 'brand_id', 'don_vi', 'gia_ban', 'gia_nhap', 'soluong', 'trang_thai']);
+        $cotSp = ['id', 'sku', 'barcode', 'ten_sanpham', 'category_id', 'brand_id', 'don_vi', 'gia_ban', 'gia_nhap', 'soluong', 'trang_thai', 'hinh_anh'];
+        if ($coCotAnh) {
+            $cotSp[] = 'hinh_anh_nguon';
+        }
+        $sanPham = SanPham::query()->get($cotSp);
         $theoSku = $sanPham->keyBy(fn ($p) => mb_strtolower((string) $p->sku));
         $barcodeDaDung = $sanPham->filter(fn ($p) => $p->barcode !== null && $p->barcode !== '')
             ->mapWithKeys(fn ($p) => [mb_strtolower((string) $p->barcode) => $p->id]);
@@ -98,6 +112,16 @@ class SanPhamImportService extends ImportServiceBase
             $sku = trim((string) ($lay('sku') ?? ''));
             $spHienCo = $sku !== '' ? $theoSku->get(mb_strtolower($sku)) : null;
             $laTaoMoi = $spHienCo === null;
+
+            // Nguon anh hien tai: cot metadata, fallback URL https cu trong hinh_anh
+            $nguonAnhCu = null;
+            if ($spHienCo !== null) {
+                $nguonAnhCu = $coCotAnh ? trim((string) ($spHienCo->hinh_anh_nguon ?? '')) : '';
+                if ($nguonAnhCu === '' && is_string($spHienCo->hinh_anh) && str_starts_with($spHienCo->hinh_anh, 'http')) {
+                    $nguonAnhCu = $spHienCo->hinh_anh;
+                }
+                $nguonAnhCu = $nguonAnhCu === '' ? null : $nguonAnhCu;
+            }
 
             // --- sku (luon co cot, da kiem o docFile) ---
             if ($sku === '') {
@@ -168,6 +192,21 @@ class SanPhamImportService extends ImportServiceBase
                 $loai = $loaiTheoMa->get(mb_strtolower($maLoai));
                 if (! $loai) {
                     $loi[] = "Mã loại '{$maLoai}' không tồn tại.";
+                }
+            }
+
+            // --- Anh qua URL (GD1): chi kiem DINH DANG o preview; tai that khi xac nhan ---
+            $anhUrl = null;
+            if ($coCotAnh) {
+                $rawAnh = $f['hinh_anh_url'] ?? null;
+                if ($rawAnh !== null && trim((string) $rawAnh) !== '') {
+                    $urlAnh = trim((string) $rawAnh);
+                    $loiUrl = $this->anh->kiemTraUrl($urlAnh);
+                    if ($loiUrl !== null) {
+                        $loi[] = 'Ảnh: '.$loiUrl;
+                    } else {
+                        $anhUrl = $urlAnh;
+                    }
                 }
             }
 
@@ -249,6 +288,9 @@ class SanPhamImportService extends ImportServiceBase
                 foreach ($duLieuMoi as $field => $new) {
                     $changes[] = ['field' => $field, 'old' => null, 'new' => $new];
                 }
+                if ($anhUrl !== null) {
+                    $changes[] = ['field' => 'hinh_anh_url', 'old' => null, 'new' => $anhUrl];
+                }
                 $canhBao[] = 'Sẽ tạo ở trạng thái NGỪNG BÁN, tồn 0, giá nhập 0 — cần nhập kho rồi bật \'Đang bán\'.';
                 if (($duLieuMoi['brand_id'] ?? null) === null) {
                     $canhBao[] = 'Không gán hãng.';
@@ -258,7 +300,8 @@ class SanPhamImportService extends ImportServiceBase
                     'sku' => $sku, 'ten_sanpham' => $tenHienThi,
                     'changes' => $changes, 'warnings' => $canhBao, 'note' => '',
                 ];
-                $plan[] = ['type' => 'create', 'line' => $line, 'input' => $f, 'data' => $duLieuMoi, 'product_id' => null];
+                $plan[] = ['type' => 'create', 'line' => $line, 'input' => $f, 'data' => $duLieuMoi,
+                    'product_id' => null, 'anh_url' => $anhUrl];
                 continue;
             }
 
@@ -280,6 +323,12 @@ class SanPhamImportService extends ImportServiceBase
                 if (! $giong) {
                     $changes[] = ['field' => $field, 'old' => $old, 'new' => $new];
                 }
+            }
+
+            // Anh URL: chi tinh la thay doi khi URL khac nguon hien tai
+            $anhThayDoi = $anhUrl !== null && $anhUrl !== $nguonAnhCu;
+            if ($anhThayDoi) {
+                $changes[] = ['field' => 'hinh_anh_url', 'old' => $nguonAnhCu, 'new' => $anhUrl];
             }
 
             if ($sku !== (string) $spHienCo->sku) {
@@ -315,8 +364,15 @@ class SanPhamImportService extends ImportServiceBase
                 'changes' => $changes, 'warnings' => $canhBao, 'note' => $note,
             ];
             if ($action === 'update') {
-                $plan[] = ['type' => 'update', 'line' => $line, 'input' => $f, 'data' => $duLieuMoi, 'product_id' => $spHienCo->id];
+                $plan[] = ['type' => 'update', 'line' => $line, 'input' => $f, 'data' => $duLieuMoi,
+                    'product_id' => $spHienCo->id, 'anh_url' => $anhThayDoi ? $anhUrl : null];
             }
+        }
+
+        // Gioi han anh moi luot xac nhan
+        $soAnh = count(array_filter($plan, fn ($p) => ($p['anh_url'] ?? null) !== null));
+        if ($soAnh > (int) config('anh_url.gioi_han.anh_moi_luot', 20)) {
+            $errors[] = "File yêu cầu tải {$soAnh} ảnh — tối đa ".config('anh_url.gioi_han.anh_moi_luot', 20).' ảnh mỗi lần nhập.';
         }
 
         $counts = [
@@ -345,11 +401,42 @@ class SanPhamImportService extends ImportServiceBase
         $daTao = 0;
         $daCapNhat = 0;
         $now = now();
+        $coCotAnh = $this->coCotAnh();
 
-        DB::transaction(function () use ($plan, &$daTao, &$daCapNhat, $now): void {
+        // --- Tai anh TRUOC transaction (IO mang, khong giu lock DB) ---
+        // Loi mot anh KHONG huy dong: san pham van duoc ghi, anh loi ghi vao anh_loi.
+        $anhTheoDong = [];   // line => ket qua taiVe
+        $cacheUrl = [];      // url => ket qua (tranh tai trung trong file)
+        foreach ($plan as $item) {
+            $url = $item['anh_url'] ?? null;
+            if (! is_string($url) || trim($url) === '') {
+                continue;
+            }
+            $url = trim($url);
+            if (! isset($cacheUrl[$url])) {
+                $cacheUrl[$url] = $this->anh->taiVe($url);
+            }
+            $anhTheoDong[$item['line']] = $cacheUrl[$url] + ['url' => $url];
+        }
+
+        $anhThanhCong = 0;
+        $anhLoi = [];
+        $tepCuCanXoa = []; // duong dan file cuc bo se xoa SAU commit
+
+        DB::transaction(function () use ($plan, $anhTheoDong, $coCotAnh, $now, &$daTao, &$daCapNhat, &$anhThanhCong, &$anhLoi, &$tepCuCanXoa): void {
             foreach ($plan as $item) {
+                $anh = $anhTheoDong[$item['line']] ?? null;
+                $anhOk = $anh !== null && ($anh['ok'] ?? false);
+                if ($anh !== null) {
+                    if ($anhOk) {
+                        $anhThanhCong++;
+                    } else {
+                        $anhLoi[$item['line']] = $anh['loi'] ?? 'Tải ảnh thất bại.';
+                    }
+                }
+
                 if ($item['type'] === 'create') {
-                    DB::table('products')->insert([
+                    $row = [
                         'category_id' => $item['data']['category_id'],
                         'sku' => $item['input']['sku'] ?? '',
                         'barcode' => $item['data']['barcode'],
@@ -365,7 +452,19 @@ class SanPhamImportService extends ImportServiceBase
                         'brand_id' => $item['data']['brand_id'],
                         'created_at' => $now,
                         'updated_at' => $now,
-                    ]);
+                    ];
+                    if ($coCotAnh) {
+                        $row['hinh_anh_nguon'] = null;
+                        $row['hinh_anh_sha256'] = null;
+                        $row['hinh_anh_tai_luc'] = null;
+                        if ($anhOk) {
+                            $row['hinh_anh'] = $anh['duong_dan'];
+                            $row['hinh_anh_nguon'] = $anh['url'];
+                            $row['hinh_anh_sha256'] = $anh['sha256'];
+                            $row['hinh_anh_tai_luc'] = $now;
+                        }
+                    }
+                    DB::table('products')->insert($row);
                     $daTao++;
                 } else {
                     $sp = DB::table('products')->where('id', $item['product_id'])->lockForUpdate()->first();
@@ -381,6 +480,16 @@ class SanPhamImportService extends ImportServiceBase
                             $capNhat[$field] = $new;
                         }
                     }
+                    if ($anhOk && $coCotAnh) {
+                        // Anh moi khac file cu -> danh dau xoa file cu sau commit
+                        if (is_string($sp->hinh_anh) && $sp->hinh_anh !== '' && $sp->hinh_anh !== $anh['duong_dan']) {
+                            $tepCuCanXoa[] = $sp->hinh_anh;
+                        }
+                        $capNhat['hinh_anh'] = $anh['duong_dan'];
+                        $capNhat['hinh_anh_nguon'] = $anh['url'];
+                        $capNhat['hinh_anh_sha256'] = $anh['sha256'];
+                        $capNhat['hinh_anh_tai_luc'] = $now;
+                    }
                     if ($capNhat !== []) {
                         $capNhat['updated_at'] = $now;
                         DB::table('products')->where('id', $item['product_id'])->update($capNhat);
@@ -390,6 +499,11 @@ class SanPhamImportService extends ImportServiceBase
             }
         });
 
-        return ['tao_moi' => $daTao, 'cap_nhat' => $daCapNhat];
+        // Xoa file anh cu SAU commit (chi file cuc bo do he thong tao — helper tu loc)
+        foreach (array_unique($tepCuCanXoa) as $tepCu) {
+            TepAnhSanPham::xoaNeuLaTepCucBo($tepCu);
+        }
+
+        return ['tao_moi' => $daTao, 'cap_nhat' => $daCapNhat, 'anh_thanh_cong' => $anhThanhCong, 'anh_loi' => $anhLoi];
     }
 }

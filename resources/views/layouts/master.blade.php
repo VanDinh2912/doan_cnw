@@ -181,6 +181,11 @@
                 <i class="fa-solid fa-circle-exclamation"></i><div>{{ session('error') }}</div>
             </div>
         @endif
+        @if (session('warning'))
+            <div class="alert alert-warning d-flex align-items-center gap-2" role="alert">
+                <i class="fa-solid fa-triangle-exclamation"></i><div>{{ session('warning') }}</div>
+            </div>
+        @endif
         @if ($errors->any())
             <div class="alert alert-danger" role="alert">
                 <div class="d-flex align-items-center gap-2 fw-semibold mb-1">

@@ -54,6 +54,7 @@
     $tenCotHienThi = [
         'sku' => 'SKU', 'barcode' => 'Barcode', 'ten_sanpham' => 'Tên SP',
         'danh_muc' => 'Danh mục (mã loại)', 'hang' => 'Hãng', 'don_vi' => 'Đơn vị', 'gia_ban' => 'Giá bán',
+        'hinh_anh_url' => 'Ảnh (URL)',
     ];
 @endphp
 <div class="card mb-3">

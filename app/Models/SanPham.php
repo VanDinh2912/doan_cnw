@@ -19,6 +19,7 @@ class SanPham extends Model
         'category_id', 'sku', 'barcode', 'ten_sanpham', 'don_vi',
         'gia_nhap', 'gia_ban', 'soluong', 'soluong_hong', 'soluong_toithieu',
         'hinh_anh', 'trang_thai', 'brand_id',
+        'hinh_anh_nguon', 'hinh_anh_sha256', 'hinh_anh_tai_luc',
     ];
 
     protected function casts(): array
