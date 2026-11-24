@@ -669,3 +669,32 @@ Tắt/bật: `git config --unset core.hooksPath` / `scripts/git-hooks/cai-dat.sh
 **Quay lại trạng thái cũ:** tag `truoc-hop-nhat` (main trước khi hợp nhất
 các nhánh tính năng) và `sau-hop-nhat` (sau hợp nhất) + backup
 `backup/truoc-lam-sach` + file dump `doan_cnw` gần nhất.
+
+## 15. Áp migration prod `doan_cnw` — 2026-11-25 04:13
+
+Đã áp 3 migration (chế độ down → `CHO_PHEP_MIGRATE_PROD=1 migrate --force` → up,
+tổng ~1 giây, 04:13:31→04:13:32):
+- `2026_11_23_000001` — bảng `xac_nhan_thu_cong` (M5)
+- `2026_11_23_000002` — bảng `yeu_cau_pin` (M4)
+- `2026_11_24_000001` — 3 cột `products`: `hinh_anh_nguon`, `hinh_anh_sha256`,
+  `hinh_anh_tai_luc` (ảnh URL GD1)
+
+Sao lưu trước migrate: `backups/doan_cnw_truoc_migrate_20261125_041323.sql`
+(618 KB, 34 bảng, có `users`). Sau migrate: 2 bảng mới 0 dòng; 300 sản phẩm
+đều NULL ở 3 cột ảnh; mọi bảng cũ không đổi số dòng; `activity_logs` 479→479.
+
+**Đánh dấu 10 đơn thử** bằng `thu-cong:khoi-tao-tu-ghi-chu --id=2,6,7,11,12,13,14,15,18,19 --thu --apply`:
+- 10 dòng `xac_nhan_thu_cong` với `ghi_chu_soat` = "Đơn thử — không cần đối
+  chiếu sao kê" + `soat_luc` ngay; `chua_doi_soat` = 0.
+- 1 dòng audit `activity_logs` id=482 (`xac_nhan_thu_cong_khoi_tao`).
+- Hóa đơn gốc không đổi (tiền/trạng thái giữ nguyên); chạy lại --apply ghi 0.
+
+**Dùng `/doisoat/thu-cong` hằng ngày**: NV xác nhận thanh toán thủ công nhập
+bằng chứng → admin cấp mã → sau khi SePay đối soát, vào `/doisoat/thu-cong`
+bấm "Đã đối soát" cho từng dòng (hoặc lọc "chưa đối soát"). Thẻ "Xác nhận thủ
+công chưa đối soát" trên tổng quan phải về 0 khi đã xử lý hết.
+
+**Còn tồn đọng**: mật khẩu demo `123456` trên #1/#2/#3 vẫn FAIL
+`he-thong:kiem-tra` (user chấp nhận tạm, sẽ đổi sau); thủ kho #3 (`th***@…`)
+chưa có PIN — chỉ WARN, cấp qua `/taikhoan`; `SEPAY_WEBHOOK_API_KEY` chưa cấu
+hình (webhook SePay sẽ bị 401 — API đối soát vẫn chạy bình thường).
