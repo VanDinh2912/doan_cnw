@@ -42,6 +42,9 @@ class PinTrangThaiTest extends TestCase
 
     private function mocLo(string $luc): void
     {
+        // Tu GD1fix: moc_lo chi lay config POS_MOC_LO_PIN_LUC hoac activity_logs
+        // id=463 — id tu tang trong test khong bao gio la 463 -> dat config.
+        config(['pos.moc_lo_pin_luc' => $luc]);
         DB::table('activity_logs')->insert([
             'hanh_dong' => 'pin_dat',
             'doi_tuong' => 'user',
@@ -123,6 +126,22 @@ class PinTrangThaiTest extends TestCase
         $this->user(['role' => 'thungan', 'pin_hash' => null, 'khoa_luc' => now()->addDay()]);
 
         $this->assertSame([], $this->svc->kiemTra()['nv_thieu_pin']);
+    }
+
+    public function test_moc_lo_co_dinh_khong_troi_khi_co_pin_dat_moi(): void
+    {
+        // Mốc cấu hình cố định; thêm pin_dat console MỚI hơn -> mốc KHÔNG đổi.
+        $this->mocLo(now()->toDateTimeString()); // su kien console moi hon
+        config(['pos.moc_lo_pin_luc' => '2026-11-22 07:34:13']);
+
+        $this->assertSame('2026-11-22 07:34:13', $this->svc->kiemTra()['moc_lo']);
+    }
+
+    public function test_moc_lo_uu_tien_config_hon_id_463(): void
+    {
+        config(['pos.moc_lo_pin_luc' => '2020-01-01 00:00:00']);
+        // id 463 co the khong ton tai trong test DB -> van lay config.
+        $this->assertSame('2020-01-01 00:00:00', $this->svc->kiemTra()['moc_lo']);
     }
 
     public function test_khong_co_moc_lo_thi_admin_khong_bi_so(): void

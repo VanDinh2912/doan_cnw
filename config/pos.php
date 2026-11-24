@@ -39,6 +39,9 @@ return [
     'chi_cho_webhook' => env('POS_CHI_CHO_WEBHOOK', false) === true,
     // Bảo vệ thao tác nhạy cảm bằng PIN 6 số (step-up). Mặc định TẮT.
     'pin_bat' => env('POS_PIN_BAT', false) === true,
+    // Mốc lộ PIN CỐ ĐỊNH cho kiểm tra admin đã đổi PIN (pin:trang-thai).
+    // Để trống = dùng activity_logs id=463. KHÔNG trôi khi có pin_dat console mới.
+    'moc_lo_pin_luc' => env('POS_MOC_LO_PIN_LUC'),
     // Giảm giá POS vượt ngưỡng này (phần trăm) yêu cầu PIN mức thường.
     'giam_gia_khong_pin_toi_da' => (int) env('POS_GIAM_GIA_KHONG_PIN_TOI_DA', 10),
     // Dùng điểm POS vượt ngưỡng này yêu cầu PIN mức thường (khi POS_PIN_BAT bật).

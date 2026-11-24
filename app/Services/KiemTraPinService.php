@@ -57,14 +57,21 @@ class KiemTraPinService
             'nv_thieu_pin' => [],
         ];
 
-        // Mốc lộ PIN: ưu tiên activity_logs id=463 (pin_dat, console),
-        // fallback dòng pin_dat/console mới nhất.
-        try {
-            $r = NhatKyHoatDong::whereKey(463)->first()
-                ?? NhatKyHoatDong::where('hanh_dong', 'pin_dat')->where('nguon', 'console')->latest('id')->first();
-            $kq['moc_lo'] = $r?->created_at?->toDateTimeString();
-        } catch (\Throwable) {
-            $kq['moc_lo'] = null;
+        // Mốc lộ PIN CỐ ĐỊNH — không trôi khi có sự kiện console mới:
+        //  1. config pos.moc_lo_pin_luc (env POS_MOC_LO_PIN_LUC) nếu được đặt;
+        //  2. activity_logs id=463 (pin_dat console lúc sự cố);
+        //  3. null -> caller quyết định (check -Che bat sẽ bị chặn).
+        // KHÔNG fallback "dòng pin_dat console mới nhất" — nếu không, mỗi lần
+        // dat-pin-prod.ps1 chạy mốc sẽ dịch lên và check admin luôn FAIL.
+        $mocCauHinh = config('pos.moc_lo_pin_luc');
+        if (is_string($mocCauHinh) && trim($mocCauHinh) !== '') {
+            $kq['moc_lo'] = trim($mocCauHinh);
+        } else {
+            try {
+                $kq['moc_lo'] = NhatKyHoatDong::whereKey(463)->first()?->created_at?->toDateTimeString();
+            } catch (\Throwable) {
+                $kq['moc_lo'] = null;
+            }
         }
 
         // Admin: phải CÓ pin_hash và pin_doi_luc LỚN HƠN mốc lộ

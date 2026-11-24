@@ -174,7 +174,7 @@ try {
                 Loi "admin thieu pin_hash (user id: $($tt.admin_thieu_pin -join ',')) - chay dat-pin-prod.ps1 truoc"
             }
             if (@($tt.admin_chua_doi).Count -gt 0) {
-                Loi "admin chua doi PIN SAU moc lo (user id: $($tt.admin_chua_doi -join ',')) - PIN dang dung la ban dat qua console, co the da lo. Doi PIN qua /taikhoan roi chay lai"
+                Loi "admin chua doi PIN SAU moc lo (user id: $($tt.admin_chua_doi -join ',')) - PIN dang dung la ban dat qua console, co the da lo. Doi PIN qua /taikhoan (tu dat lai PIN cua chinh minh, muc A) hoac chay scripts/windows/dat-pin-prod.ps1 roi chay lai"
             }
             if (@($tt.admin_thieu_pin).Count -eq 0 -and @($tt.admin_chua_doi).Count -eq 0) {
                 Ok 'moi admin da co PIN va doi PIN sau moc lo'
