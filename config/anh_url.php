@@ -19,6 +19,7 @@ return [
         'anh_moi_luot' => 20,                 // toi da anh moi lan xac nhan import
         'chuyen_huong' => 3,                  // toi da 3 lan redirect
         'timeout_ket_noi' => 5,                // giay
-        'timeout_tong' => 15,                 // giay
+        'timeout_tong' => 15,                 // giay / anh
+        'ngan_sach_luot' => 60,               // giay TONG cho ca luot xac nhan (20 anh)
     ],
 ];

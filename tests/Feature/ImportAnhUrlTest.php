@@ -427,4 +427,118 @@ class ImportAnhUrlTest extends TestCase
         $this->assertSame(0, $kh['counts']['error']);
         $this->assertSame(1, $kh['counts']['skip']);
     }
+
+    // ---------- Bo sung GD1: curl flags, query strip, URL noi bo ----------
+
+    public function test_curl_options_giu_ssl_va_tat_proxy(): void
+    {
+        $svc = new AnhTuUrlService();
+        $body = '';
+        $location = null;
+        $status = 0;
+        $opts = $svc->curlOptions('https://cdn.example.com/a.png', '93.184.216.34', 443, 1024, 10, $body, $location, $status);
+        $this->assertSame(['cdn.example.com:443:93.184.216.34'], $opts[CURLOPT_RESOLVE]);
+        $this->assertTrue($opts[CURLOPT_SSL_VERIFYPEER]);
+        $this->assertSame(2, $opts[CURLOPT_SSL_VERIFYHOST]);
+        $this->assertSame('', $opts[CURLOPT_PROXY]);
+        $this->assertSame('*', $opts[CURLOPT_NOPROXY]);
+        $this->assertFalse($opts[CURLOPT_FOLLOWLOCATION]);
+    }
+
+    public function test_nguon_luu_bo_query_va_cat_500(): void
+    {
+        $svc = new AnhTuUrlService();
+        $dai = 'https://cdn.example.com/'.str_repeat('a', 600).'?token=BI-MAT&sig=xyz#frag';
+        $luu = $svc->chuanHoaUrlLuu($dai);
+        $this->assertStringNotContainsString('token', $luu);
+        $this->assertStringNotContainsString('BI-MAT', $luu);
+        $this->assertStringNotContainsString('#', $luu);
+        $this->assertLessThanOrEqual(500, mb_strlen($luu));
+    }
+
+    public function test_url_noi_bo_khong_tai_mang_va_round_trip_anh_cuc_bo(): void
+    {
+        config(['app.url' => 'https://shop.test']);
+        // SP co anh cuc bo sanpham/anh-x.png
+        $this->loai();
+        Storage::disk('public')->put('sanpham/anh-x.png', $this->pngBytes());
+        $sp = SanPham::create([
+            'category_id' => LoaiSanPham::first()->id, 'sku' => 'SKU-NB',
+            'ten_sanpham' => 'SP nội bộ', 'don_vi' => 'Cái', 'gia_ban' => 50000,
+            'hinh_anh' => 'sanpham/anh-x.png',
+            'hinh_anh_nguon' => 'https://shop.test/storage/sanpham/anh-x.png',
+            'hinh_anh_sha256' => str_repeat('b', 64), 'hinh_anh_tai_luc' => now(),
+        ]);
+        $goiMang = 0;
+        $service = $this->ganService(new AnhTuUrlService(
+            fn () => ['93.184.216.34'],
+            function () use (&$goiMang) { $goiMang++; return ['status' => 200, 'location' => null, 'body' => '', 'error' => null]; }
+        ));
+
+        // File xuat co URL APP_URL/storage/... -> import -> khong doi, 0 tai mang
+        $file = $this->makeXlsxHeader(
+            ['sku', 'ten_sanpham', 'danh_muc', 'don_vi', 'gia_ban', 'hinh_anh_url'],
+            [['SKU-NB', 'SP nội bộ', 'CS', 'Cái', 50000, 'https://shop.test/storage/sanpham/anh-x.png']]
+        );
+        $kh = $service->lapKeHoach($service->docFile($file));
+        $this->assertTrue($kh['ok']);
+        $this->assertSame('skip', $kh['rows'][0]['action']);
+        $this->assertSame(0, $goiMang);
+    }
+
+    public function test_url_noi_bo_file_khac_bi_tu_choi(): void
+    {
+        config(['app.url' => 'https://shop.test']);
+        $this->loai();
+        Storage::disk('public')->put('sanpham/anh-khac.png', $this->pngBytes());
+        SanPham::create([
+            'category_id' => LoaiSanPham::first()->id, 'sku' => 'SKU-NB2',
+            'ten_sanpham' => 'SP NB2', 'don_vi' => 'Cái', 'gia_ban' => 50000,
+            'hinh_anh' => 'sanpham/anh-cua-noi.png',
+        ]);
+        Storage::disk('public')->put('sanpham/anh-cua-noi.png', $this->pngBytes(3, 3));
+        $service = $this->ganService($this->serviceAnh([]));
+        $file = $this->makeXlsxHeader(
+            ['sku', 'hinh_anh_url'],
+            [['SKU-NB2', 'https://shop.test/storage/sanpham/anh-khac.png']]
+        );
+        $kh = $service->lapKeHoach($service->docFile($file));
+        $this->assertTrue($kh['ok']);
+        // anh khong doi (file khac bi tu choi) -> skip; canh bao co mat
+        $this->assertSame('skip', $kh['rows'][0]['action']);
+        $this->assertNotEmpty($kh['rows'][0]['warnings']);
+    }
+
+    public function test_traversal_va_host_khac_van_bi_chan(): void
+    {
+        config(['app.url' => 'https://shop.test']);
+        $svc = new AnhTuUrlService(fn () => ['93.184.216.34'], $this->fetcherMap([]));
+        $this->assertNull($svc->laUrlNoiBo('https://shop.test/storage/sanpham/../config.php'));
+        $this->assertNull($svc->laUrlNoiBo('https://shop.test/storage/%2e%2e/x.png'));
+        $this->assertNull($svc->laUrlNoiBo('https://shop.test/storage/sanpham/../../.env'));
+        $this->assertNull($svc->laUrlNoiBo('https://shop.test/storage/evil.php'));
+        $this->assertSame('sanpham/anh-x.png', $svc->laUrlNoiBo('https://shop.test/storage/sanpham/anh-x.png'));
+        // host giong APP_URL nhung scheme khac / path khac -> khong phai noi bo
+        $this->assertNull($svc->laUrlNoiBo('http://shop.test/storage/sanpham/anh-x.png'));
+        $this->assertNull($svc->laUrlNoiBo('https://shop.test/khac/anh-x.png'));
+        // host la 127.0.0.1 khong khop APP_URL -> di qua SSRF nhu cu
+        $kq = $svc->taiVe('https://127.0.0.1/storage/sanpham/anh-x.png');
+        $this->assertFalse($kq['ok']);
+        // APP_URL khac host -> URL shop.test la ngoai, van qua mang/chan
+        config(['app.url' => 'https://khac.test']);
+        $this->assertNull($svc->laUrlNoiBo('https://shop.test/storage/sanpham/anh-x.png'));
+    }
+
+    public function test_anh_thong_ke_lenh(): void
+    {
+        $this->loai();
+        Storage::disk('public')->put('sanpham/anh-dung.png', $this->pngBytes());
+        Storage::disk('public')->put('sanpham/anh-mo-coi.png', $this->pngBytes());
+        SanPham::create([
+            'category_id' => LoaiSanPham::first()->id, 'sku' => 'SKU-TK',
+            'ten_sanpham' => 'SP TK', 'don_vi' => 'Cái', 'gia_ban' => 1000,
+            'hinh_anh' => 'sanpham/anh-dung.png',
+        ]);
+        $this->artisan('anh:thong-ke')->assertSuccessful();
+    }
 }

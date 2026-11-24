@@ -76,7 +76,7 @@ class AnhTuUrlService
      * Tai + xu ly + luu anh cuc bo.
      * @return array{ok:bool, duong_dan:?string, sha256:?string, loi:?string}
      */
-    public function taiVe(string $url): array
+    public function taiVe(string $url, ?int $nganSachGiay = null): array
     {
         $url = trim($url);
         $loi = $this->kiemTraUrl($url);
@@ -88,7 +88,11 @@ class AnhTuUrlService
         $maxByte = (int) ($gioiHan['kich_thuoc_byte'] ?? 2 * 1024 * 1024);
         $maxCanh = (int) ($gioiHan['canh_px'] ?? 6000);
         $maxRedirect = (int) ($gioiHan['chuyen_huong'] ?? self::MAX_CHUYEN_HUONG);
+        // Ngan sach tung anh: min(15s mac dinh, ngan sach con lai cua ca luot)
         $timeoutTong = (int) ($gioiHan['timeout_tong'] ?? 15);
+        if ($nganSachGiay !== null) {
+            $timeoutTong = max(1, min($timeoutTong, $nganSachGiay));
+        }
         $deadline = microtime(true) + $timeoutTong;
 
         $hienTai = $url;
@@ -200,6 +204,61 @@ class AnhTuUrlService
         }
 
         return ['ok' => true, 'duong_dan' => $duongDan, 'sha256' => $sha, 'loi' => null];
+    }
+
+    /**
+     * URL chuan de LUU vao hinh_anh_nguon: bo query + fragment (tranh luu
+     * token ky URL, tham so theo doi, PII trong query xuong DB).
+     */
+    public function chuanHoaUrlLuu(string $url): string
+    {
+        $parts = parse_url(trim($url));
+        if (! is_array($parts) || empty($parts['scheme']) || empty($parts['host'])) {
+            return trim($url);
+        }
+        $goc = strtolower((string) $parts['scheme']).'://'.$parts['host']
+            .(isset($parts['port']) ? ':'.$parts['port'] : '')
+            .($parts['path'] ?? '');
+
+        // Cat dung do dai cot hinh_anh_nguon (varchar 500)
+        return mb_substr($goc, 0, 500);
+    }
+
+    /**
+     * Neu $url tro toi chinh storage cong khai cua site (APP_URL/storage/...)
+     * -> tra ve duong dan disk 'public' (vd 'sanpham/x.png'), nguoc lai null.
+     * Dung cho vong xuat -> nhap: anh cuc bo khong can tai qua mang.
+     */
+    public function laUrlNoiBo(string $url): ?string
+    {
+        $parts = parse_url(trim($url));
+        if (! is_array($parts) || empty($parts['host']) || empty($parts['path'])) {
+            return null;
+        }
+        $app = parse_url((string) config('app.url'));
+        if (! is_array($app) || empty($app['host']) || empty($app['scheme'])) {
+            return null;
+        }
+        if (mb_strtolower((string) $parts['host']) !== mb_strtolower((string) $app['host'])) {
+            return null;
+        }
+        if (($parts['scheme'] ?? '') !== ($app['scheme'] ?? '')) {
+            return null;
+        }
+        // Bo '/storage/' dau -> duong dan trong disk public
+        if (preg_match('#^/storage/(.+)$#', (string) $parts['path'], $m) !== 1) {
+            return null;
+        }
+        $path = $m[1];
+        // Chong path traversal / ky tu la: cam '..', '\\', '%' (url-encoded),
+        // duong dan tuyet doi, chi cho phep ten file don gian trong thu muc anh SP
+        if (str_contains($path, '..') || str_contains($path, '\\') || str_contains($path, '%')
+            || str_starts_with($path, '/')
+            || ! preg_match('#^(sanpham|products)/[A-Za-z0-9][A-Za-z0-9._-]*$#', $path)) {
+            return null;
+        }
+
+        return $path;
     }
 
     // ---------- URL / IP ----------
@@ -378,36 +437,7 @@ class AnhTuUrlService
             if ($ch === false) {
                 return ['status' => 0, 'location' => null, 'body' => '', 'error' => 'curl_init thất bại'];
             }
-            curl_setopt_array($ch, [
-                CURLOPT_RETURNTRANSFER => false,
-                CURLOPT_FOLLOWLOCATION => false,
-                CURLOPT_CONNECTTIMEOUT => max(1, min(5, $timeout)),
-                CURLOPT_TIMEOUT => max(1, $timeout),
-                CURLOPT_RESOLVE => ["{$host}:{$port}:{$ip}"],
-                CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
-                CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
-                CURLOPT_SSL_VERIFYPEER => true,
-                CURLOPT_SSL_VERIFYHOST => 2,
-                CURLOPT_USERAGENT => 'LaraShop-ImageImport/1.0',
-                CURLOPT_HEADERFUNCTION => function ($ch, string $line) use (&$location, &$status): int {
-                    $len = strlen($line);
-                    if (preg_match('/^HTTP\/\S+\s+(\d{3})/', $line, $m) === 1) {
-                        $status = (int) $m[1];
-                    } elseif (stripos($line, 'location:') === 0) {
-                        $location = trim(substr($line, 9));
-                    }
-
-                    return $len;
-                },
-                CURLOPT_WRITEFUNCTION => function ($ch, string $data) use (&$body, $maxBytes): int {
-                    $body .= $data;
-                    if (strlen($body) > $maxBytes) {
-                        return 0; // cat som -> curl bao loi write, ta nhan dien qua strlen
-                    }
-
-                    return strlen($data);
-                },
-            ]);
+            curl_setopt_array($ch, $this->curlOptions($url, $ip, $port, $maxBytes, $timeout, $body, $location, $status));
             curl_exec($ch);
             $loiCurl = curl_error($ch);
             curl_close($ch);
@@ -420,6 +450,54 @@ class AnhTuUrlService
 
             return ['status' => $status, 'location' => $location, 'body' => $body, 'error' => null];
         };
+    }
+
+    /**
+     * Cau hinh curl cho 1 request GHIM IP. Tach rieng de test kiem chung:
+     *  - CURLOPT_RESOLVE ghim IP nhung curl VAN gui SNI + Host theo ten mien goc
+     *    va xac minh chung chi theo TEN MIEN (khong phai IP) -> SSL van dung.
+     *  - VERIFYPEER=true, VERIFYHOST=2 — khong bao gio tat xac minh.
+     *  - CURLOPT_PROXY='' + NOPROXY='*' -> khong di qua proxy he thong lam mat ghim.
+     *
+     * @internal public de test doc cau hinh (khong goi mang)
+     */
+    public function curlOptions(string $url, string $ip, int $port, int $maxBytes, int $timeout,
+        string &$body, ?string &$location, int &$status): array
+    {
+        $host = trim((string) parse_url($url, PHP_URL_HOST), '[]');
+
+        return [
+            CURLOPT_RETURNTRANSFER => false,
+            CURLOPT_FOLLOWLOCATION => false,
+            CURLOPT_CONNECTTIMEOUT => max(1, min(5, $timeout)),
+            CURLOPT_TIMEOUT => max(1, $timeout),
+            CURLOPT_RESOLVE => ["{$host}:{$port}:{$ip}"],
+            CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
+            CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
+            CURLOPT_PROXY => '',
+            CURLOPT_NOPROXY => '*',
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
+            CURLOPT_USERAGENT => 'LaraShop-ImageImport/1.0',
+            CURLOPT_HEADERFUNCTION => function ($ch, string $line) use (&$location, &$status): int {
+                $len = strlen($line);
+                if (preg_match('/^HTTP\/\S+\s+(\d{3})/', $line, $m) === 1) {
+                    $status = (int) $m[1];
+                } elseif (stripos($line, 'location:') === 0) {
+                    $location = trim(substr($line, 9));
+                }
+
+                return $len;
+            },
+            CURLOPT_WRITEFUNCTION => function ($ch, string $data) use (&$body, $maxBytes): int {
+                $body .= $data;
+                if (strlen($body) > $maxBytes) {
+                    return 0; // cat som -> curl bao loi write, ta nhan dien qua strlen
+                }
+
+                return strlen($data);
+            },
+        ];
     }
 
     private function giaiQuyetUrlTuongDoi(string $base, string $dich): ?string
