@@ -644,3 +644,28 @@ cột thì cột này bị bỏ qua em, luồng cũ chạy y nguyên.
 - **APP_URL localhost**: file export có `hinh_anh_url` trỏ `APP_URL` — khi
   APP_URL là localhost/127.0.0.1 hệ thống cảnh báo; URL nội bộ sẽ bị chặn
   khi import lại (đúng thiết kế SSRF).
+
+## 14. Quy trình Git mới — một nhánh main (từ 2026-11-24)
+
+Đồ án chạy trực tiếp trên `main` + dữ liệu thật `doan_cnw`. Các quy tắc cũ
+"không push main khi chưa có lệnh", "không ghi doan_cnw", "mỗi việc một
+nhánh" đã được gỡ cho việc thông thường.
+
+**Hàng rào GIỮ NGUYÊN:**
+- Sao lưu `doan_cnw` mới trước mọi migration / thay đổi dữ liệu hàng loạt
+  (báo đường dẫn, dung lượng, xác nhận dump có bảng `users`).
+- `CHO_PHEP_MIGRATE_PROD=1` bắt buộc cho `migrate`/`migrate:fresh`/`db:wipe`.
+- Test tự động chỉ chạy sqlite `:memory:` — không ghi test vào `doan_cnw`.
+- `scripts/quet-bi-mat.ps1` TRƯỚC mỗi lần push (repo public: không .env,
+  PIN, mật khẩu, số TK, dữ liệu khách thật).
+- Không xóa `activity_logs`. Không force-push / viết lại lịch sử đã push.
+- Không in PIN/mật khẩu/hash/PII thật vào báo cáo.
+
+**Hook pre-push mới** (`scripts/git-hooks/pre-push`, đã cài vào
+`.git/hooks/pre-push`): push lên `origin/main` chỉ bị chặn khi
+`quet-bi-mat.ps1 -PhamVi commits` FAIL. Không còn `ALLOW_PUSH_MAIN`.
+Tắt/bật: `git config --unset core.hooksPath` / `scripts/git-hooks/cai-dat.sh`.
+
+**Quay lại trạng thái cũ:** tag `truoc-hop-nhat` (main trước khi hợp nhất
+các nhánh tính năng) và `sau-hop-nhat` (sau hợp nhất) + backup
+`backup/truoc-lam-sach` + file dump `doan_cnw` gần nhất.

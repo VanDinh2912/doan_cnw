@@ -1,29 +1,39 @@
 #!/bin/sh
-# pre-push — chan push thang len origin/main tru khi co bien ALLOW_PUSH_MAIN=1.
+# pre-push — push len origin/main chi bi chan khi QUET BI MAT that bai.
 #
-# Ly do: repo public, main la nhanh prod (server 8081 chay tu working dir).
-# Quy trinh duyet: lam viec tren nhanh rieng -> merge vao main -> push.
+# Quy trinh moi (2026-11-24): lam viec truc tiep tren main, du lieu that
+# doan_cnw. Khong con chan bang ALLOW_PUSH_MAIN — chi con lop bao ve
+# cuoi: quet scripts/quet-bi-mat.ps1 -PhamVi commits (origin/main..HEAD).
 #
 # Van co the vuot bang `git push --no-verify` — day chi la lop cuc bo.
-# Lop chac chan la branch protection phia GitHub (bat buoc PR).
+# Lop chac chan la branch protection phia GitHub (neu bat).
 #
-# Cach dung: ALLOW_PUSH_MAIN=1 git push origin main   (khi da duoc duyet)
+# Tat hook: git config --unset core.hooksPath   (hoac doi ten .git/hooks/pre-push)
+# Bat lai:   scripts/git-hooks/cai-dat.sh
 
 zero='0000000000000000000000000000000000000000'
 blocked=0
+root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 
 while read local_ref local_sha remote_ref remote_sha; do
     # Bo qua xoa nhanh
     [ "$local_sha" = "$zero" ] && continue
-    if [ "$remote_ref" = "refs/heads/main" ]; then
-        if [ "${ALLOW_PUSH_MAIN:-}" = "1" ]; then
-            echo "pre-push: CHO PHEP push len main (ALLOW_PUSH_MAIN=1)." >&2
-        else
-            echo "pre-push: CHAN push len refs/heads/main." >&2
-            echo "  Lam viec tren nhanh rieng, merge vao main, roi push." >&2
-            echo "  Neu da duoc duyet ro rang: ALLOW_PUSH_MAIN=1 git push origin main" >&2
-            blocked=1
-        fi
+    [ "$remote_ref" = "refs/heads/main" ] || continue
+
+    ps=""
+    if command -v powershell >/dev/null 2>&1; then ps="powershell";
+    elif command -v pwsh >/dev/null 2>&1; then ps="pwsh"; fi
+
+    if [ -z "$ps" ]; then
+        echo "pre-push: KHONG tim thay powershell/pwsh — bo qua quet bi mat (rui ro)." >&2
+        continue
+    fi
+
+    echo "pre-push: quet bi mat cho push len main (origin/main..HEAD)..." >&2
+    if ! "$ps" -NoProfile -ExecutionPolicy Bypass -File "$root/scripts/quet-bi-mat.ps1" -PhamVi commits >&2; then
+        echo "pre-push: CHAN push len refs/heads/main — quet bi mat phat hien mau cam." >&2
+        echo "  Xu ly file bi lo, commit lai, roi push lai." >&2
+        blocked=1
     fi
 done
 

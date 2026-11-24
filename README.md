@@ -1517,25 +1517,18 @@ Kết quả kiểm tra thực tế: **0 dòng sai lệch**. Quy tắc này vẫn
 trả hàng lỗi và kiểm kê; trả hàng lỗi được theo dõi riêng trong
 `soluong_hong`.
 
-## 13. Quy trình Git đề xuất
+## 13. Quy trình Git
 
-Nhánh chính là `main`. Tạo nhánh chức năng theo Gitflow:
+Từ 2026-11-24 đồ án làm việc trên **một nhánh `main` duy nhất**, chạy trực
+tiếp trên dữ liệu thật `doan_cnw`. Quy trình chi tiết và các hàng rào giữ
+lại (sao lưu trước migration, `CHO_PHEP_MIGRATE_PROD`, quét bí mật trước
+push, không xóa `activity_logs`, không force-push) xem
+`docs/SO_TAY_TRIEN_KHAI.md` mục 14.
 
-```powershell
-git switch main
-git pull --ff-only origin main
-git switch -c feature/ten-chuc-nang
-```
-
-Sau khi hoàn thành:
-
-```powershell
-git add .
-git commit -m "feat: mo ta thay doi"
-git push -u origin feature/ten-chuc-nang
-```
-
-Sau khi kiểm thử, tạo Pull Request để merge vào `main`.
+Trước mỗi lần push lên `origin/main`, hook `pre-push` tự chạy
+`scripts/quet-bi-mat.ps1 -PhamVi commits` — push chỉ bị chặn khi quét phát
+hiện mẫu bí mật. Có thể bỏ qua hook bằng `git push --no-verify` (không
+khuyến khích) hoặc tắt hook bằng `git config --unset core.hooksPath`.
 
 ## 14. Phạm vi chưa triển khai
 
