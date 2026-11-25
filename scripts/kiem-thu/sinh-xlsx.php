@@ -11,6 +11,21 @@ use PhpOffice\PhpSpreadsheet\Style\Border;
 
 $root = dirname(__DIR__, 2);
 $tc = require __DIR__.'/data-tc.php';
+$uutien = require __DIR__.'/uutien.php';
+// Uu tien: rat_cao > thap > cao(override) > mac_dinh module 'Cao' > Trung binh
+$ratCao = array_flip($uutien['rat_cao']);
+$caoOv  = array_flip($uutien['cao']);
+$thapOv = array_flip($uutien['thap']);
+$tbOv   = array_flip($uutien['tb'] ?? []);
+$macDinhCao = array_flip($uutien['mac_dinh_cao']);
+function uuTienTC(string $ma, string $module, array $ratCao, array $caoOv, array $thapOv, array $tbOv, array $macDinhCao): string {
+    if (isset($ratCao[$ma])) return 'Rất cao';
+    if (isset($thapOv[$ma])) return 'Thấp';
+    if (isset($caoOv[$ma])) return 'Cao';
+    if (isset($tbOv[$ma])) return 'Trung bình';
+    if (isset($macDinhCao[$module])) return 'Cao';
+    return 'Trung bình';
+}
 
 // ---------- 1. Doc route:list -v ----------
 chdir($root);
@@ -208,7 +223,7 @@ $headerStyle = function($sheet){
 $loaiColor = ['chuc nang'=>'DDEBF7','phan quyen'=>'FCE4D6','bao mat'=>'F8CBAD','validate'=>'E2EFDA','bien'=>'E4DFEC','ghi chu'=>'FFF2CC'];
 
 $tcCols = ['Mã TC','Module','Chức năng','Loại','Mô tả','Điều kiện tiên quyết','Vai trò','Các bước','Dữ liệu kiểm thử','Kết quả mong đợi','Ưu tiên','Test tự động tương ứng','Độ tin cậy ánh xạ','KẾT QUẢ THỰC TẾ','TRẠNG THÁI'];
-$demTcTheoModule=[];$demCoTest=0;$tong=0;$thongKeTinCay=['xác nhận'=>0,'từ khóa'=>0,'không có'=>0];
+$demTcTheoModule=[];$demCoTest=0;$tong=0;$thongKeTinCay=['xác nhận'=>0,'từ khóa'=>0,'không có'=>0];$thongKeUuTien=['Rất cao'=>0,'Cao'=>0,'Trung bình'=>0,'Thấp'=>0];$tcLookup=[];
 foreach ($tc as $code=>$mod) {
     $sh = $ss->createSheet();
     $sh->setTitle(mb_substr($mod['sheet'],0,31));
@@ -217,9 +232,16 @@ foreach ($tc as $code=>$mod) {
     foreach ($mod['items'] as $it) {
         $i++;
         $ma = $code.'-'.str_pad((string)$i,3,'0',STR_PAD_LEFT);
+        $tcLookup[$ma] = [$modLabel[$code], $it[0]];
         $tinCay = chamDoTinCay((string)$it[9], $code, $testRefs, $routeNameMod, $routeUriMod, $modClassKw, $allTestBase);
         $thongKeTinCay[$tinCay]++;
-        $row=[$ma,$modLabel[$code],$it[0],$it[1],$it[2],$it[3],$it[4],$it[5],$it[6],$it[7],$it[8],$it[9],$tinCay,'',''];
+        $uuTien = uuTienTC($ma, $code, $ratCao, $caoOv, $thapOv, $tbOv, $macDinhCao);
+        $thongKeUuTien[$uuTien] = ($thongKeUuTien[$uuTien] ?? 0) + 1;
+        // Rat cao ma chua co test xac nhan -> danh dau noi bat
+        if ($uuTien === 'Rất cao' && $tinCay !== 'xác nhận') {
+            $tinCay .= ' ⚠ chưa có test xác nhận';
+        }
+        $row=[$ma,$modLabel[$code],$it[0],$it[1],$it[2],$it[3],$it[4],$it[5],$it[6],$it[7],$uuTien,$it[9],$tinCay,'',''];
         $sh->fromArray($row,null,'A'.$r);
         $sh->getStyle('D'.$r)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB($loaiColor[$it[1]]??'FFFFFF');
         // to mau do tin cay: xanh la xac nhan, vang la tu khoa, do la khong co
@@ -274,26 +296,71 @@ $sh->freezePane('A2');$sh->setAutoFilter('A1:H'.$r);
 $sh->getStyle('A1:H'.$r)->getAlignment()->setWrapText(true)->setVertical(Alignment::VERTICAL_TOP);
 
 // ---------- 8. Khoang trong (route KHONG co test nao goi toi) ----------
+// VAI TRO tu middleware: role:a,b | staff.only | auth | public
+function tomTatVaiTro(array $mw): string {
+    $mwS = implode(' ', $mw);
+    $roles = [];
+    if (preg_match_all('/role:([a-z,]+)/', $mwS, $mm)) {
+        foreach ($mm[1] as $rs) foreach (explode(',', $rs) as $ro) $roles[trim($ro)] = true;
+    }
+    $out = array_keys($roles);
+    if (str_contains($mwS, 'staff.only')) $out[] = 'staff';
+    if (str_contains($mwS, 'auth') && $out === []) $out[] = 'da dang nhap (moi role)';
+    if ($out === []) return 'guest/public';
+    return implode(',', $out);
+}
+$laGhi = fn(string $m) => !in_array(strtoupper($m), ['GET','HEAD','OPTIONS'], true);
 $sh=$ss->createSheet();$sh->setTitle('Khoang trong');
-$sh->fromArray(['STT','Method + URI','Route name','Action','Module','Lý do'],null,'A1');
-$r=2;$stt=0;
+$sh->fromArray(['STT','Nhóm','Method + URI','Route name','Action','Module','Mức PIN (pin_muc)','Vai trò (middleware)','Đề xuất test viết trước'],null,'A1');
+$r=2;$stt=0;$soGhi=0;$soDoc=0;
+$thutuModule = ['ORD'=>1,'POS'=>2,'RET'=>3,'INV'=>4,'PIN'=>5,'MAN'=>6,'IMP'=>7,'CUS'=>8,'ACC'=>9,'PRD'=>10,'RPT'=>11,'SEC'=>12,'SEP'=>13,'STO'=>14,'NEWS'=>15,'CONT'=>16,'KHAC'=>17];
+$gapGhi=[];$gapDoc=[];
 foreach($routes as $rt){
     $mod=doanModule($rt['uri'],$rt['name']);
     if($mod==='KHAC') continue;
-    $hit=routeDuocTest($rt, $testRefs);
-    if($hit===[]){
-        $stt++;
-        $sh->fromArray([$stt,$rt['method'].' '.$rt['uri'],$rt['name'],$rt['action'],$modLabel[$mod]??$mod,'Không có file test nào gọi route(\''.$rt['name'].'\') hay URI tương ứng — cần kiểm thử tay hoặc bổ sung test'],null,'A'.$r);
-        $r++;
+    if(routeDuocTest($rt, $testRefs)===[]) {
+        ($laGhi($rt['method']) ? $gapGhi[] = $rt + ['mod'=>$mod] : $gapDoc[] = $rt + ['mod'=>$mod]);
     }
 }
-if($stt===0){$sh->fromArray(['—','Không phát hiện route nào thiếu test','—','—','—','—'],null,'A2');}
-foreach(range('A','F') as $c)$sh->getColumnDimension($c)->setAutoSize(true);
-$sh->getStyle('A1:F1')->getFont()->setBold(true);
-$sh->getStyle('A1:F1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('C00000');
-$sh->getStyle('A1:F1')->getFont()->getColor()->setRGB('FFFFFF');
-$sh->freezePane('A2');$sh->setAutoFilter('A1:F'.$r);$sh->getStyle('A1:F'.$r)->getAlignment()->setWrapText(true)->setVertical(Alignment::VERTICAL_TOP);
-file_put_contents($root.'/storage/app/khoang-trong-count.txt', (string)$stt);
+usort($gapGhi, fn($a,$b)=>($thutuModule[$a['mod']]??99)<=>( $thutuModule[$b['mod']]??99));
+usort($gapDoc, fn($a,$b)=>($thutuModule[$a['mod']]??99)<=>( $thutuModule[$b['mod']]??99));
+$deXuat = 0;
+foreach (array_merge($gapGhi, $gapDoc) as $idx => $rt) {
+    $ghi = $laGhi($rt['method']);
+    $ghi ? $soGhi++ : $soDoc++;
+    $stt++;
+    $pin=$pinMuc[$rt['name']]??'—';
+    $vaiTro=tomTatVaiTro($rt['mw']);
+    $deXuatTxt='';
+    if ($ghi && $deXuat < 5) {
+        $deXuat++;
+        $deXuatTxt='tests/Feature/'.$rt['mod'].'GapTest.php — gọi route(\''.$rt['name'].'\') với payload hợp lệ + thiếu quyền, assert redirect/4xx và không ghi DB';
+    }
+    $nhom=$ghi?'GHI (POST/PUT/PATCH/DELETE)':'Đọc (GET)';
+    $sh->fromArray([$stt,$nhom,$rt['method'].' '.$rt['uri'],$rt['name'],$rt['action'],$modLabel[$rt['mod']]??$rt['mod'],$pin,$vaiTro,$deXuatTxt],null,'A'.$r);
+    if($ghi){$sh->getStyle('B'.$r)->getFont()->setBold(true);$sh->getStyle('B'.$r)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('F8CBAD');}
+    $r++;
+}
+if($stt===0){$sh->fromArray(['—','—','Không phát hiện route nào thiếu test','—','—','—','—','—','—'],null,'A2');}
+$soKhoangTrong=$soGhi+$soDoc;
+// Khoi de xuat 5 test (route GHI chua co test, uu tien module cham tien/tồn kho)
+$r++;
+$sh->fromArray(['','ĐỀ XUẤT 5 TEST VIẾT TRƯỚC','','','','','',''],null,'A'.$r);$r++;
+$sh->fromArray(['','Route GHI chưa có test (xếp theo rủi ro: đơn hàng → POS → trả/kho → PIN → duyệt)','','','','','','',''],null,'A'.$r);$r++;
+$dem=0;
+foreach($gapGhi as $rt){
+    if($dem>=5) break;
+    $dem++;
+    $sh->fromArray(['','  '.($dem).'. '.$rt['method'].' /'.$rt['uri'].'  ('.$rt['name'].') — PIN '.($pinMuc[$rt['name']]??'—').' — '.$modLabel[$rt['mod']],'','','','','','','Viết '.$rt['mod'].'GapTest: route(\''.$rt['name'].'\') happy-path + thiếu PIN/quyền'],null,'A'.$r);
+    $r++;
+}
+foreach(range('A','I') as $c)$sh->getColumnDimension($c)->setAutoSize(true);
+$sh->getStyle('A1:I1')->getFont()->setBold(true);
+$sh->getStyle('A1:I1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('C00000');
+$sh->getStyle('A1:I1')->getFont()->getColor()->setRGB('FFFFFF');
+$sh->freezePane('A2');$sh->setAutoFilter('A1:I'.$r);$sh->getStyle('A1:I'.$r)->getAlignment()->setWrapText(true)->setVertical(Alignment::VERTICAL_TOP);
+file_put_contents($root.'/storage/app/khoang-trong-count.txt', (string)$soKhoangTrong);
+file_put_contents($root.'/storage/app/khoang-trong-ghi-count.txt', (string)$soGhi);
 file_put_contents($root.'/storage/app/route-co-test-count.txt', (string)$soRouteCoTest);
 
 // ---------- 9. Ma tran quyen ----------
@@ -377,44 +444,72 @@ $sh->getStyle('A1:F1')->getFont()->getColor()->setRGB('FFFFFF');
 $sh->freezePane('A2');$sh->setAutoFilter('A1:F'.($r-1));$sh->getStyle('A1:F'.($r-1))->getAlignment()->setWrapText(true)->setVertical(Alignment::VERTICAL_TOP);
 $sh->fromArray(['Ghi chú','Ánh xạ từ docs/KICH_BAN_BAO_VE.md (file gitignored). Cột TC là mã trong bộ test case này.','—','—','—','—'],null,'A'.($r+1));
 
-// ---------- 9c. Danh sach chay tay truoc bao ve ----------
+// ---------- 9c. Danh sach chay tay truoc bao ve (chon loc, co thu tu + thoi gian) ----------
 $sh=$ss->createSheet();$sh->setTitle('Chay tay truoc bao ve');
-$sh->fromArray(['Mã TC','Module','Chức năng','Nhóm','Ghi chú'],null,'A1');
-// Nhom B (co ghi du lieu): ORD,POS,RET,INV,PRD,CUS,IMP,PIN,MAN + ACC ghi + SEC co payload + SEP ghi
-$nhomBmac=['ORD'=>1,'POS'=>1,'RET'=>1,'INV'=>1,'PRD'=>1,'CUS'=>1,'IMP'=>1,'PIN'=>1,'MAN'=>1,'SEP'=>1];
-$accB=['ACC-001','ACC-005','ACC-008','ACC-009','ACC-010']; // dang ky, doi MK, khoa TK
-$secB=['SEC-002']; // XSS luu payload
-$r=2;$soA=0;$soB=0;
-foreach($tc as $code=>$mod){
-    foreach($mod['items'] as $idx=>$it){
-        if($it[8]!=='Cao') continue; // chi uu tien cao
-        $ma=$code.'-'.str_pad((string)($idx+1),3,'0',STR_PAD_LEFT);
-        $nhomB=isset($nhomBmac[$code])||in_array($ma,$accB,true)||in_array($ma,$secB,true);
-        $nhom=$nhomB?'B — có ghi dữ liệu':'A — chỉ đọc';
-        $nhomB?$soB++:$soA++;
-        $ghichu=$nhomB?'Sẽ lưu vĩnh viễn vào doan_cnw nếu chạy ở prod; nên chạy ở bản dev':'An toàn chạy trên dữ liệu thật';
-        $sh->fromArray([$ma,$modLabel[$code],$it[0],$nhom,$ghichu],null,'A'.$r);
-        if($nhomB)$sh->getStyle('D'.$r)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FCE4D6');
-        else $sh->getStyle('D'.$r)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('E2EFDA');
-        $r++;
-    }
+$sh->fromArray(['STT','Mã TC','Module','Chức năng','Thời gian ~phút','Ghi chú'],null,'A1');
+// A — chi doc, an toan tren du lieu that. B — co ghi du lieu, theo thu tu: dat don -> thanh toan -> nhan hang -> tra -> kho -> PIN/quyen -> import
+$dsA=[
+ ['STO-001',3,''],['STO-002',2,''],['STO-003',2,''],['STO-004',3,''],
+ ['ORD-008',3,'Tra cứu chỉ đọc, không tạo đơn'],
+ ['NEWS-001',2,''],['NEWS-002',2,''],
+ ['RPT-001',3,'Dashboard'],['RPT-004',3,'Nhật ký'],
+ ['MAN-006',3,'Trang soát/đối soát chỉ xem'],['SEC-010',2,'Probe UTF-8'],
+];
+$dsB=[
+ ['ACC-003',3,'Đăng nhập — cần trước mọi thao tác NV'],
+ ['ORD-002',5,'Đặt đơn pickup → tạo đơn thật'],
+ ['ORD-010',4,'NV xử lý/nhận đơn online'],
+ ['POS-005',5,'Bán + thanh toán tiền mặt'],
+ ['POS-006',2,'In hóa đơn'],
+ ['RET-001',5,'Tạo phiếu trả từ HĐ'],
+ ['POS-004',4,'Giảm giá/điểm — có thể chạm PIN'],
+ ['INV-001',4,'Nhập kho nhanh'],
+ ['INV-005',7,'Kiểm kê: tạo→nhập→chênh lệch→duyệt'],
+ ['CUS-006',4,'Khóa khách hàng'],
+ ['PIN-001',4,'Nhập PIN đúng mức'],
+ ['PIN-006',4,'Mã duyệt hai người'],
+ ['MAN-001',4,'NV xác nhận bằng chứng'],
+ ['IMP-001',4,'Upload + preview import (gồm all-or-nothing IMP-007)'],
+ ['ACC-008',4,'Phân quyền vai trò'],
+];
+$r=2;
+$sh->fromArray(['','NHÓM A — CHỈ ĐỌC (an toàn chạy trên dữ liệu thật)','','','',''],null,'A'.$r);$r++;
+$tongA=0;$sttA=0;
+foreach($dsA as $d){
+    $sttA++;$tongA+=$d[1];
+    [$mod,$chucNang]=$tcLookup[$d[0]]??['—','—'];
+    $sh->fromArray([$stt,$d[0],$mod,$chucNang,$d[1],$d[2]],null,'A'.$r);
+    $sh->getStyle('D'.$r)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('E2EFDA');
+    $r++;
 }
-$sh->fromArray(['','Tổng','',"A=$soA | B=$soB",''],null,'A'.($r+1));
-foreach(range('A','E') as $c)$sh->getColumnDimension($c)->setAutoSize(true);
-$sh->getStyle('A1:E1')->getFont()->setBold(true);
-$sh->getStyle('A1:E1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('1F4E78');
-$sh->getStyle('A1:E1')->getFont()->getColor()->setRGB('FFFFFF');
-$sh->freezePane('A2');$sh->setAutoFilter('A1:E'.($r));$sh->getStyle('A1:E'.($r))->getAlignment()->setWrapText(true)->setVertical(Alignment::VERTICAL_TOP);
+$sh->fromArray(['','Tổng A','',"$sttA TC","~{$tongA} phút",''],null,'A'.$r);$r+=2;
+$tongB=0;$sttB=0;
+$sh->fromArray(['','NHÓM B — CÓ GHI DỮ LIỆU (chạy ở bản dev; sẽ lưu vĩnh viễn vào doan_cnw nếu chạy ở prod)','','','',''],null,'A'.$r);$r++;
+foreach($dsB as $d){
+    $sttB++;$tongB+=$d[1];
+    [$mod,$chucNang]=$tcLookup[$d[0]]??['—','—'];
+    $sh->fromArray([$stt,$d[0],$mod,$chucNang,$d[1],$d[2].' — sẽ lưu vĩnh viễn vào doan_cnw nếu chạy ở prod; nên chạy ở bản dev'],null,'A'.$r);
+    $sh->getStyle('D'.$r)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FCE4D6');
+    $r++;
+}
+$sh->fromArray(['','Tổng B','',"$sttB TC","~{$tongB} phút",''],null,'A'.$r);$r++;
+$sh->fromArray(['','Tổng cộng','',$sttA.' + '.$sttB.' TC',"~".($tongA+$tongB)." phút (45–60' nếu chạy đúng nhịp, chưa tính thời gian chuẩn bị dữ liệu)",''],null,'A'.$r);
+foreach(range('A','F') as $c)$sh->getColumnDimension($c)->setAutoSize(true);
+$sh->getStyle('A1:F1')->getFont()->setBold(true);
+$sh->getStyle('A1:F1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('1F4E78');
+$sh->getStyle('A1:F1')->getFont()->getColor()->setRGB('FFFFFF');
+$sh->freezePane('A2');$sh->getStyle('A1:F'.$r)->getAlignment()->setWrapText(true)->setVertical(Alignment::VERTICAL_TOP);
 
 // ---------- 10. Tong hop ----------
 $sh=$ss->createSheet();$sh->setTitle('Tong hop');
-$rows=[['BỘ TEST CASE TOÀN HỆ THỐNG','','','','',''],['','Ngày tạo','2026-11-25','','',''],['','Nguồn','route:list -v, config/pin_muc.php, tests/Feature+Unit, test-refs.json','','',''],['','Số module','','','',''],['','Tổng số TC','','','',''],['','TC có test tự động tương ứng (ghi ở cột L)','','','',''],['','TC — ánh xạ XÁC NHẬN (test gọi route/URI/service cùng module)',"{$thongKeTinCay['xác nhận']}",'','',''],['','TC — ánh xạ chỉ TỪ KHÓA (test tồn tại, chưa chứng minh gọi đúng route)',"{$thongKeTinCay['từ khóa']}",'','',''],['','TC — KHÔNG CÓ test',"{$thongKeTinCay['không có']}",'','',''],['','Số route hệ thống',''.count($routes),'','',''],['','Route có test gọi tới (route()/URI thật)',"$soRouteCoTest",'','',''],['','Route KHÔNG có test gọi tới (sheet Khoảng trống)',"$stt",'','',''],['','Kết quả php artisan test --parallel gần nhất','1191 tests, 5258 assertions, 46 skipped, 0 fail — 2026-11-25','','',''],['','TC ưu tiên Cao — chạy tay','A (chỉ đọc) = '.$soA.' | B (có ghi) = '.$soB.' — xem sheet "Chay tay truoc bao ve"','','','']];
+$rows=[['BỘ TEST CASE TOÀN HỆ THỐNG','','','','',''],['','Ngày tạo','2026-11-25','','',''],['','Nguồn','route:list -v, config/pin_muc.php, tests/Feature+Unit, test-refs.json, uutien.php','','',''],['','Số module','','','',''],['','Tổng số TC','','','',''],['','TC có test tự động tương ứng (ghi ở cột L)','','','',''],['','TC — ánh xạ XÁC NHẬN (test gọi route/URI/service cùng module)',"{$thongKeTinCay['xác nhận']}",'','',''],['','TC — ánh xạ chỉ TỪ KHÓA (test tồn tại, chưa chứng minh gọi đúng route)',"{$thongKeTinCay['từ khóa']}",'','',''],['','TC — KHÔNG CÓ test',"{$thongKeTinCay['không có']}",'','',''],['','TC theo ưu tiên — Rất cao',"{$thongKeUuTien['Rất cao']}",'','',''],['','TC theo ưu tiên — Cao',"{$thongKeUuTien['Cao']}",'','',''],['','TC theo ưu tiên — Trung bình',"{$thongKeUuTien['Trung bình']}",'','',''],['','TC theo ưu tiên — Thấp',"{$thongKeUuTien['Thấp']}",'','',''],['','Số route hệ thống',''.count($routes),'','',''],['','Route có test gọi tới (route()/URI thật)',"$soRouteCoTest",'','',''],['','Route KHÔNG có test gọi tới (sheet Khoảng trống)',"$soKhoangTrong (GHI: $soGhi | Đọc: $soDoc)",'','',''],['','Kết quả php artisan test --parallel gần nhất','1191 tests, 5258 assertions, 46 skipped, 0 fail — 2026-11-25','','',''],['','TC chạy tay trước bảo vệ','A chỉ đọc: '.$sttA.' TC (~'.$tongA.' phút) | B có ghi: '.$sttB.' TC (~'.$tongB.' phút) — sheet "Chay tay truoc bao ve"','','','']];
 $rows[]=['','Module','Số TC','TC có test','',''];
 foreach($demTcTheoModule as $v)$rows[]=['','',$v['label'],$v['so_tc'],$v['co_test'],'',''];
 $sh->fromArray($rows,null,'A1');
 $sh->getStyle('A1:F1')->getFont()->setBold(true)->setSize(14);
-$sh->getStyle('A15:F15')->getFont()->setBold(true);
-$sh->getStyle('B16:F'.(16+count($demTcTheoModule)))->getAlignment()->setWrapText(true);
+$hdrRow = 2 + 17; // title + 17 dong thong ke
+$sh->getStyle('A'.$hdrRow.':F'.$hdrRow)->getFont()->setBold(true);
+$sh->getStyle('B'.($hdrRow+1).':F'.($hdrRow+count($demTcTheoModule)))->getAlignment()->setWrapText(true);
 foreach(range('A','F') as $c)$sh->getColumnDimension($c)->setAutoSize(true);
 
 // ---------- ghi file ----------
@@ -423,5 +518,5 @@ $writer=new Xlsx($ss);
 $writer->setPreCalculateFormulas(false);
 $writer->save($root.'/docs/KIEM_THU/TestCase_HeThong.xlsx');
 echo "OK: docs/KIEM_THU/TestCase_HeThong.xlsx\n";
-echo "TC=$tong co_test=$demCoTest routes=".count($routes)." routes_co_test=$soRouteCoTest khoang_trong=$stt\n";
+echo "TC=$tong co_test=$demCoTest routes=".count($routes)." routes_co_test=$soRouteCoTest khoang_trong=$soKhoangTrong (ghi=$soGhi doc=$soDoc)\n";
 echo "tin_cay: xac_nhan={$thongKeTinCay['xác nhận']} tu_khoa={$thongKeTinCay['từ khóa']} khong_co={$thongKeTinCay['không có']}\n";

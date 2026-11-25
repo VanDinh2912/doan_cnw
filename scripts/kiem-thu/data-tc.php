@@ -56,7 +56,7 @@ return [
   ['PIN thao tác nhạy cảm POS','bao mat','Hành động mức M1/M2/A yêu cầu PIN/mã đúng','NV có/không PIN','Thu ngân','1) Làm thao tác M1 nhập PIN sai/đúng 2) M2 xin mã','—','Sai PIN báo lỗi; mã sai/hết hạn từ chối; đúng thì qua','Cao','PinHaTangTest, PinRouteTest, MaDuyetTest'],
  ]],
  'RET' => ['sheet' => '05 Tra hang', 'items' => [
-  ['Tạo phiếu trả từ hóa đơn','chuc nang','Chọn hóa đơn, dòng SP, SL, tình trạng → lưu phiếu','HĐ đã bán','Thu ngân/Admin','1) Mở trả hàng 2) Chọn HĐ 3) Nhập SL/tình trạng 4) Lưu','—','Tạo phiếu, trừ tồn/hoàn tiền đúng','Cao',''],
+  ['Tạo phiếu trả từ hóa đơn','chuc nang','Chọn hóa đơn, dòng SP, SL, tình trạng → lưu phiếu','HĐ đã bán','Thu ngân/Admin','1) Mở trả hàng 2) Chọn HĐ 3) Nhập SL/tình trạng 4) Lưu','—','Tạo phiếu, trừ tồn/hoàn tiền đúng','Cao','TraHangDonOnlineTest, TraHangTrungMaPhieuTest, TraHangPhiGiaoTest'],
   ['Kiểm tra hạn trả','validate','Trả sau hạn không được','HĐ cũ','Thu ngân','1) Thử trả HĐ quá hạn','—','Bị chặn kèm lý do','Cao','TraHangDonOnlineTest, TraHangPhiGiaoTest'],
   ['SL trả vượt bán','validate','SL trả > SL đã bán bị chặn','—','Thu ngân','1) Nhập SL lớn hơn','—','Báo lỗi, không lưu','Cao','TraHangTrungMaPhieuTest'],
   ['Hoàn tiền & điểm','chuc nang','Trả → hoàn tiền, trừ/hoàn điểm đúng','Phiếu trả','Thu ngân','1) Duyệt phiếu trả 2) Kiểm tra tiền/điểm','—','tiền + điểm hoàn đúng công thức','Cao','TraHangPhiGiaoTest'],
