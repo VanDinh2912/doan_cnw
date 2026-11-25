@@ -309,7 +309,13 @@ function tomTatVaiTro(array $mw): string {
     if ($out === []) return 'guest/public';
     return implode(',', $out);
 }
-$laGhi = fn(string $m) => !in_array(strtoupper($m), ['GET','HEAD','OPTIONS'], true);
+$laGhi = function(string $m): bool {
+    // route da phuong thuc kieu "GET|HEAD" van la doc; chi tinh GHI khi co POST/PUT/PATCH/DELETE
+    foreach (explode('|', strtoupper($m)) as $p) {
+        if (in_array(trim($p), ['POST','PUT','PATCH','DELETE'], true)) return true;
+    }
+    return false;
+};
 $sh=$ss->createSheet();$sh->setTitle('Khoang trong');
 $sh->fromArray(['STT','Nhóm','Method + URI','Route name','Action','Module','Mức PIN (pin_muc)','Vai trò (middleware)','Đề xuất test viết trước'],null,'A1');
 $r=2;$stt=0;$soGhi=0;$soDoc=0;

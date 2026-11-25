@@ -43,7 +43,7 @@ chắc chắn của test tự động tương ứng:
 
 Tiêu chí (sửa trong `uutien.php`, không sửa tay trong Excel):
 
-- **Rất cao** (~20): luồng cốt lõi trình diễn khi bảo vệ VÀ luồng chạm
+- **Rất cao** (~20, tối đa 22): luồng cốt lõi trình diễn khi bảo vệ VÀ luồng chạm
   tiền/tồn kho/quyền — bán POS + in hóa đơn, đặt hàng online, xác nhận thủ
   công + mã duyệt, trả hàng, nhập kho/kiểm kê, phân quyền, PIN, khóa khách,
   import Excel 2 bước, đăng nhập. Mỗi TC Rất cao phải có ánh xạ **xác nhận**;

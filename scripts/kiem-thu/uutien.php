@@ -26,6 +26,8 @@ return [
         'PIN-001', // nhap PIN dung muc
         'PIN-006', // ma duyet hai nguoi
         'MAN-001', // NV xac nhan bang chung
+        'ACC-011', // ma tran phan quyen 5 vai tro
+        'ACC-012', // 3 vai tro NV phan biet tren route rang buoc
     ],
     // Module mac dinh "Cao"; module khong liet ke mac dinh "Trung bình"
     'mac_dinh_cao' => ['ACC','ORD','POS','RET','INV','PIN','MAN'],
