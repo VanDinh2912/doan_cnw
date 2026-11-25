@@ -13,13 +13,28 @@ bịa kết quả).
   Thống kê/báo cáo/nhật ký; Import/Export Excel (gồm ảnh URL); PIN & mã duyệt;
   Xác nhận thủ công & đối soát; Bảo mật chung; SePay/VietQR.
 - **Truy vết**: mọi route hệ thống → module → mức PIN (`config/pin_muc.php`) →
-  test tự động tìm thấy theo từ khóa (ô test để trống = tô màu nhạt).
-- **Khoảng trống**: route chưa khớp test tự động nào theo từ khóa — ứng viên
-  cần kiểm thử tay hoặc bổ sung test.
+  test tự động **thực sự gọi tới** (route() theo tên, URI khớp, hoặc class
+  App\ cùng module — trích bằng `scripts/kiem-thu/trich-test-refs.php`).
+- **Khoảng trống**: route mà KHÔNG file test nào gọi `route('tên')` hay URI
+  tương ứng — phương pháp: quét `route()`, `->get/post/put/delete(...)` trong
+  `tests/` rồi khớp tên route + regex URI (tham số `{x}` → `[^/]+`).
 - **Ma trận quyền**: module × Guest/Admin/Thu ngân/Thủ kho/Khách — suy ra từ
   middleware `role:`/`auth`/`staff.only` trong `route:list -v` (không suy đoán).
-- **Tổng hợp**: số TC theo module, số TC có test tự động, kết quả suite gần
-  nhất.
+- **Kịch bản demo**: 25 bước demo bảo vệ ánh xạ sang mã TC (không chứa
+  mật khẩu/PIN/URL nội bộ).
+- **Chạy tay trước bảo vệ**: các TC ưu tiên Cao chia nhóm A (chỉ đọc, an toàn
+  trên dữ liệu thật) và B (có ghi — cảnh báo lưu vĩnh viễn vào `doan_cnw`).
+- **Tổng hợp**: số TC theo module + thống kê độ tin cậy ánh xạ.
+
+Mỗi TC có mã duy nhất dạng `MOD-001`…; cột Loại phân loại: chức năng /
+phân quyền / bảo mật / validate / biên. Cột **"Độ tin cậy ánh xạ"** chấm mức
+chắc chắn của test tự động tương ứng:
+
+- **xác nhận** (xanh): test gọi route()/URI của module hoặc class App\ cùng
+  module — có bằng chứng test chạm đúng đối tượng.
+- **từ khóa** (vàng): test tồn tại và tên khớp chủ đề nhưng chưa chứng minh
+  gọi đúng route/hành vi — kiểm tra thủ công khi dùng cho báo cáo.
+- **không có** (đỏ): chưa có test tự động — bắt buộc kiểm thử tay.
 
 Mỗi TC có mã duy nhất dạng `MOD-001`…; cột Loại phân loại: chức năng /
 phân quyền / bảo mật / validate / biên. Dữ liệu kiểm thử trong file đều là dữ
@@ -46,7 +61,8 @@ php scripts/kiem-thu/sinh-xlsx.php
 ```
 
 Script đọc `scripts/kiem-thu/data-tc.php` (dữ liệu TC), `php artisan
-route-list -v`, `config/pin_muc.php` và danh sách `tests/Feature|Unit`.
+route-list -v`, `config/pin_muc.php` và danh sách `tests/Feature|Unit` cùng `storage/app/test-refs.json`
+(route/URI/class mỗi file test gọi tới — tự chạy `trich-test-refs.php` nếu thiếu).
 Sửa TC thì sửa `data-tc.php` rồi chạy lại — cột KẾT QUẢ THỰC TẾ/TRẠNG THÁI
 sẽ bị ghi đè (file là sản phẩm sinh tự động).
 
