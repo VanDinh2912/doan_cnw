@@ -1,3 +1,4 @@
+# KHONG DUNG TU 2026-11-25: mo hinh mot moi truong duy nhat (8081/.env/doan_cnw). Giu lai de tham khao.
 # Kiem tra 2 ban dev PIN: 8899 = PIN bat (dev-test), 8898 = gia lap prod (dev-cu)
 # Chi doc, khong in secret. Chay: powershell -File scripts/windows/kiem-tra-dev-pin.ps1
 $ErrorActionPreference = 'Continue'

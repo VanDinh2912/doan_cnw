@@ -1,3 +1,4 @@
+# KHONG DUNG TU 2026-11-25: mo hinh mot moi truong duy nhat (8081/.env/doan_cnw). Giu lai de tham khao.
 # kiem-tra-db-dev.ps1
 # Kiem tra moi lenh artisan/serve se doc DB nao KHI chay o che do dev-test,
 # TRUOC KHI thuc hien bat ky thao tac GHI nao len doan_cnw_dev.
