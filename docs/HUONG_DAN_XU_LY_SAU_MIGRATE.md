@@ -161,9 +161,9 @@ hạn** (hiện đã ~292k dòng), không tự xoay.
 - Nếu muốn check toàn vẹn thật: dùng các truy vấn trong
   `docs/BAO_CAO_AP_MIGRATION.md` mục 3 (đã chạy: 0 lệch).
 
-### 6c. DB `doan_cnw_dev`
-- Đang giữ bản sao đã migrate — dùng để thử nghiệm an toàn trước khi đụng DB
-  thật. Xóa khi không cần:
+### 6c. DB `doan_cnw_dev` — KHÔNG DÙNG TỪ 2026-11-25
+- Bản sao dev cũ, không còn quy trình dev-test (một môi trường duy nhất —
+  `docs/SO_TAY_TRIEN_KHAI.md` mục 16). Có thể xóa khi không cần:
   ```powershell
   & "<thư-mục-xampp>\bin\mysql\mysql8.4.7\bin\mysql.exe" -u root -e "DROP DATABASE doan_cnw_dev;"
   ```

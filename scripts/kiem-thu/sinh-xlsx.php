@@ -490,11 +490,11 @@ foreach($dsA as $d){
 }
 $sh->fromArray(['','Tổng A','',"$sttA TC","~{$tongA} phút",''],null,'A'.$r);$r+=2;
 $tongB=0;$sttB=0;
-$sh->fromArray(['','NHÓM B — CÓ GHI DỮ LIỆU (chạy ở bản dev; sẽ lưu vĩnh viễn vào doan_cnw nếu chạy ở prod)','','','',''],null,'A'.$r);$r++;
+$sh->fromArray(['','NHÓM B — CÓ GHI DỮ LIỆU (chạy trên doan_cnw; dữ liệu sẽ lưu lại — dùng quy ước dữ liệu thử TEST/[thử], xem thu-test:liet-ke)','','','',''],null,'A'.$r);$r++;
 foreach($dsB as $d){
     $sttB++;$tongB+=$d[1];
     [$mod,$chucNang]=$tcLookup[$d[0]]??['—','—'];
-    $sh->fromArray([$stt,$d[0],$mod,$chucNang,$d[1],$d[2].' — sẽ lưu vĩnh viễn vào doan_cnw nếu chạy ở prod; nên chạy ở bản dev'],null,'A'.$r);
+    $sh->fromArray([$stt,$d[0],$mod,$chucNang,$d[1],$d[2].' — chạy trên doan_cnw; dữ liệu sẽ lưu lại; dùng quy ước dữ liệu thử'],null,'A'.$r);
     $sh->getStyle('D'.$r)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FCE4D6');
     $r++;
 }

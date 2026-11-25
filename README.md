@@ -120,11 +120,12 @@ chỉ hoạt động khi cấu hình `SEPAY_WEBHOOK_API_KEY` và có tunnel côn
 
 Nếu MySQL có mật khẩu, điền mật khẩu vào `DB_PASSWORD`.
 
-> **Chạy thử trên DB dev (`doan_cnw_dev`) — bắt buộc trước mọi thao tác GHI:**
-> dùng `.env.dev-test` (gitignored, `APP_ENV=dev-test` + `DB_DATABASE=doan_cnw_dev`)
-> nạp qua `$env:APP_ENV='dev-test'` — KHÔNG đặt `DB_DATABASE` rời. Trước mỗi lượt
-> ghi chạy `.\scripts\windows\kiem-tra-db-dev.ps1` (thất bại → dừng). Chi tiết:
-> `docs/SO_TAY_TRIEN_KHAI.md` mục 7b.
+> **Một môi trường duy nhất (từ 2026-11-25):** cổng 8081, một `.env`, một CSDL
+> `doan_cnw`. Mọi thao tác ghi là thao tác thật — sao lưu trước thay đổi lớn
+> (`scripts\windows\sao-luu-nhanh.ps1`), dữ liệu tạo tay theo quy ước TEST
+> (`php artisan thu-test:liet-ke` để rà soát). Quy trình dev-test cũ
+> (`.env.dev-test`, `doan_cnw_dev`, `kiem-tra-db-dev.ps1`) **không còn dùng** —
+> xem `docs/SO_TAY_TRIEN_KHAI.md` mục 16–18.
 
 ### 3.5. Tạo bảng và dữ liệu mẫu
 
@@ -503,8 +504,8 @@ Khôi phục SQLite: dừng ứng dụng rồi chép đè tệp sao lưu lên đ
 
 Lệnh liên quan webhook/đối soát SePay: `sepay:doi-soat {--gio=24}` (đối soát
 chủ động, mặc định chỉ báo cáo), `sepay:kiem-tra-ket-noi` (kiểm token/kết
-nối). Instance test qua tunnel: xem `docs/SO_TAY_TRIEN_KHAI.md` mục 7–7b
-(`.env.sepay-test` chỉ-webhook, `.env.dev-test` cho dev DB).
+nối). Instance test qua tunnel: xem `docs/SO_TAY_TRIEN_KHAI.md` mục 7
+(`.env.sepay-test` chỉ-webhook; quy trình dev-test cũ đã ngừng — mục 16).
 
 ## 5A. Triển khai tại cửa hàng (checklist)
 
@@ -2331,9 +2332,9 @@ Bằng chứng chi tiết từng khẳng định nghiệp vụ: xem
   1 query); hero/trust-bar đổi theo `POS_GIAO_TAN_NOI_BAT` (tắt → "Đặt online,
   nhận tại cửa hàng", không nhắc freeship/24h); icon danh mục theo keyword cụ
   thể trong FA 6.7.2; email dùng `storefront.ten_cua_hang` (sửa chữ ký "Laravel").
-- **Cơ chế dev-test**: `.env.dev-test` (gitignored) + `APP_ENV=dev-test` +
-  `scripts/windows/kiem-tra-db-dev.ps1` bắt buộc trước mọi lượt ghi lên
-  `doan_cnw_dev` — xem `docs/SO_TAY_TRIEN_KHAI.md` mục 7b và README mục 3.4.
+- **Cơ chế dev-test (đã ngừng 2026-11-25)**: `.env.dev-test` +
+  `kiem-tra-db-dev.ps1` chỉ còn là tài liệu lịch sử — dự án chạy một môi
+  trường duy nhất, xem `docs/SO_TAY_TRIEN_KHAI.md` mục 16.
 - **Sửa lỗi**: đơn nhập `cho_duyet` không có nút chuyển trạng thái trên UI
   (blade lặp sai key); trang trạng thái đơn online lazy-load `sanPham`
   (`local.ERROR`). Test hồi quy: `DonNhapVaTrangThaiDonTest`.

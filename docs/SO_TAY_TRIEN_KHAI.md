@@ -364,9 +364,15 @@ SePay**.
 Chỉ điền `SEPAY_WEBHOOK_API_KEY` khi bắt đầu Giai đoạn 2; key này chỉ dùng
 cho test, go-live phải đổi key khác.
 
-## 7b. Chạy dev-test an toàn (ghi CHỈ lên `doan_cnw_dev`)
+## 7b. Chạy dev-test an toàn (ghi CHỈ lên `doan_cnw_dev`) — **KHÔNG DÙNG TỪ 2026-11-25**
 
-Mục đích: mọi thao tác artisan/serve có GHI (migrate, seed, test HTTP,
+> **Ngừng dùng**: từ 2026-11-25 dự án chỉ còn MỘT môi trường — cổng 8081,
+> một `.env`, một CSDL `doan_cnw`. Quy trình dev-test 2 môi trường (và các
+> script `kiem-tra-db-dev.ps1`, `kiem-tra-dev-pin.ps1`, `.env.dev-test`,
+> `doan_cnw_dev`) không còn áp dụng; giữ lại để tham khảo. Mọi ghi trên
+> `doan_cnw` giờ là thao tác bình thường có kiểm soát — xem mục 16.
+
+Mục đích (lịch sử): mọi thao tác artisan/serve có GHI (migrate, seed, test HTTP,
 sửa dữ liệu) phải chắc chắn đọc `doan_cnw_dev`, tuyệt đối không đọc
 `doan_cnw` qua `.env` mặc định. Cơ chế giống `.env.sepay-test`:
 
@@ -403,8 +409,9 @@ Lưu ý:
 ## 7c. Bảo vệ prod `doan_cnw` khỏi ghi nhầm (bài học 2026-11-19)
 
 - **Prod (`doan_cnw`, web 127.0.0.1:8081) là nơi người vận hành dùng
-  thật.** Agent KHÔNG thao tác GUI/HTTP có ghi trên prod — chỉ SELECT.
-  Mọi kiểm thử có ghi chạy trên `doan_cnw_dev` theo mục 7b.
+  thật.** Từ 2026-11-25 làm việc trực tiếp trên `doan_cnw` (một môi
+  trường — mục 16); mọi thay đổi cấu trúc/dữ liệu hàng loạt vẫn cần
+  sao lưu trước + guard `CHO_PHEP_MIGRATE_PROD` cho migrate.
 - **Baseline có giờ**: trước mọi lượt đối chiếu số liệu prod, chụp số
   liệu + ghi rõ thời điểm. Người vận hành có thể phát sinh giao dịch
   hợp lệ giữa 2 lần đo (ví dụ hóa đơn #19 và `held_carts` #2 lúc
@@ -698,3 +705,86 @@ công chưa đối soát" trên tổng quan phải về 0 khi đã xử lý hế
 `he-thong:kiem-tra` (user chấp nhận tạm, sẽ đổi sau); thủ kho #3 (`th***@…`)
 chưa có PIN — chỉ WARN, cấp qua `/taikhoan`; `SEPAY_WEBHOOK_API_KEY` chưa cấu
 hình (webhook SePay sẽ bị 401 — API đối soát vẫn chạy bình thường).
+
+## 16. Mô hình MỘT môi trường (từ 2026-11-25)
+
+Quyết định: chỉ còn **một cổng (8081), một `.env`, một CSDL `doan_cnw`**.
+Bỏ quy trình chuyển qua lại dev/prod cho việc thông thường; quy tắc "chạy
+nhóm B ở bản dev" (KIEM_THU) đã gỡ. Mục 7b (dev-test) không còn áp dụng.
+
+**Hàng rào GIỮ LẠI** (không đổi):
+
+- Sao lưu mới trước mọi migration hoặc thay đổi cấu trúc/dữ liệu hàng loạt
+  (mục 17).
+- Guard `CHO_PHEP_MIGRATE_PROD=1` cho `migrate`/`migrate:fresh`/`db:wipe`.
+- Test tự động chạy sqlite `:memory:` (`php artisan test`), không ghi DB thật.
+- Quét `scripts/quet-bi-mat.ps1` trước mỗi lần push; repo công khai —
+  không đẩy `.env`, PIN, mật khẩu, PII.
+- Không xóa `activity_logs`; không force push; không in PIN/mật khẩu/hash/PII
+  thật vào báo cáo/tài liệu commit.
+
+### Quy ước dữ liệu thử (bắt buộc khi tạo dữ liệu tay trên `doan_cnw`)
+
+- Tên khách hàng thử: tiền tố **`TEST`** (vd `TEST Nguyen Van A`).
+- Tên đơn thử: `ten_khach_dat` bắt đầu **`TEST`**; `ghi_chu` bắt đầu **`[thử]`**.
+- Sản phẩm thử: `ten_sanpham` bắt đầu **`TEST`**.
+- Liệt kê (chỉ đọc, không xóa): `php artisan thu-test:liet-ke` — in id/tên/
+  thời gian của khách, đơn, sản phẩm theo quy ước trên.
+- Trước buổi bảo vệ: chạy `thu-test:liet-ke`, quyết định ẩn/xóa dữ liệu thử
+  (xóa chỉ khi người dùng đồng ý — đây là dữ liệu thật).
+
+## 17. Runbook sao lưu & khôi phục `doan_cnw`
+
+### Sao lưu nhanh (trước buổi tập / buổi bảo vệ / mọi thay đổi lớn)
+
+```powershell
+powershell -File scripts\windows\sao-luu-nhanh.ps1
+```
+
+Script: kiểm tra `.env` đúng `DB_DATABASE=doan_cnw` (sai → từ chối), dump
+`--single-transaction` ra `backups/doan_cnw_sao_luu_YYYYMMDD_HHMMSS.sql`,
+in đường dẫn + dung lượng, kiểm dump có `CREATE TABLE users` (thiếu → báo lỗi).
+
+### Khôi phục (ghi đè — CHỈ dùng khi chấp nhận mất dữ liệu sau bản sao lưu)
+
+> ⚠️ Khôi phục **ghi đè TOÀN BỘ** `doan_cnw` — mọi đơn/kho/điểm phát sinh sau
+> thời điểm sao lưu sẽ MẤT. Chỉ dùng khi thực sự cần quay lui.
+
+```powershell
+# 1. Bao tri web cho nguoi dung
+php artisan down
+
+# 2. Xoa sach va nap lai ban sao luu (mysql client XAMPP — lay dung duong dan
+#    tu DB_DUMP_BINARY trong .env, chi doi mysqldump -> mysql)
+& "<xampp>\bin\mysql\mysql8.4.7\bin\mysql.exe" -u root -e "DROP DATABASE doan_cnw; CREATE DATABASE doan_cnw CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+& "<xampp>\bin\mysql\mysql8.4.7\bin\mysql.exe" -u root doan_cnw < backups\doan_cnw_sao_luu_YYYYMMDD_HHMMSS.sql
+
+# 3. Doi chieu so dong bang truoc/sau (vi du users, invoices, products)
+& "<xampp>\bin\mysql\mysql8.4.7\bin\mysql.exe" -u root doan_cnw -e "SELECT COUNT(*) FROM users; SELECT COUNT(*) FROM invoices; SELECT COUNT(*) FROM products;"
+
+# 4. Mo lai web
+php artisan up
+```
+
+Sau khôi phục: `php artisan he-thong:kiem-tra` + `php artisan thu-test:liet-ke`
+để xác nhận trạng thái.
+
+## 18. Checklist trước buổi bảo vệ
+
+Đánh dấu từng mục trước giờ demo (làm trên `doan_cnw`, đã sao lưu — mục 17):
+
+- [ ] Sao lưu mới: `scripts\windows\sao-luu-nhanh.ps1` → ghi đường dẫn file.
+- [ ] `.env`: `APP_DEBUG=false`, `APP_URL` đúng địa chỉ demo.
+- [ ] Đổi mật khẩu 3 tài khoản nhân viên (admin/thu ngân/thủ kho) — không dùng
+      mật khẩu đã lộ; ghi vào tài liệu nội bộ (gitignored).
+- [ ] Cấp/đổi PIN cho thủ kho (và mọi NV) — `cong-tac-pin-prod.ps1 -Che trang-thai` phải fail=0.
+- [ ] `SEPAY_API_TOKEN`: nếu không demo đối soát SePay thật → để trống/comment
+      (tránh lịch `sepay:doi-soat` chạy và webhook 401 gây nhiễu).
+- [ ] `php artisan he-thong:kiem-tra` — không còn FAIL ngoài mục đã chấp nhận.
+- [ ] `schedule:work` đang chạy (lịch: giữ hàng quá hạn, đối soát SePay…)
+      hoặc ghi rõ tắt lịch trong buổi demo.
+- [ ] `php artisan thu-test:liet-ke` — rà soát dữ liệu thử theo quy ước TEST;
+      ẩn/xóa phần không muốn trình diễn.
+- [ ] `php artisan serve --port=8081` chạy từ thư mục dự án, nhánh `main`
+      (`git status` sạch, `git log -1` ghi hash).
+- [ ] `php artisan test` xanh gần nhất (ghi số tests/fail vào biên bản).

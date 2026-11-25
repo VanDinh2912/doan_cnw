@@ -1,13 +1,15 @@
 # Dữ liệu kiểm thử import sản phẩm (Excel)
 
 Hai file `.xlsx` để kiểm thử thủ công luồng import sản phẩm
-(`/sanpham/import-excel`) trên môi trường dev.
+(`/sanpham/import-excel`).
 
-> ⚠️ **CHỈ upload trên `doan_cnw_dev`. KHÔNG upload vào `doan_cnw` thật**
-> vì file 120 dòng sẽ tạo 120 sản phẩm thật ở trạng thái NGỪNG BÁN
-> (tồn 0, giá nhập 0). SKU `IMP-0001`..`IMP-0120` và `ERR-xxxx` không
-> trùng `products.sku`/`products.barcode` trên cả hai DB (đã kiểm tra
-> 2026-11).
+> ⚠️ **Cập nhật 2026-11-25 — một môi trường duy nhất**: không còn
+> `doan_cnw_dev`. Upload 2 file này trên `doan_cnw` sẽ tạo ~120 SP thật
+> (trạng thái NGỪNG BÁN, tồn 0, giá nhập 0) — **chỉ chạy khi được phê
+> duyệt + đã sao lưu** (`scripts\windows\sao-luu-nhanh.ps1`), và dọn sau
+> bằng quy trình xóa có kiểm soát. SKU `IMP-0001`..`IMP-0120` và
+> `ERR-xxxx` không trùng `products.sku`/`products.barcode` (đã kiểm tra
+> 2026-11). Phần hướng dẫn env dev bên dưới chỉ còn giá trị lịch sử.
 
 ## File
 

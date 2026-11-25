@@ -24,9 +24,11 @@ bịa kết quả).
   middleware `role:`/`auth`/`staff.only` trong `route:list -v` (không suy đoán).
 - **Kịch bản demo**: 25 bước demo bảo vệ ánh xạ sang mã TC (không chứa
   mật khẩu/PIN/URL nội bộ).
-- **Chạy tay trước bảo vệ**: 2 danh sách chọn lọc — nhóm A chỉ đọc (an toàn
-  trên dữ liệu thật), nhóm B có ghi theo thứ tự logic kèm thời gian ước tính
-  và cảnh báo lưu vĩnh viễn vào `doan_cnw`.
+- **Chạy tay trước bảo vệ**: 2 danh sách chọn lọc — nhóm A chỉ đọc, nhóm B có
+  ghi theo thứ tự logic kèm thời gian ước tính. Từ 2026-11-25 chỉ có một môi
+  trường: nhóm B **chạy trên `doan_cnw`, dữ liệu sẽ lưu lại** — dùng quy ước
+  dữ liệu thử (tên khách/đơn/sản phẩm tiền tố `TEST`, ghi chú đơn `[thử]`;
+  rà soát bằng `php artisan thu-test:liet-ke`).
 - **Tổng hợp**: số TC theo module + thống kê độ tin cậy ánh xạ + phân bố ưu tiên.
 
 Mỗi TC có mã duy nhất dạng `MOD-001`…; cột Loại phân loại: chức năng /

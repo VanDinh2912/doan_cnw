@@ -32,9 +32,10 @@ Usage rules:
 
 - Windows + WAMP: `run_command` runs in cmd, so `grep` is unavailable (use `findstr`) and nested quotes in `php -r` / `artisan tinker --execute` break. To inspect data, write a temporary PHP script that boots Laravel (`bootstrap/app.php`), run it, then delete it.
 - The DB is MySQL (`doan_cnw`, 127.0.0.1:3306); it must be running (WAMP started) before artisan or the site can query data.
+- Single environment since 2026-11-25: port 8081, one `.env`, one DB `doan_cnw` — writes/migrations are normal controlled operations; back up first (`scripts/windows/sao-luu-nhanh.ps1`), `CHO_PHEP_MIGRATE_PROD=1` still required for migrate. Test data follows the `TEST`/`[thử]` convention (`php artisan thu-test:liet-ke`). The old dev-test flow (`.env.dev-test`, `doan_cnw_dev`, `kiem-tra-db-dev.ps1`) is deprecated — see `docs/SO_TAY_TRIEN_KHAI.md` §16–18. `doan_cnw_dev`/`doan_cnw_dev_cu` are leftover copies, unused.
 - Catalog is phone accessories (chargers, cables, earphones, etc. in 12 categories), not phones. Keep storefront copy accordingly.
 - Product images: `php artisan app:scrape-product-images [--force]` now generates local per-category SVGs (brand/model from the product name) into `storage/app/public/products`; no network needed. `public/storage` must be linked.
 - Storefront views live in `resources/views/storefront/`; the layout provides `@stack('styles')`. Validate Blade edits with `php artisan view:cache`.
 - Single `.env` only (since 2026-11-21): `.env.dev-*` were retired (`.bak`). Since 2026-11-22 the project runs ONE server on port 8081 pointed at the REAL database — `.env` carries everything, no launch overrides:
   - `php artisan serve --port=8081` with `.env`: `DB_DATABASE=doan_cnw`, `APP_URL=http://127.0.0.1:8081`, `POS_PIN_BAT=true`, `POS_MA_DUYET_BAT=true`, `POS_MA_DUYET_HET_HAN_PHUT=10`.
-  - `doan_cnw` is the live operational DB — writes/migrations need explicit user approval (`CHO_PHEP_MIGRATE_PROD=1` for artisan migrate). `doan_cnw_dev`/`doan_cnw_dev_cu` are leftover dev copies, no longer used by default.
+  - `doan_cnw` is the live operational DB — back up before structural/bulk changes (`scripts/windows/sao-luu-nhanh.ps1`); `CHO_PHEP_MIGRATE_PROD=1` still gates artisan migrate. Test data uses the `TEST`/`[thử]` convention (see SO_TAY_TRIEN_KHAI §16).
